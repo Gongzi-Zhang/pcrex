@@ -1,0 +1,132 @@
+#include <iostream>
+#include <stdlib.h>
+#include <set>
+
+#include "line.h"
+#include "TCheckStat.h"
+
+using namespace std;
+
+void usage();
+set<int> parseRS(const char *);	// parse runs|slugs
+
+int main(int argc, char* argv[]) {
+  const char * config_file("check.conf");
+  const char * run_list = NULL;
+  const char * out_name = NULL;
+  const char * out_suffix = NULL;
+  set<int> runs;
+  set<int> slugs;
+  int latest_run;
+  bool check_latest_run = false;
+
+  char opt;
+  while((opt = getopt(argc, argv, "hc:r:l:R:s:f:n:")) != -1)
+    switch (opt) {
+      case 'h':
+        usage();
+        exit(0);
+      case 'c':
+        config_file = optarg;
+        break;
+      case 'r':
+        runs = parseRS(optarg);
+        break;
+      case 'R':
+        run_list = optarg;
+        break;
+      case 'l':
+        check_latest_run = true;
+              if (!IsInteger(optarg)) {
+          cerr << __PRETTY_FUNCTION__ << ":FATAL\t the argument to -l option must be an integer.\n";
+          exit(20);
+        }
+        latest_run = atoi(optarg);
+        break;
+      case 's':
+        slugs = parseRS(optarg);
+        break;
+      case 'f':
+        out_suffix = optarg;
+        break;
+      case 'n':
+        out_name = optarg;
+        break;
+      default:
+        usage();
+        exit(1);
+    }
+
+  TCheckStat fCheckStat(config_file);
+  if (out_suffix)
+    fCheckStat.SetOutSuffix(out_suffix);
+  if (out_name)
+    fCheckStat.SetOutName(out_name);
+  if (check_latest_run)
+    fCheckStat.SetLatestRun(latest_run);
+  if (runs.size() > 0)
+    fCheckStat.SetRuns(runs);
+  if (slugs.size() > 0)
+    fCheckStat.SetSlugs(slugs);
+
+  fCheckStat.CheckRuns();
+  fCheckStat.CheckVars();
+  fCheckStat.GetValues();
+  fCheckStat.CheckValues();
+  fCheckStat.Draw();
+
+  return 0;
+}
+
+void usage() {
+  cout << "Check miniruns of specified runs/slugs" << endl
+       << "  Options:" << endl
+       << "\t -h: print this help message" << endl
+       << "\t -c: specify config file (default: check.conf)" << endl
+       << "\t -r: specify runs (seperate by comma, no space between them. ran range is supportted: 5678,6666-6670,6688)" << endl
+       << "\t -R: specify run list file" << endl
+       << "\t -l: the latest run mode, which will compare it to the before 10 production runs automatically." << endl
+       << "\t -s: specify slugs (the same syntax as -r)" << endl
+       << "\t -f: set output file format: pdf or png" << endl
+       << "\t -n: prefix of output pdf file" << endl
+       << endl
+       << "  Example:" << endl
+       << "\t ./check -c myconf.conf -l 6666" << endl
+       << "\t ./check -c myconf.conf -R slug123.lsit -p slug123" << endl
+       << "\t ./check -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -p test" << endl;
+}
+
+set<int> parseRS(const char * input) {
+  if (!input) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input for -r or -s" << endl;
+    return {};
+  }
+  set<int> vals;
+  vector<char*> fields = Split(input, ',');
+  for(int i=0; i<fields.size(); i++) {
+    char * val = fields[i];
+    if (Contain(val, "-")) {
+      vector<char*> range = Split(val, '-');
+      if (!IsInteger(range[0]) || !IsInteger(range[1])) {
+	cerr << __PRETTY_FUNCTION__ << ":FATAL\t invalid range input" << endl;
+	exit(3);
+      }
+      const int start = atoi(range[0]);
+      const int end   = atoi(range[1]);
+      if (start > end) {
+	cerr << __PRETTY_FUNCTION__ << ":FATAL\t for range input: start must less than end" << endl;
+	exit(4);
+      }
+      for (int j=start; j<=end; j++) {
+	vals.insert(j);
+      }
+    } else {
+      if (!IsInteger(val)) {
+	cerr << __PRETTY_FUNCTION__ << ":FATAL\t run/slug must be an integer number" << endl;
+	exit(4);
+      }
+      vals.insert(atoi(val));
+    }
+  }
+  return vals;
+}
