@@ -13,20 +13,23 @@ set<int> parseRS(const char *);	// parse runs|slugs
 int main(int argc, char* argv[]) {
   const char * config_file("mul_plot.conf");
   const char * run_list = NULL;
-  const char * pdf_prefix = NULL;
+  const char * out_name = NULL;
+  const char * out_format = NULL;
   const char * ft = NULL;
   bool logy = false;
+  bool dconf = true;
   set<int> runs;
   set<int> slugs;
 
   char opt;
-  while((opt = getopt(argc, argv, "hlc:r:R:s:t:p:")) != -1)
+  while((opt = getopt(argc, argv, "hlc:r:R:s:t:n:f:")) != -1)
     switch (opt) {
       case 'h':
         usage();
         exit(0);
       case 'c':
         config_file = optarg;
+        dconf = false;
         break;
       case 'r':
         runs = parseRS(optarg);
@@ -37,23 +40,31 @@ int main(int argc, char* argv[]) {
       case 's':
         slugs = parseRS(optarg);
         break;
-      case 'p':
-        pdf_prefix = optarg;
-        break;
       case 't':
         ft = optarg;
         break;
       case 'l':
         logy = true;
         break;
+      case 'n':
+        out_name = optarg;
+        break;
+      case 'f':
+        out_format = optarg;
+        break;
       default:
         usage();
         exit(1);
     }
 
+  if (dconf)
+    cout << __PRETTY_FUNCTION__ << "INFO:\t use default config file: " << config_file << endl;
+
   TMulPlot fMulPlot(config_file, run_list);
-  if (pdf_prefix)
-    fMulPlot.SetPdfPrefix(pdf_prefix);
+  if (out_name)
+    fMulPlot.SetOutName(out_name);
+  if (out_format)
+    fMulPlot.SetOutFormat(out_format);
   if (ft)
     fMulPlot.SetFileType(ft);
   if (logy)
@@ -77,12 +88,13 @@ void usage() {
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
        << "\t -t: specify root file type: japan or postpan (default: postpan)" << endl
-       << "\t -p: prefix of output pdf file" << endl
        << "\t -l: logy" << endl
+       << "\t -n: prefix of name of output" << endl
+       << "\t -f: output file format (pdf or png: default pdf)" << endl
        << endl
        << "  Example:" << endl
-       << "\t ./mulplot -c myconf.conf -R slug123.lsit -t japan -p slug123" << endl
-       << "\t ./mulplot -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -p test" << endl;
+       << "\t ./mulplot -c myconf.conf -R slug123.lsit -t japan -n slug123" << endl
+       << "\t ./mulplot -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -n test -f png" << endl;
 }
 
 set<int> parseRS(const char * input) {
@@ -119,3 +131,4 @@ set<int> parseRS(const char * input) {
   }
   return vals;
 }
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

@@ -2,7 +2,8 @@
 #ifndef CONST_H
 #define CONST_H
 
-#include "string"
+#include <string>
+#include <map>
 
 #define START_RUN   5346
 #define END_RUN     7430
@@ -17,7 +18,7 @@ const double mm = 1e-3;
 const double um = 1e-6;
 const double nm = 1e-9;
 
-map<string, const double> UNITS = {
+std::map<std::string, const double> UNITS = {
   {"ppb", ppb},
   {"ppm", ppm},
   {"mm",  mm},
@@ -25,3 +26,4 @@ map<string, const double> UNITS = {
   {"nm",  nm},
 };
 #endif
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

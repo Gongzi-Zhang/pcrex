@@ -3,359 +3,261 @@
 
 #include <iostream>
 #include <glob.h>
-#include <assert.h>
-#include <cstring>
+#include <string>
+#include <vector>
 #include <set>
 #include <map>
+
+#include "TROOT.h"
+#include "TFile.h"
+#include "TTree.h"
+#include "TH1F.h"
+#include "TCanvas.h"
+#include "TCut.h"
+
 #include "line.h"
 
-#include "mysql.h"
+vector<const char *>  GetCutFiles  (const int run);
+vector<const char *>  GetPedestals (const int run);
+int     GetSessions (const int run);
+void    Register    (const char * var);
+void    Register    (vector<const char *> vs);
+map<string, pair<double, double>> GetValues   (const int run);
+map<string, pair<double, double>> GetValues   (const int run, vector<char *> vars);
+map<string, pair<double, double>> GetSlowValues   (const int run, vector<char *> vars);
+char *  FindCutFile(glob_t, const int run);
 
-/* condition_type_id
- * 1    float_value   event_rate  
- * 2      int_value   event_count
- * 3     text_value   run_type
- * 4     text_value   run_config    (config file: ALL_PREX/CH_INJ/CntHouse/Injector...)
- * 5     text_value   session
- * 6     text_value   user_comment
- *
- * 10    bool_value   is_valid_run_end
- * 11     int_value   run_length    (how many seconds)
- * 
- * 15   float_value   beam_energy
- * 16   float_value   beam_current
- * 17   float_value   total_charge
- * 18    text_value   target_type
- * 
- * 20    text_value   ihwp    (IN/OUT)
- * 21   float_value   rhwp
- * 22   float_value   vertical_wien
- * 23   float_value   horizontal_wien   
- * 24    text_value   helicity_pattern  (Quartet/Octet)
- * 25   float_value   helicity_frequency
- * 26    text_value   experiment  (CREX/PREX2)
- * 27    text_value   wac_note
- * 28    text_value   run_flag    (Good/Suspecious/NeedCut...)
- * 
- * 30   float_value   target_45encoder  (-1...)
- * 31   float_value   target_90encoder  (13163100...) 
- *
- * 34     int_value   slug
- * 35    text_value   bmw
- * 36    text_value   feedback
- *
- * 38    text_value   flip_state  (FLIP-LEFT/FLIP-RIGHT)
- * 39     int_value   arm_flag
- */
+const char * cut_dir = "/adaqfs/home/apar/PREX/japan/Parity/prminput";
+const char * japan_output_dir = "/chafs2/work1/apar/japanOutput";
 
-using namespace std;
+set<string> vars;
+map<string, double> var_buf;
+map<string, pair<double, double>> values = { {"bcm_an_us", {0, 0}} };
+int total_entries = 0;
+int valid_entries = 0;
+double total_charge = 0;
+double valid_charge = 0;
+TCanvas * c = new TCanvas("c", "c", 800, 600);
 
-MYSQL *con;
-MYSQL_RES  *res;
-MYSQL_ROW   row;
-char query[256];
+TCut cut = "ErrorFlag == 0";
 
-void    StartConnection();
-char *  GetExperiment(const int run);
-char *  GetRunType(const int run);
-// float   GetRunCurrent(const int run);
-char *  GetRunFlag(const int run);
-char *  GetTarget(const int run);
-int     GetSlugNumber(const int run);
-int     GetArmFlag(const int run);
-char *  GetIHWP(const int run);
-char *  GetWienFlip(const int run);
-void    GetValidRuns(set<int> &runs);
-set<int>  GetRunsFromSlug(const int slug);
-map<int, int> GetSign(set<int> runs);
-void    EndConnection();
-void    RunTests();
+vector<const char *> GetCutFiles (const int run) {
+  vector<const char *> cut_files;
+  glob_t globbuf;
+  const char * pattern;
+  vector<const char *> prefix = {
+    "prexCH_beamline",  // beamline
+    "prexCH_beamline_eventcuts",  // beamline eventcut
+    "prexinj_beamline", // injector beamline
+    "prexinj_helicity", // injector helicity
+    "prex_maindet",     // main det.
+    "prex_maindet_eventcuts", // main det eventcuts
+    "prex_ring_stability",    // ring stability
+    "prex_sam",         // prex sam
+  };
 
-
-
-void StartConnection() {
-  con = mysql_init(NULL);
-  if (!con) {
-    cerr << "MySQL Initialization failed!\n";
-    exit(10);
+  for (int i=0; i<prefix.size(); i++) {
+    pattern = Form("%s/%s.*.map", cut_dir, prefix[i]);
+    glob(pattern, 0, NULL, &globbuf);
+    cut_files.push_back(FindCutFile(globbuf, run));
   }
-  con = mysql_real_connect(con, "hallcdb.jlab.org", "rcdb", "", "a-rcdb", 3306, NULL, 0);
-  if (con)
-    cerr << __PRETTY_FUNCTION__ << ":INFO\t Connection to database succeeded\n";
-  else {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t Connection to database failed\n";
-    exit(11);
-  }
+
+  // bad event cut
+  pattern = Form("%s/prex_bad_events.%d.map", cut_dir, run);
+  glob(pattern, 0, NULL, &globbuf);
+  if (globbuf.gl_pathc > 0)
+    cut_files.push_back(basename(globbuf.gl_pathv[0]));
+
+  globfree(&globbuf);
+  return cut_files;
 }
 
-char * GetExperiment(const int run) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return NULL;
+vector<const char *> GetPedestals (const int run) {
+  vector<const char *> pedestals;
+  glob_t globbuf;
+  const char * pattern;
+  vector<const char *> prefix = {
+    "prexCH_beamline_pedestal",
+    "prexinj_beamline_pedestal",
+    "prex_maindet_pedestal",
+    "prex_sam_pedestal",
+  };
+
+  for (int i=0; i<prefix.size(); i++) {
+    pattern = Form("%s/%s.*.map", cut_dir, prefix[i]);
+    glob(pattern, 0, NULL, &globbuf);
+    pedestals.push_back(FindCutFile(globbuf, run));
   }
-  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=26", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run type for run " << run << endl;
-    return NULL;
-  }
-  StripSpaces(row[0]);
-  return row[0];
+
+  globfree(&globbuf);
+  return pedestals;
 }
 
-char * GetRunType(const int run) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return NULL;
-  }
-  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=3", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run type for run " << run << endl;
-    return NULL;
-  }
-  StripSpaces(row[0]);
-  return row[0];
-}
-
-/*
-float GetRunCurrent(const int run) {  // this is inaccurate
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return -1;
-  }
-  sprintf(query, "SELECT float_value FROM conditions WHERE run_number=%d AND condition_type_id=16", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run current for run " << run << endl;
-    return -1;
-  }
-  return atof(row[0]);
-}
-*/
-
-char * GetRunFlag(const int run) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return NULL;
-  }
-  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=28", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run flag for run " << run << endl;
-    return NULL;
-  }
-  StripSpaces(row[0]);
-  return row[0];
-}
-
-char * GetTarget(const int run) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return NULL;
-  }
-  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=18", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch target type for run " << run << endl;
-    return NULL;
-  }
-  StripSpaces(row[0]);
-  return row[0];
-}
-
-int GetSlugNumber(const int run) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return -1;
-  }
-  sprintf(query, "SELECT int_value FROM conditions WHERE run_number=%d AND condition_type_id=34", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch slug number for run " << run << endl;
-    return -1;
-  }
-  return atoi(row[0]);
-}
-
-int GetArmFlag(const int run) {
-  // 0: both
-  // 1: right
-  // 2: left
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return -1;
-  }
-  sprintf(query, "SELECT int_value FROM conditions WHERE run_number=%d AND condition_type_id=39", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch arm flag for run " << run << endl;
-    return -1;
-  }
-  return atoi(row[0]);
-}
-
-char * GetIHWP(const int run) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return NULL;
-  }
-  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=20", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch ihwp for run " << run << endl;
-    return NULL;
-  }
-  StripSpaces(row[0]);
-  return row[0];
-}
-
-char * GetWienFlip(const int run) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return NULL;
-  }
-  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=38", run);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  row = mysql_fetch_row(res);
-  if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch slug number for run " << run << endl;
-    return NULL;
-  }
-  StripSpaces(row[0]);
-  return row[0];
-}
-
-void GetValidRuns(set<int> &runs) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return;
-  }
-
-  for(set<int>::iterator it=runs.cbegin(); it!=runs.cend(); ) {
-    int run = *it;
-    sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=3", run);
-    mysql_query(con, query);
-    res = mysql_store_result(con);
-    row = mysql_fetch_row(res);
-    StripSpaces(row[0]);
-    if (row == NULL || strcmp(row[0], "Production") != 0) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t run " << run << " is not a production run, ignore it.\n";
-      it = runs.erase(it);
-    } else
-      it++;
-  }
-}
-
-set<int> GetRunsFromSlug(const int slug) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return {};
-  }
-
-  set<int> runs;
-
-  sprintf(query, "SELECT run_number FROM conditions WHERE condition_type_id=34 AND int_value=%d", slug);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  while (row = mysql_fetch_row(res)) {
-    runs.insert(atoi(row[0]));
-  }
-  GetValidRuns(runs);
-  return runs;
-}
-
-map<int, int> GetSign(set<int> runs) {
-  if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
-    return map<int, int>();
-  }
-
-  map<int, int> signs;
-  char * wien_flip;
-  char * ihwp;
-
-  for(set<int>::iterator it=runs.cbegin(); it!=runs.cend(); it++) {
-    int run = *it;
-    signs[run] = 1; // initialization
-    sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=38", run);
-    mysql_query(con, query);
-    res = mysql_store_result(con);
-    row = mysql_fetch_row(res);
-    if (row == NULL) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch wien flip for run " << run << endl;
-      signs[run] = 0;
-      continue;
+char * FindCutFile(glob_t globbuf, const int run) {
+  for (int i=globbuf.gl_pathc-1; i>=0; i--) {
+    const char * run_ranges = Split(basename(globbuf.gl_pathv[i]), '.')[1];
+    int start_run;
+    if (!Contain(run_ranges, "-")) {
+      start_run = atoi(run_ranges);
+      if (start_run != run)
+        continue;
+    } else {
+      vector<char *> runs = Split(run_ranges, '-');
+      start_run = atoi(runs[0]);
+      if (start_run > run)
+        continue;
+      if (runs.size() == 2 && atoi(runs[1]) < run)
+        continue;
     }
-    wien_flip = row[0];
-    sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=20", run);
-    mysql_query(con, query);
-    res = mysql_store_result(con);
-    row = mysql_fetch_row(res);
-    if (row == NULL) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch ihwp for run " << run << endl;
-      signs[run] = 0;
-      continue;
+    return basename(globbuf.gl_pathv[i]);
+  }
+  return NULL;
+}
+
+int GetSessions (const int run) {
+  glob_t globbuf;
+  const char * pattern = Form("%s/prexPrompt_pass2_%d.???.root", japan_output_dir, run);
+  glob(pattern, 0, NULL, &globbuf);
+  return globbuf.gl_pathc;
+}
+
+void Register (const char * v) {
+  vars.insert(v);
+  var_buf[v] = 0;
+}
+
+void Register (vector<const char *> vs) {
+  for (const char * v : vs) {
+    vars.insert(v);
+    var_buf[v] = 0;
+  }
+}
+  
+map<string, pair<double, double>> GetValues (const int run) {
+  const int s = GetSessions(run);
+  for (int i=0; i<s; i++) {
+    double ErrorFlag;
+    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_output_dir, run, i);
+    TFile fin(root_file, "read");
+    if (!fin.IsOpen()) {
+      cerr << __PRETTY_FUNCTION__ << "FATAL:\t Can open root file: " << root_file;
+      exit(4);
     }
-    ihwp = row[0];
+    TTree * tin = (TTree*) fin.Get("evt");
+    if (! tin) {
+      cerr << __PRETTY_FUNCTION__ << "FATAL:\t Can receive evt tree from root file: " << root_file;
+      exit(5);
+    }
+    for (set<string>::iterator it=vars.begin(); it != vars.end(); it++) {
+      const char * var = (*it).c_str();
+      // FIXME: check var validness
+      tin->SetBranchAddress(var, &(var_buf[var]));
+    }
+    tin->SetBranchAddress("ErrorFlag", &ErrorFlag);
 
-    if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
-      signs[run] *= 1;
-    else if (strcmp(wien_flip, "FLIP-RIGHT") == 0)
-      signs[run] *= -1;
-    else if (strcmp(wien_flip, "Vertical(UP)") == 0)
-      signs[run] *= 1;
-    else
-      signs[run] = 0; // unknow flip
+    int n = tin->GetEntries();
+    for (int i=0; i<n; i++) {
+      // if (i % 10000 == 0)
+      //   cout << "Processing " << i << " entry" << endl;
 
-    // if (strcmp
-    if (strcmp(ihwp, "IN") == 0) ;
-    else if (strcmp(ihwp, "OUT") == 0)
-      signs[run] *= -1;
-    else
-      signs[run] = 0; // unknow flip
+      tin->GetEntry(i);
+      total_charge += var_buf["bcm_an_us"];
+      if (ErrorFlag == 0) { // cut
+        valid_entries++;
+        valid_charge += var_buf["bcm_an_us"];
+        for (set<string>::iterator it=vars.begin(); it != vars.end(); it++) {
+          string var = *it;
+          values[var].first += var_buf[var];
+          values[var].second += var_buf[var] * var_buf[var];
+        }
+      }
+    }
+    total_entries += n;
   }
 
-  return signs;
-}
-
-void EndConnection() {
-  if (con) {
-    cerr << __PRETTY_FUNCTION__ << ":INFO\t Close Connection to database.\n";
-    mysql_close(con);
+  for (set<string>::iterator it=vars.begin(); it != vars.end(); it++) {
+    string var = *it;
+    double mean = values[var].first / valid_entries;
+    double rms = sqrt((values[var].second / valid_entries) - mean * mean);
+    values[var].first = mean;
+    values[var].second = rms;
   }
-  con = NULL;
-  res = NULL;
-  row = NULL;
+  total_charge /= 120;  // helicity frequency
+  total_charge /= 1e6;
+  valid_charge /= 120;  
+  valid_charge /= 1e6;
+
+  values["entries"] = {total_entries, valid_entries};
+  values["charge"]  = {total_charge,  valid_charge};
+  return values;
 }
 
+map<string, pair<double, double>> GetValues (const int run, vector<char *> vars) {
+  map<string, pair<double, double>> res;
+  const int s = GetSessions(run);
+  gROOT->SetBatch(1);
+  for (int i=0; i<s; i++) {
+    double ErrorFlag;
+    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_output_dir, run, i);
+    TFile fin(root_file, "read");
+    if (!fin.IsOpen()) {
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can open root file: " << root_file;
+      return res;
+    }
+    TTree * tin = (TTree*) fin.Get("evt");
+    if (! tin) {
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can receive evt tree from root file: " << root_file;
+      return res;
+    }
 
-void RunTests() {
-  const int run = 6666;
-  StartConnection();
-  assert(strcmp(GetRunType(run), "Production") == 0);
-  assert(GetSlugNumber(run) == 145);
-  assert(GetArmFlag(run) == 0);
-  assert(strcmp(GetIHWP(run), "OUT") == 0);
-  assert(strcmp(GetWienFlip(run), "FLIP-LEFT") == 0);
-  EndConnection();
-  cerr << __PRETTY_FUNCTION__ << ":INFO\t Pass all tests.\n";
+    for (char * var : vars) {
+      c->cd();
+      const char * hname = Form("h_%s", var);
+      tin->Draw(Form("%s>>%s", var, hname), "ErrorFlag == 0");
+      TH1F *h = (TH1F*) gROOT->FindObject(hname);
+      if (h) {
+        res[var] = make_pair(h->GetMean(), h->GetRMS());
+        h->Delete();
+      } else {
+        res[var] = make_pair(0, 0);
+      }
+    }
+  }
+  return res;
+}
+
+map<string, pair<double, double>> GetSlowValues (const int run, vector<char *> vars) {
+  map<string, pair<double, double>> res;
+  const int s = GetSessions(run);
+  gROOT->SetBatch(1);
+  for (int i=0; i<s; i++) {
+    double ErrorFlag;
+    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_output_dir, run, i);
+    TFile fin(root_file, "read");
+    if (!fin.IsOpen()) {
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can open root file: " << root_file;
+      return res;
+    }
+    TTree * tin = (TTree*) fin.Get("slow");
+    if (! tin) {
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can receive evt tree from root file: " << root_file;
+      return res;
+    }
+
+    for (char * var : vars) {
+      c->cd();
+      const char * hname = Form("h_%s", var);
+      tin->Draw(Form("%s>>%s", var, hname));
+      TH1F *h = (TH1F*) gROOT->FindObject(hname);
+      if (h) {
+        res[var] = make_pair(h->GetMean(), h->GetRMS());
+        h->Delete();
+      } else {
+        res[var] = make_pair(0, 0);
+      }
+    }
+  }
+  return res;
 }
 #endif
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

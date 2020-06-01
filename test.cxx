@@ -1,6 +1,6 @@
 #include <iostream>
 #include "line.h"
-#include "TRun.h"
+#include "rcdb.h"
 #include "TConfig.h"
 
 using namespace std;
@@ -16,3 +16,4 @@ int main() {
   TConfig fConf("check.conf");
   fConf.ParseConfFile();
 }
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

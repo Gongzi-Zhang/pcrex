@@ -1,0 +1,535 @@
+#ifndef __MATH_EVAL_H
+#define __MATH_EVAL_H
+#include <iostream>
+#include <cmath>
+#include <map>
+#include <vector>
+#include "line.h"
+
+using namespace std;
+int __MATH_EVAL_DEBUG = 0;
+
+/* Expression Type: 
+ *  operator: + - * / %
+ *  number:   [+-]?((\d+) | (\d+)?(.\d+))([eE]((\d+) | (\d+)?(.\d+))?
+ *  variable: begin with [a-zA-Z_], contains only [0-9a-zA-Z_], can't start with [0-9]
+ *  function: same as variable, except that function is always followed by ();
+ *  open_prt: open parenthesis
+ *  close_prt: close parenthesis
+ *  separator: ',' to separate function parameters
+ *  name: auxiliary type: combi of variable and function
+ *  constant: auxiliary type, some functions can be evaluated in advanced as an optimization
+ *  null:   auxiliary type
+ */
+enum ExpType { 
+  // types used when parse input
+  opt,    // taboo
+  number, 
+  name,
+  separator, 
+  open_prt,
+  close_prt, 
+
+  // more types used when check parsed tokens
+  variable, // name can be varirable or funciton 
+  func,     // taboo
+  // function0,  // do I really need it? why not replace it with constant
+  function1, function2,  // functions with different parameters
+
+  // other auxiliary types
+  constant,
+  null,
+};
+typedef struct { ExpType type; const char * value; } Token;
+struct Node { 
+  Token token; 
+  Node * lchild;
+  Node * rchild;
+  Node * sibling; // use for hold function parameters
+};  // Token Node
+
+map<ExpType, const char*> TypeName {
+  {opt,       "operator"},
+  {number,    "number"},
+  {name,      "name"},
+  {separator, "separator"},
+  {open_prt,  "open_prt"},
+  {close_prt, "close_prt"},
+  {variable,  "variable"},
+  {func,      "function"},
+  {function1, "function1"},
+  {function2, "function2"},
+  {constant,  "constant"},
+  {null,      "null"},
+};
+
+map<string, double (*) ()> f0 = {  // function with 0 parameter
+};
+map<string, double (*) (double)> f1 = {  // function with 1 parameter
+  {"sqrt", &sqrt},
+};
+map<string, double (*) (double, double)> f2 = {  // function with 1 parameter
+  {"pow", &pow},
+};
+
+Node * ParseExpression(const char *line);
+Node * SortToken (vector<Token> &vt);
+// int GetPriority( const char *opt);
+void PrintTokenTree(Node *node);
+void DeleteTokenTree(Node *node);
+
+Node * ParseExpression(const char *line) {
+  if (line == NULL) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t NULL input" << endl;
+    return NULL;
+  }
+
+  vector<Token> result;
+  // get tokens
+  Token t = {null, ""};   // current token
+  Token pt = {null, ""};  // previous token
+  int pi = -1;  // previous token open index
+  int i = 0;    // current char index
+  bool eflag = false; // exponent part flag
+  while (line[i] != '\0') {
+    switch (line[i]) {
+      // single char token, which is also a separator that closes previous token
+      case '+':
+      case '-':
+        if (eflag) {  // single operator in number expression
+          break;
+        }
+      case '*':
+      case '/':
+      case '%':
+        if (t.type == null)
+          t = {opt, Sub(line, i, 1)};
+      case '(':
+        if (t.type == null)
+          t = {open_prt, Sub(line, i, 1)};
+      case ')':
+        if (t.type == null)
+          t = {close_prt, Sub(line, i, 1)};
+      case ',':
+        if (t.type == null)
+          t = {separator, Sub(line, i, 1)};
+      case ' ':
+      case '\t':
+      case '\n':
+        if (pi != -1) {
+          pt.value = Sub(line, pi, i-pi);
+          result.push_back(pt);
+          pt = {null, ""};
+          pi = -1; // close a token
+          eflag = false;
+        }
+        if (t.type != null) {
+          result.push_back(t);
+          t = {null, ""};
+        }
+        break;
+      // numbers
+      case '.': // dot can only be part of a number
+        if (pi != -1 && pt.type != number) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t dot can't be part of anything except number" << endl;
+          return NULL;
+        }
+      case '0' ... '9':   // case range of value, this is an extension of gcc, not portable
+        if (pi == -1) {
+          pt.type = number;
+          pi = i;
+        }
+        break;
+      // name
+      case '_':
+      case 'a' ... 'z':
+      case 'A' ... 'Z':
+        if (pi == -1) {
+          pt.type = name;
+          pi = i;
+        } else if ( (line[i] == 'e' || line[i] == 'E') && pt.type == number) {  // exponent part within a number
+          eflag = true;
+        }
+        break;
+      // other undefined chars
+      default:
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknown char in math expression: " << line[i] << endl;
+        return NULL;
+    }
+    i++;
+  }
+  if (pi != -1) { // the last token
+    pt.value = Sub(line, pi, i-pi);
+    result.push_back(pt);
+    pt = {null, ""};
+    pi = -1; // close a token
+  }
+
+  if (__MATH_EVAL_DEBUG) {
+    for (int i = 0; i<result.size(); i++)
+      printf("%d\t%-10s\t%s\n", i+1, TypeName[result[i].type], result[i].value);
+  }
+
+  /* check tokens
+   * operator token must be surrounded by other types of token (except +-): 
+   *    * operator token can't be the first/last token (except +-)
+   *    * no consecutive operator tokens: a + -b is also not allowed, write it as a + (-b)
+   *    * operator can't be followed by separator
+   *    * +- can be single operator, which must be followed by numbers
+   * open_prt must have corresponding close_prt
+   * close_prt can only be followed by separator, operator or another close_prt;
+   * number token can have at most 1 dot, 1 [eE], no other alphabets
+   * number can only be followed by separator, close_prt, operator
+   * functions are followed by (
+   * function must be one of f1 or f2
+   * separator can only appears within () of a function
+   */
+  int nfunc = 0; // number of functions
+  int nprt = 0;
+  vector<vector<Token>::iterator> it_f;   // position of each function
+  vector<int> param;      // number of parameters of each function
+  vector<int> param_buf;  // vector buffer to store temp functions' position in it_f
+  vector<int> prt_type;   // 1: function parenthesis; 0: normal parenthesis
+  t  = {null, ""};
+  pt = {null, ""};
+  Token nt = {null, ""};  // next token
+
+  for (vector<Token>::iterator it = result.begin(); it != result.end(); it++) {
+    t = *it;
+    if ( (it+1) != result.end() )
+      nt = *(it+1);
+    else 
+      nt = {null, ""};
+
+    if (t.type == opt) {
+      if (nt.type == null) {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t exp. can't ended with operator: " << t.value 
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+
+      if ( nt.type == opt    // two consecutive operators
+           || nt.type == separator  // operator followed by separator
+           || nt.type == close_prt )  // operator followed by closing parenthesis
+      {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following single operator: " << t.value << " " << nt.value 
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+      
+      // is it single operator: first token, token after , or (
+      if (pt.type == null || pt.type == open_prt || pt.type == separator) {
+        if ( (strcmp(t.value, "+") != 0 && strcmp(t.value, "-") != 0) )
+        {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t single operator can only be +/- and must be followed by numbers: " << t.value << " " << nt.value
+               << "\n\t" << line << endl;
+          return NULL;
+        }
+
+        // insert 0 before single operator
+        it = result.insert(it, {number, "0"});
+        it++;
+      }
+    } else if (t.type == number) {
+      if (!IsNumber(t.value)) {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid number expr: " << t.value
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+
+      if ( nt.type == name 
+           || nt.type == number
+           || (nt.type == separator && nfunc == 0) ) // followed by a separator, but not in a function
+      {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following number in: " << t.value << " " << nt.value
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+    } else if (t.type == name) {
+      if ( nt.type == name
+           || nt.type == number )
+      {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t name can't be followed by another name or number " << t.value << " " << nt.value
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+
+      if ( nt.type == open_prt ) {  // function
+        it->type = func;
+        param_buf.push_back(it_f.size());
+        it_f.push_back(it);
+        param.push_back(0);
+        nfunc++;
+      } else {  // variable
+        if (nt.type == separator && nfunc == 0) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t variable can't be followed by separator outside a funciton: " << t.value << " " << nt.value
+               << "\n\t" << line << endl;
+          return NULL;
+        }
+        it->type = variable;
+      }
+    } else if (t.type == separator) {
+      if (nfunc == 0) {        // separator outside of a function
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t separator must be within a function "
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+      if ( nt.type == separator  // two consecutive separator
+           || nt.type == close_prt
+           || (nt.type == opt && strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) ) // non +/- operator
+      {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following separator : " << t.value << " " << nt.value
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+      param[param_buf.back()]++;
+    } else if (t.type == open_prt) {
+      if ( (nt.type == opt && (strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) )
+           || nt.type == separator )
+      {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following ( : " << t.value << " " << nt.value
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+      if (pt.type == func) {
+        prt_type.push_back(1);
+      } else {
+        prt_type.push_back(0);
+      }
+      nprt++;
+    } else if (t.type == close_prt) {
+      if (prt_type.size() == 0) {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t more close prt. ) than opening prt. ( : "
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+
+      if ( nt.type == name
+           || nt.type == open_prt )
+      {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following ( : " << t.value << " " << nt.value
+             << "\n\t" << line << endl;
+        return NULL;
+      }
+
+      if (prt_type.back() == 1) {
+        param[param_buf.back()]++;
+        nfunc--;
+        param_buf.pop_back();
+      }
+      prt_type.pop_back();
+      nprt--;
+    } else {
+      cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknown token type: " << t.type << " of value: " << t.value 
+           << "\n\t" << line << endl;
+      return NULL;
+    }
+
+    pt = *it;
+  }
+
+  if (nprt > 0) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t unmatched parentheses in expression:"
+         << "\n\t" << line << endl;
+    return NULL;
+  }
+
+  if (param.size() != it_f.size()) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t something went wrong when parsing functions"
+         << "\n\t" << line << endl;
+    cerr << "\tFunctions: " << endl;
+    for (vector<vector<Token>::iterator>::iterator it = it_f.begin(); it != it_f.end(); it++) {
+      cerr << "\t\t" << (*it)->value << endl;
+    }
+    cout << "\tNumber of Parameters: " << endl;
+    for (vector<int>::iterator it = param.begin(); it != param.end(); it++) {
+      cerr << "\t\t" << *it << endl;
+    }
+    return NULL;
+  }
+
+  for (int i=0; i<it_f.size(); i++) {
+    switch (param[i]) {
+      /*
+      case 0:
+        if (f0.find((*(it_f[i])).value) != f0.cend()) {
+          (*(it_f[i])).type = function0;
+          break;
+        }
+      */
+      case 1:
+        if (f1.find((*(it_f[i])).value) != f1.end()) {
+          (*(it_f[i])).type = function1;
+          break;
+        }
+      case 2:
+        if (f2.find((*(it_f[i])).value) != f2.end()) {
+          (*(it_f[i])).type = function2;
+          break;
+        }
+      default:
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t Incorrected # of parameters (" << param[i] << ") for function: " << (*(it_f[i])).value 
+             << "\n\t" << line << endl;
+        return NULL;
+    }
+  }
+
+  if (__MATH_EVAL_DEBUG) {
+  for (int i = 0; i<result.size(); i++)
+    printf("%d\t%-10s\t%s\n", i+1, TypeName[result[i].type], result[i].value);
+  }
+
+  Node * token_tree = SortToken(result);
+  // PrintTokenTree(token_tree);
+  return token_tree;
+}
+
+Node * SortToken (vector<Token> &vt) {
+  // sort token by operator priority: 
+  /* operation priority
+   * 1. function/()
+   * 2. * / %
+   * 3. + -
+   */
+  if (vt.size() == 0)
+    return new Node( {{null, ""}, NULL, NULL, NULL} );
+
+  if (__MATH_EVAL_DEBUG) {
+    for (int i = 0; i<vt.size(); i++)
+      cout << vt[i].value;
+    cout << endl;
+  }
+
+	auto GetPriority = [](const char * opt) -> int {
+		if (strcmp(opt, "") == 0 )
+			return 0;
+		else if (strcmp(opt, "+") == 0 || strcmp(opt, "-") == 0)
+			return 1;
+		else if (strcmp(opt, "*") == 0 || strcmp(opt, "/") == 0 || strcmp(opt, "%") == 0)
+			return 2;
+		else
+			return -1;
+	};
+
+  Token  t = {null, ""};
+  Node * pnode;
+  for (vector<Token>::iterator it=vt.begin(); it != vt.end(); it++) {
+    t = *it;
+    Node * node;
+    switch (t.type) {
+      case opt:
+        { 
+          node = new Node({t, NULL, NULL, NULL});
+          node->lchild = pnode;
+          int nprt = 0;
+          vector<Token>::iterator it1 = it+1;
+          while ( it1 != vt.end()
+                  && (nprt !=0 
+                      || it1->type != opt 
+                      || GetPriority(it1->value) > GetPriority(t.value) ) )
+          {
+            if (it1->type == open_prt)
+              nprt++;
+            else if (it1->type == close_prt)
+              nprt--;
+
+            it1++;
+          }
+          vector<Token> sub_vt(it+1, it1);
+          node->rchild = SortToken(sub_vt);
+          it = it1 - 1;
+          pnode = node;
+        }
+        break;
+      case open_prt:
+        it--;
+      // case function0: 
+      case function1:
+      case function2:
+        {
+          it++;   // open_prt, rm it
+          int nprt = 1;
+          vector<Token>::iterator it1 = it+1;
+          while (nprt > 0) {
+            if (it1->type == open_prt)
+              nprt++;
+            else if (it1->type == close_prt)
+              nprt--;
+
+            it1++;
+          }
+          vector<Token> sub_vt(it+1, it1-1);
+          if (t.type == open_prt) {
+            pnode = SortToken(sub_vt);
+          } else {
+            node = new Node({t, NULL, NULL, NULL});
+            node->lchild = SortToken(sub_vt);
+            pnode = node;
+          }
+          it = it1-1; // close_prt, rm it
+        }
+        break;
+      case number:
+      case variable:
+        node = new Node({t, NULL, NULL, NULL});
+        if (pnode && (pnode->token).type == opt) {
+          pnode->rchild = node;
+        } else {
+          pnode = node;
+        }
+        break;
+      case separator:
+        {
+          vector<Token> sub_vt(it+1, vt.end());
+          pnode->sibling = SortToken(sub_vt);
+          return pnode;
+        }
+      default:
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t fail to create syntax tree at: " << TypeName[t.type] << "\t" << t.value
+             << " from expression: " << endl;
+        for (int i=0; i<vt.size(); i++)
+          printf("%d\t%-10s\t%s\n", i+1, TypeName[vt[i].type], vt[i].value);
+
+        return NULL;
+    }
+  }
+  return pnode;
+}
+
+
+void PrintTokenTree(Node * node) {
+  switch ((node->token).type) {
+    case opt:
+      cout << "(";
+      PrintTokenTree(node->lchild);
+      cout << (node->token).value;
+      PrintTokenTree(node->rchild);
+      cout << ")";
+      break;
+    case function1:
+    case function2:
+      cout << (node->token).value;
+      cout << "(";
+      node = node->lchild;
+      if (node) {
+        while (node->sibling) {
+          PrintTokenTree(node);
+          cout << ", ";
+          node = node->sibling;
+        }
+        PrintTokenTree(node);
+      }
+      cout << ")";
+      break;
+    case number:
+    case variable:
+      cout << (node->token).value;
+      break;
+    default:
+      cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid node in token tree: " << TypeName[(node->token).type] << "\t" << (node->token).value
+           << " from expression: " << endl;
+      return;
+  }
+}
+#endif
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

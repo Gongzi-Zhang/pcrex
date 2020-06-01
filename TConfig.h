@@ -10,14 +10,15 @@
 #include <string>
 #include <utility>
 
-#include "line.h"
 #include "const.h"
+#include "line.h"
+#include "math_eval.h"
 
 using namespace std;
 
 typedef struct { double low, high, stability; } VarCut;
-typedef struct { double low, high, diff; } CompCut;
-typedef struct { double xlow, xhigh, ylow, yhigh, stability; } CorCut;
+typedef VarCut CompCut;
+typedef VarCut CorCut;
 
 class TConfig {
 
@@ -25,49 +26,62 @@ class TConfig {
 
 public:
   TConfig();
-  TConfig(const char* conf_file, const char * run_list = NULL);
+  TConfig(const char *conf_file, const char *run_list = NULL);
   virtual ~TConfig();
   const char*	GetConfFile()	  {return fConfFile;}
-  const char*	GetDir()	  {return dir;}
+  const char*	GetDir()	      {return dir;}
   const char*	GetTreeName()	  {return tree;}
   const char*	GetFileType()	  {return ft;}
-  const char*	GetJapanPass()	  {return japan_pass;}
-  const char*	GetDitBPM()	  {return dit_bpm;}
-  bool		GetLogy()	  {return logy;}
-  set<int>	GetRuns()	  {return fRuns;}
-  set<int>	GetBoldRuns()	  {return fBoldRuns;}
-  set<string>	GetVars()	  {return fVars;}
-  set<string>	GetSolos()	  {return fSolos;}
-  set<pair<string, string>>   GetComps()	{return fComps;}
-  set<pair<string, string>>   GetSlopes()	{return fSlopes;}
-  set<pair<string, string>>   GetCors()		{return fCors;}
-  set<string>		      GetSoloPlots()	{return fSoloPlots;}
-  set<pair<string, string>>   GetCompPlots()	{return fCompPlots;}
-  set<pair<string, string>>   GetSlopePlots()	{return fSlopePlots;}
-  set<pair<string, string>>   GetCorPlots()	{return fCorPlots;}
-  map<string, VarCut>		      GetSoloCuts()   {return fSoloCuts;}
-  map<pair<string, string>, CompCut>  GetCompCuts()   {return fCompCuts;}
-  map<pair<string, string>, VarCut>   GetSlopeCuts()  {return fSlopeCuts;}
-  map<pair<string, string>, CorCut>   GetCorCuts()    {return fCorCuts;}
+  const char*	GetJapanPass()	{return japan_pass;}
+  const char*	GetDitBPM()	    {return dit_bpm;}
+  bool		    GetLogy()	      {return logy;}
+  set<int>	  GetRuns()	      {return fRuns;}			// for ChectStat
+  set<int>	  GetBoldRuns()	  {return fBoldRuns;}	// for ChectStat
+  set<string> GetVars()	      {return fVars;}
+
+  set<string>									GetSolos()	    {return fSolos;}
+  vector<string>		          GetSoloPlots()  {return fSoloPlots;}
+  map<string, VarCut>         GetSoloCuts()   {return fSoloCuts;}
+
+	// custom variables: for CheckRun
+  set<string>									GetCustoms()    {return fCustoms;}	
+  vector<string>							GetCustomPlots(){return fCustomPlots;}
+  map<string, VarCut>					GetCustomCuts() {return fCustomCuts;}
+	map<string, Node *>					GetCustomDefs()	{return fCustomDefs;}
+
+	// slope: for CheckStat
+  set<pair<string, string>>					GetSlopes()			{return fSlopes;}	
+  vector<pair<string, string>>			GetSlopePlots()	{return fSlopePlots;}
+  map<pair<string, string>, VarCut> GetSlopeCuts()  {return fSlopeCuts;}
+
+  set<pair<string, string>>						GetComps()			{return fComps;}
+  map<pair<string, string>, VarCut>		GetCompCuts()   {return fCompCuts;}
+  vector<pair<string, string>>				GetCompPlots()	{return fCompPlots;}
+
+  set<pair<string, string>>					GetCors()			{return fCors;}
+  vector<pair<string, string>>			GetCorPlots()	{return fCorPlots;}
+  map<pair<string, string>, VarCut> GetCorCuts()  {return fCorCuts;}
 
   bool ParseRun(char *line);
   bool ParseSolo(char *line);
   bool ParseComp(char *line);
   bool ParseSlope(char *line);
   bool ParseCor(char *line);
+  bool ParseCustom(char *line);
+	void add_variables(Node * node);	// used only by ParseCustom
   bool ParseOtherCommands(char *line);
   void ParseConfFile();
   void ParseRunFile();
-  double ExtractValue(const char *words); // parse unit to get a number
+  double ExtractValue(Node *node); // parse mathematical expression to extract value
 
 private:
-  const char* fConfFile;
-  const char* fRunFile; // run list file
-  const char* dir     = NULL;
-  const char* tree    = NULL;
-  const char* ft      = NULL;
-  const char* japan_pass  = NULL;
-  const char* dit_bpm = NULL;
+  const char *fConfFile;
+  const char *fRunFile; // run list file
+  const char *dir     = NULL;
+  const char *tree    = NULL;
+  const char *ft      = NULL;
+  const char *japan_pass  = NULL;
+  const char *dit_bpm = NULL;
   bool logy = false;
   set<int> fRuns;	      // all runs that are going to be checked
   // set<int> fSlugs;   // FIXME slugs? -- not now
@@ -75,18 +89,26 @@ private:
   set<string> fVars;    // all variables that are going to be checked.
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
-  set<string>   fSolos;
-  set<string>   fSoloPlots;	  // solos that needed to be drawn
-  set<pair<string, string>>   fComps;
-  set<pair<string, string>>   fCompPlots;
-  set<pair<string, string>>   fSlopes;
-  set<pair<string, string>>   fSlopePlots;
-  set<pair<string, string>>   fCors;
-  set<pair<string, string>>   fCorPlots;
-  map<string, VarCut>         fSoloCuts;
-  map<pair<string, string>, CompCut>  fCompCuts;
-  map<pair<string, string>, VarCut>   fSlopeCuts;
-  map<pair<string, string>, CorCut>   fCorCuts;
+  set<string>         fSolos;
+  vector<string>      fSoloPlots;	  // solos that needed to be drawn, need to be in order
+  map<string, VarCut>	fSoloCuts;
+
+	set<string>					fCustoms;
+	vector<string>			fCustomPlots;
+  map<string, VarCut> fCustomCuts;
+	map<string, Node *>	fCustomDefs;	// custom variables' def
+
+  set<pair<string, string>>					fComps;
+  vector<pair<string, string>>			fCompPlots;
+  map<pair<string, string>, VarCut>	fCompCuts;
+
+  set<pair<string, string>>					fSlopes;
+  vector<pair<string, string>>			fSlopePlots;
+  map<pair<string, string>, VarCut>	fSlopeCuts;
+
+  set<pair<string, string>>					fCors;
+  vector<pair<string, string>>			fCorPlots;
+  map<pair<string, string>, VarCut>	fCorCuts;
 };
 
 // ClassImp(TConfig);
@@ -162,6 +184,8 @@ void TConfig::ParseConfFile() {
         session = 8;
       else if (strcmp(current_line, "@correlations") == 0)
         session = 16;
+      else if (strcmp(current_line, "@customs") == 0)
+        session = 32;
       else if (ParseOtherCommands(current_line)) 
 	      ;
       else {
@@ -182,6 +206,8 @@ void TConfig::ParseConfFile() {
       parsed = ParseSlope(current_line);
     } else if (session & 16) {
       parsed = ParseCor(current_line);
+    } else if (session & 32) {
+      parsed = ParseCustom(current_line);
     } else {
       cerr << __PRETTY_FUNCTION__ << ":WARNING\t unknown session, ignore line " << nline << endl;
       continue;
@@ -195,12 +221,13 @@ void TConfig::ParseConfFile() {
   if (fRunFile)
     ParseRunFile();
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Configuration in config file:\n"
-       << "\t" << fRuns.size() << " Runs\n"
-       << "\t" << fSolos.size() << " Solo variables\n"
-       << "\t" << fComps.size() << " Comparison pairs\n"
-       << "\t" << fSlopes.size() << " Slopes\n"
-       << "\t" << fCors.size() << " Correlation pairs\n";
+  cout << __PRETTY_FUNCTION__ << ":INFO\t Configuration in config file: " << fConfFile << endl;
+  if (fRuns.size() > 0)     cout << "\t" << fRuns.size() << " Runs\n";
+  if (fSolos.size() > 0)    cout << "\t" << fSolos.size() << " Solo variables\n";
+  if (fCustoms.size() > 0)  cout << "\t" << fCustoms.size() << " Custom variables\n";
+  if (fComps.size() > 0)    cout << "\t" << fComps.size() << " Comparison pairs\n";
+  if (fSlopes.size() > 0)   cout << "\t" << fSlopes.size() << " Slopes\n";
+  if (fCors.size() > 0)     cout << "\t" << fCors.size() << " Correlation pairs\n";
   if (ft)
     cout << "\t" << "root file type: " << ft << endl;
   if (dir)
@@ -236,7 +263,7 @@ void TConfig::ParseRunFile() {
   }
 }
 
-bool TConfig::ParseRun(char * line) {
+bool TConfig::ParseRun(char *line) {
   if (!line) {
     cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input" << endl;
     return false;
@@ -282,7 +309,7 @@ bool TConfig::ParseRun(char * line) {
   return true;
 }
 
-bool TConfig::ParseSolo(char * line) {
+bool TConfig::ParseSolo(char *line) {
   vector<char*> fields = Split(line, ';');
   VarCut cut = {1024, 1024, 1024};
   char* var;
@@ -290,7 +317,7 @@ bool TConfig::ParseSolo(char * line) {
     case 4:
       StripSpaces(fields[3]);
       if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(fields[3]);
+        double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for stability cut\n";
           return false;
@@ -300,7 +327,7 @@ bool TConfig::ParseSolo(char * line) {
     case 3:
       StripSpaces(fields[2]);
       if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(fields[2]);
+        double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
           return false;
@@ -310,7 +337,7 @@ bool TConfig::ParseSolo(char * line) {
     case 2:
       StripSpaces(fields[1]);
       if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(fields[1]);
+        double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
           return false;
@@ -342,31 +369,32 @@ bool TConfig::ParseSolo(char * line) {
   }
 
   fSolos.insert(var);
-  if (plot) fSoloPlots.insert(var);
+  if (plot) fSoloPlots.push_back(var);
   fSoloCuts[var] = cut;
-  fVars.insert(Split(var, '.')[0]);
+  fVars.insert(Split(var, '.')[0]);	// for CheckStat, which need it to imply variable type: mean/rms
   return true;
 }
 
-bool TConfig::ParseComp(char * line) {
+bool TConfig::ParseCustom(char *line) {
   vector<char*> fields = Split(line, ';');
-  CompCut cut = {1024, 1024, 1024};
-  vector<char*> vars;
+  VarCut cut = {1024, 1024, 1024};
+  char *var;
+  char *def;
   switch (fields.size()) {
     case 4:
       StripSpaces(fields[3]);
       if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(fields[3]);
+        double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for diff cut\n";
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for stability cut\n";
           return false;
         }
-        cut.diff = val;
+        cut.stability = val;
       }
     case 3:
       StripSpaces(fields[2]);
       if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(fields[2]);
+        double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
           return false;
@@ -376,7 +404,101 @@ bool TConfig::ParseComp(char * line) {
     case 2:
       StripSpaces(fields[1]);
       if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(fields[1]);
+        double val = ExtractValue(ParseExpression(fields[1]));
+        if (val == -9999) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
+          return false;
+        }
+        cut.low = val;
+      }
+    case 1:
+			{
+				vector<char *> vfields = Split(fields[0], ':');
+				if (vfields.size() != 2) {
+					cerr << __PRETTY_FUNCTION__ << ":ERROR\t Wrong format in defining custom variable (var: definition): " << fields[0] << endl;
+					return false;
+				}
+				var = vfields[0];
+				def = vfields[1];
+			}
+      break;
+    default:
+      cerr << __PRETTY_FUNCTION__ << ":ERROR\t At most 4 fields per custom line!\n";
+      return false;
+  }
+
+  bool plot = false;
+  if (Size(var) && var[Size(var)-1] == '+') { // field could be empty
+    plot = true;
+    var[Size(var)-1] = '\0';  // remove '+' 
+    StripSpaces(var);	  // in case space before '+';
+  }
+
+  if (IsEmpty(var)) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t Empty variable for custom. \n";
+    return false;
+  }
+  if (fCustoms.find(var) != fCustoms.end()) {
+    cerr << __PRETTY_FUNCTION__ << ":WARNING\t repeated custom variable, ignore it. \n";
+    return false;
+  }
+
+  Node * node = ParseExpression(def);
+  if (node == NULL) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t unable to parse definition. \n"
+				 << "\t" << def << endl;
+		return false;
+	}
+
+  fCustoms.insert(var);
+	add_variables(node);
+  if (plot) fCustomPlots.push_back(var);
+  fCustomCuts[var] = cut;
+	fCustomDefs[var] = node;
+  return true;
+}
+
+void TConfig::add_variables(Node * node) {
+	if (node) {
+		add_variables(node->lchild);
+		add_variables(node->rchild);
+		add_variables(node->sibling);
+		if (node->token.type == variable) {
+			if (fCustoms.find(node->token.value) == fCustoms.cend())	// not one of previous customs
+				fVars.insert(node->token.value);
+		}
+	}
+}
+
+bool TConfig::ParseComp(char *line) {
+  vector<char*> fields = Split(line, ';');
+  VarCut cut = {1024, 1024, 1024};
+  vector<char*> vars;
+  switch (fields.size()) {
+    case 4:
+      StripSpaces(fields[3]);
+      if (!IsEmpty(fields[3])) {
+        double val = ExtractValue(ParseExpression(fields[3]));
+        if (val == -9999) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for diff cut\n";
+          return false;
+        }
+        cut.stability = val;
+      }
+    case 3:
+      StripSpaces(fields[2]);
+      if (!IsEmpty(fields[2])) {
+        double val = ExtractValue(ParseExpression(fields[2]));
+        if (val == -9999) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
+          return false;
+        }
+        cut.high = val;
+      }
+    case 2:
+      StripSpaces(fields[1]);
+      if (!IsEmpty(fields[1])) {
+        double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
           return false;
@@ -415,14 +537,14 @@ bool TConfig::ParseComp(char * line) {
   }
 
   fComps.insert(make_pair(vars[0], vars[1]));
-  if (plot) fCompPlots.insert(make_pair(vars[0], vars[1]));
+  if (plot) fCompPlots.push_back(make_pair(vars[0], vars[1]));
   fCompCuts[make_pair(vars[0], vars[1])] = cut;
   fVars.insert(Split(vars[0], '.')[0]);
   fVars.insert(Split(vars[1], '.')[0]);
   return true;
 }
 
-bool TConfig::ParseSlope(char * line) {
+bool TConfig::ParseSlope(char *line) {
   vector<char*> fields = Split(line, ';');
   VarCut cut = {1024, 1024, 1024};
   vector<char*> vars;
@@ -430,7 +552,7 @@ bool TConfig::ParseSlope(char * line) {
     case 4:
       StripSpaces(fields[3]);
       if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(fields[3]);
+        double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for stability cut\n";
           return false;
@@ -440,7 +562,7 @@ bool TConfig::ParseSlope(char * line) {
     case 3:
       StripSpaces(fields[2]);
       if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(fields[2]);
+        double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
           return false;
@@ -450,7 +572,7 @@ bool TConfig::ParseSlope(char * line) {
     case 2:
       StripSpaces(fields[1]);
       if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(fields[1]);
+        double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
           return false;
@@ -489,65 +611,45 @@ bool TConfig::ParseSlope(char * line) {
   }
 
   fSlopes.insert(make_pair(vars[0], vars[1]));
-  if (plot) fSlopePlots.insert(make_pair(vars[0], vars[1]));
+  if (plot) fSlopePlots.push_back(make_pair(vars[0], vars[1]));
   fSlopeCuts[make_pair(vars[0], vars[1])] = cut;
   return true;
 }
 
-bool TConfig::ParseCor(char * line) {
+bool TConfig::ParseCor(char *line) {
   vector<char*> fields = Split(line, ';');
-  CorCut cut = {1024, 1024, 1024, 1024, 1024};
+  VarCut cut = {1024, 1024, 1024};
   vector<char*> vars;
   switch (fields.size()) {
-    case 6:
-      StripSpaces(fields[5]);
-      if (!IsEmpty(fields[5])) {
-        double val = ExtractValue(fields[5]);
-        if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for stability cut\n";
-          return false;
-        }
-        cut.stability = val;
-      }
-    case 5:
-      StripSpaces(fields[4]);
-      if (!IsEmpty(fields[4])) {
-        double val = ExtractValue(fields[4]);
-        if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for xhigh cut\n";
-          return false;
-        }
-        cut.xhigh = val;
-      }
     case 4:
       StripSpaces(fields[3]);
       if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(fields[3]);
+        double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for xlow cut\n";
           return false;
         }
-        cut.xlow = val;
+        cut.stability = val;
       }
     case 3:
       StripSpaces(fields[2]);
       if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(fields[2]);
+        double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for yhigh cut\n";
           return false;
         }
-        cut.yhigh = val;
+        cut.high = val;
       }
     case 2:
       StripSpaces(fields[1]);
       if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(fields[1]);
+        double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for correlation ylow cut\n";
           return false;
         }
-        cut.ylow = val;
+        cut.low = val;
       }
     case 1:
       vars = Split(fields[0], ':');
@@ -581,14 +683,14 @@ bool TConfig::ParseCor(char * line) {
   }
 
   fCors.insert(make_pair(vars[0], vars[1]));
-  if (plot) fCorPlots.insert(make_pair(vars[0], vars[1]));
+  if (plot) fCorPlots.push_back(make_pair(vars[0], vars[1]));
   fCorCuts[make_pair(vars[0], vars[1])] = cut;
   fVars.insert(Split(vars[0], '.')[0]);
   fVars.insert(Split(vars[1], '.')[0]);
   return true;
 }
 
-bool TConfig::ParseOtherCommands(char* line) {
+bool TConfig::ParseOtherCommands(char *line) {
   if (IsEmpty(line)) {
     return true;
   }
@@ -629,37 +731,54 @@ bool TConfig::ParseOtherCommands(char* line) {
   return true;
 }
 
-double TConfig::ExtractValue(const char* words) {  // FIXME: do math calculation with string
-  if (words == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t Empty word\n";
+double TConfig::ExtractValue(Node * node) { 
+  if (node == NULL) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t NULL node\n";
     return -9999;
   }
 
-  double unit=1;
-  vector<char *> fields = Split(words, '*');
-  switch (fields.size()) {
-    case 2:
-      StripSpaces(fields[1]);
-      if (UNITS.find(fields[1]) == UNITS.end()) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid unit: " << fields[1] << endl;
-        return -9999;
-      }
-      unit = UNITS[fields[1]];
-      if (Contain(fields[1], "pp"))
-        unit /= ppm;  // normalized to ppm
-      else if (Contain(fields[1], "um") || Contain(fields[1], "mm"))
-        unit /= um;   // normalized to um
+  const char * val = node->token.value;
+  double v=0,  v1=0, v2=0;
 
-    case 1:
-      StripSpaces(fields[0]);
-      if (!IsNumber(fields[0])) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid number: " << fields[0] << endl;
+	if (node->lchild) v1 = ExtractValue(node->lchild);
+	if (node->rchild) v2 = ExtractValue(node->rchild);
+	if (v1 == -9999 || v2 == -9999)
+		return -9999;
+
+  switch (node->token.type) {
+    case opt:
+      switch (val[0]) {
+        case '+':
+          return v1 + v2;
+        case '-':
+          return v1 - v2;
+        case '*':
+          return v1 * v2;
+        case '/':
+          return v1 / v2;
+        case '%':
+          return ((int)v1) % ((int)v2);
+      }
+    case function1:
+			return f1[val](v1);
+    case function2:
+			return f2[val](v1, ExtractValue(node->lchild->sibling));
+    case number:
+      return atof(val);
+    case variable:
+      if (UNITS.find(val) == UNITS.cend()) {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknow unit: " << val << endl;
         return -9999;
       }
-      return stof(fields[0])*unit;
+      if (Contain(val, "pp"))
+        return UNITS[val] / ppm;  // normalized to ppm
+      else 
+        return UNITS[val] / um;   // normalized to um
     default:
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid value expression.\n";
+      cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknow token type: " << TypeName[node->token.type] << endl;
       return -9999;
   }
+	return -9999;
 }
 #endif
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

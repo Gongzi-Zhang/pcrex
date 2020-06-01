@@ -30,7 +30,6 @@
 
 
 # todo
-* custom defined expression
 * single arm slug
 
 # problem

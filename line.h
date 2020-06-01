@@ -462,3 +462,4 @@ void StringTests() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t pass all tests.\n";
 }
 #endif
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */
