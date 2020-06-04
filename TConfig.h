@@ -257,7 +257,7 @@ void TConfig::ParseRunFile() {
 
     StripComment(line);
     StripSpaces(line);
-    if (line[0] = '\0') continue;
+    if (line[0] == '\0') continue;
 
     ParseRun(line);
   }
@@ -286,18 +286,18 @@ bool TConfig::ParseRun(char *line) {
   switch (fields.size()) {
     case 2:
       if (!IsInteger(fields[1])) {
-	cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end run in range: " << line << endl;
-	return false;
+        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end run in range: " << line << endl;
+        return false;
       }
       end = atoi(fields[1]);
     case 1:
       if (!IsInteger(fields[0])) {
-	cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid (start) run in line: " << line << endl;
-	return false;
+        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid (start) run in line: " << line << endl;
+        return false;
       }
       start = atoi(fields[0]);
       if (end == -1)
-	end = start;
+        end = start;
   }
 
   for (int run=start; run<=end; run++) {

@@ -1,11 +1,11 @@
 # usage
-## check
-    the program ./check is used for checking statistics of each minirun of specified runs; which support 4 kinds of variables:
+## check: used for checking statistics of each minirun of specified runs
+ * it support 4 kinds of variables:
     * solos: 
     * comparisons
     * slopes
     * correlations
-    see check.conf to how to setup each of them
+    see check.conf about how to setup each of them
 
   e.x.
     ./check   # use the default configuration: check.conf
@@ -21,16 +21,24 @@
   For comparisons, the two different variables will be marked with different colored dots, but for bold runs
   and bad miniruns, they will have the same color, though different marker styles.
 
-## mulplot
-    mulplot has similar usage to check
+## checkrun: check evt tree of a signle run
+  similar to check
+  ./checkrun -h for help
 
+## mulplot: draw pair/mul plots 
+  mulplot has similar usage to check
+  ./mulplot -h for help
+
+## 
 # compilation
   > make check
+  > make checkrun
   > make mulplot
 
 
 # todo
 * single arm slug
+* how to cut on slow tree? e.g.  IGL1I00OD16_16 (row 83) in /chafs2/work1/apar/japanOutput/prexPrompt_pass2_6400.000.root is wrong
 
 # problem
 * munmap_chunk(): invalid pointer

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdlib.h>
+#include <set>
 
 #include "TCheckRun.h"
 #include "const.h"
@@ -7,10 +8,12 @@
 using namespace std;
 
 void usage();
+set<int> parseRS(const char *);	// parse runs|slugs
 
 int main(int argc, char* argv[]) {
-  int run;
+  set<int> runs;
   const char * config_file("checkrun.conf");
+  bool cflag = true;
   const char * out_name = NULL;
   const char * out_format = NULL;
 
@@ -22,9 +25,10 @@ int main(int argc, char* argv[]) {
         exit(0);
       case 'c':
         config_file = optarg;
+        cflag = false;
         break;
       case 'r':
-        run = atoi(optarg);
+        runs = parseRS(optarg);
         break;
       case 'f':
         out_format = optarg;
@@ -37,13 +41,11 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-	if (run == 0 || run < START_RUN || run > END_RUN) {
-		cerr << __PRETTY_FUNCTION__ << ":FATAL\t no run or invalid run specified." << endl;
-		exit(4);
-	}
-
+  if (cflag) 
+    cout << __PRETTY_FUNCTION__ << "INFO:\t no config file specified, use default one: " << config_file << endl;
   TCheckRun fCheckRun(config_file);
-	fCheckRun.SetRun(run);
+  if (runs.size() > 0)
+    fCheckRun.SetRuns(runs);
   if (out_format)
     fCheckRun.SetOutFormat(out_format);
   if (out_name)
@@ -69,5 +71,40 @@ void usage() {
        << endl
        << "  Example:" << endl
        << "\t ./check -c myconf.conf -r 6666" << endl;
+}
+
+set<int> parseRS(const char * input) {
+  if (!input) {
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input for -r or -s" << endl;
+    return {};
+  }
+  set<int> vals;
+  vector<char*> fields = Split(input, ',');
+  for(int i=0; i<fields.size(); i++) {
+    char * val = fields[i];
+    if (Contain(val, "-")) {
+      vector<char*> range = Split(val, '-');
+      if (!IsInteger(range[0]) || !IsInteger(range[1])) {
+        cerr << __PRETTY_FUNCTION__ << ":FATAL\t invalid range input" << endl;
+        exit(3);
+      }
+      const int start = atoi(range[0]);
+      const int end   = atoi(range[1]);
+      if (start > end) {
+        cerr << __PRETTY_FUNCTION__ << ":FATAL\t for range input: start must less than end" << endl;
+        exit(4);
+      }
+      for (int j=start; j<=end; j++) {
+        vals.insert(j);
+      }
+    } else {
+      if (!IsInteger(val)) {
+        cerr << __PRETTY_FUNCTION__ << ":FATAL\t run/slug must be an integer number" << endl;
+        exit(4);
+      }
+      vals.insert(atoi(val));
+    }
+  }
+  return vals;
 }
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

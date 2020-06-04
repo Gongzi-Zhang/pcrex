@@ -326,8 +326,8 @@ void TCheckStat::CheckRuns() {
   }
 
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nRuns << " valid runs specified:\n";
-  for(set<int>::const_iterator it=fRuns.cbegin(); it!=fRuns.cend(); it++) {
-    cout << "\t" << *it << endl;
+  for(int run : fRuns) {
+    cout << "\t" << run << endl;
   }
 
   fSigns = GetSign(fRuns); // sign corrected

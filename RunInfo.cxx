@@ -60,7 +60,8 @@ int main(int argc, char* argv[]) {
   set<int> runs;
   set<int> slugs;
   vector<char *> evt_vars;
-  vector<char *> epics_vars;
+  vector<char *> reg_vars;
+  vector<char *> slow_vars;
   bool rcdb = false;
 
   const int nopt = rcdb_options.size();
@@ -90,8 +91,10 @@ int main(int argc, char* argv[]) {
   }
   long_options[o++] = {"cutfiles",  no_argument, 0, 1};
   long_options[o++] = {"pedestals", no_argument, 0, 2};
-  long_options[o++] = {"stat",  required_argument, 0, 3};
-  long_options[o++] = {"epics", required_argument, 0, 4};
+  long_options[o++] = {"evt", required_argument, 0, 3};
+  long_options[o++] = {"regression", required_argument, 0, 4};
+  long_options[o++] = {"slow",  required_argument, 0, 5};
+  long_options[o++] = {"charge",  no_argument, 0, 6};
   long_options[o++] = {"help",  no_argument, 0, 'h'};
   long_options[o++] = {0, 0, 0, 0}; // end of long option
 
@@ -118,13 +121,20 @@ int main(int argc, char* argv[]) {
       case 2:
         do_it["pedestals"] = true;
         break;
-      case 3:
+      case 3: // evt tree
         evt_vars = Split(optarg, ',');
-        do_it["stat"] = true;
+        do_it["evt"] = true;
         break;
-      case 4:
-        epics_vars = Split(optarg, ',');
-        do_it["epics"] = true;
+      case 4: // reg. tree
+        reg_vars = Split(optarg, ',');
+        do_it["reg"] = true;
+        break;
+      case 5: // slow tree
+        slow_vars = Split(optarg, ',');
+        do_it["slow"] = true;
+        break;
+      case 6: // charge
+        do_it["charge"] = true;
         break;
       default:
         usage();
@@ -138,22 +148,177 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (rcdb) {
-    StartConnection();
+  if (runs.size() == 0) {
+    cerr << "FATAL:\t no run specified" << endl;
+    usage();
+    exit(4);
+  }
+
+  // check evt variables
+  if (do_it["evt"]) {
+    for (char * var : evt_vars) {
+      StripSpaces(var);
+    }
+
+    ifstream fin("evt.branches");
+    if (!fin.is_open()) {
+      cerr << "ERROR:\t can't read the config file: evt.branches. Skip reading evt." << endl;
+      do_it["evt"] = false;
+      goto ENDEVT;
+    }
+    set<string> branches;
+    string branch;
+    while (getline(fin, branch)) {
+      size_t end = branch.find_last_not_of(" \t");
+      branches.insert( (end == string::npos) ? branch : branch.substr(0, end+1));
+    }
+    fin.close();
+
+    for (vector<char *>::iterator it=evt_vars.begin(); it!=evt_vars.end(); it++) {
+      if (find(branches.begin(), branches.end(), *it) == branches.end()) {
+        if ((*it)[0] != '\0')
+          cerr << "WARNING:\t Unknown branch: " << *it << ". Ignore it." << endl
+               << "Please refer to reg.branches for correct variable name" << endl;
+
+        it = evt_vars.erase(it);  
+        if (it == evt_vars.end())
+          break;
+      }
+    }
+
+    if (evt_vars.size() == 0) {
+      cerr << "ERROR:\t no valid evt variables specified" << endl;
+      do_it["evt"] = false;
+      goto ENDEVT;
+    }
+
+    cout << "INFO:\t " << evt_vars.size() << " valid evt variables specified: " << endl;
+    for (char * var : evt_vars) {
+      cout << "\t" << var << endl;
+    }
+  }
+ENDEVT:
+
+  // check slow variables
+  if (do_it["slow"]) {
+    for (char * var : slow_vars) {
+      StripSpaces(var);
+    }
+
+    ifstream fin("slow.branches");
+    if (!fin.is_open()) {
+      cerr << "ERROR:\t can't read the config file: slow.branches. Skip reading slow" << endl;
+      do_it["slow"] = false;
+      goto ENDSLOW;
+    }
+    set<string> branches;
+    string branch;
+    while (getline(fin, branch)) {
+      size_t end = branch.find_last_not_of(" \t");
+      branches.insert( (end == string::npos) ? branch : branch.substr(0, end+1));
+    }
+
+    for (vector<char *>::iterator it=slow_vars.begin(); it!=slow_vars.end(); it++) {
+      if (find(branches.begin(), branches.end(), *it) == branches.end()) {
+        if ((*it)[0] != '\0')
+          cout << "WARNING:\t Unknown branch: " << *it << ". Ignore it." << endl
+               << "Please refer to reg.branches for correct variable name" << endl;
+        it = slow_vars.erase(it);  
+        if (it == slow_vars.end())
+          break;
+      }
+    }
+
+    if (slow_vars.size() == 0) {
+      cerr << "ERROR:\t no valid slow variables specified" << endl;
+      do_it["slow"] = false;
+      goto ENDSLOW;
+    }
+
+    cout << "INFO:\t " << slow_vars.size() << " valid slow variables specified: " << endl;
+    for (char * var : slow_vars) {
+      cout << "\t" << var << endl;
+    }
+  }
+ENDSLOW:
+
+  // check reg variables
+  if (do_it["reg"]) {
+    for (char * var : reg_vars) {
+      StripSpaces(var);
+    }
+
+    ifstream fin("reg.branches");
+    if (!fin.is_open()) {
+      cerr << "ERROR:\t can't read the config file: reg.branches. Skip reading reg" << endl;
+      do_it["reg"] = false;
+      goto ENDREG;
+    }
+    set<string> branches;
+    string branch;
+    while (getline(fin, branch)) {
+      size_t end = branch.find_last_not_of(" \t");
+      branches.insert( (end == string::npos) ? branch : branch.substr(0, end+1));
+    }
+
+    for (vector<char *>::iterator it=reg_vars.begin(); it!=reg_vars.end(); it++) {
+      if (find(branches.begin(), branches.end(), *it) == branches.end()) {
+        if ((*it)[0] != '\0')
+          cout << "WARNING:\t Unknown branch: " << *it << ". Ignore it." << endl
+               << "Please refer to reg.branches for correct variable name" << endl;
+        it = reg_vars.erase(it);  
+        if (it == reg_vars.end())
+          break;
+      }
+    }
+
+    if (reg_vars.size() == 0) {
+      cerr << "ERROR:\t no valid reg variables specified" << endl;
+      do_it["reg"] = false;
+      goto ENDREG;
+    }
+
+    cout << "INFO:\t " << reg_vars.size() << " valid reg variables specified: " << endl;
+    for (char * var : reg_vars) {
+      cout << "\t" << var << endl;
+    }
+  }
+ENDREG:
+
+  if (rcdb || do_it["evt"] || do_it["reg"] || do_it["slow"]) {
+    if (rcdb) StartConnection();
 
     int width = 0;
+    map<string, pair<double, double>> values;
 
+    cout << endl << endl;
+    // head
     printf("%-4s | ", "run");
     width += (4+3);
-    for (int i=0; i<nopt; i++) {
-      if (do_it[rcdb_options[i]]) {
-        printf("%-*s | ", rcdb_width[rcdb_options[i]], rcdb_options[i]);
-        width += (rcdb_width[rcdb_options[i]] + 3);
+    if (rcdb) {
+      for (int i=0; i<nopt; i++) {
+        if (do_it[rcdb_options[i]]) {
+          printf("%-*s | ", rcdb_width[rcdb_options[i]], rcdb_options[i]);
+          width += (rcdb_width[rcdb_options[i]] + 3);
+        }
       }
+    }
+
+    for (char * var : evt_vars) {
+      printf("%-25s | ", var);
+      width += (10 + 5 + 10 + 3);
+    }
+    for (char * var : slow_vars) {
+      printf("%-25s | ", var);
+      width += (10 + 5 + 10 + 3);
+    }
+    for (char * var : reg_vars) {
+      printf("%-25s | ", var);
+      width += (10 + 5 + 10 + 3);
     }
     putchar('\n');
 
-    for (int i=0; i<width; i++)
+    for (int i=1; i<width; i++)
       putchar('-');
     putchar('\n');
 
@@ -167,14 +332,55 @@ int main(int argc, char* argv[]) {
           else if (ftype[rcdb_options[i]] == s)
             printf("%-*s | ", rcdb_width[rcdb_options[i]], fs[rcdb_options[i]](run));
       }
+
+      // evt tree
+      if (do_it["evt"]) {
+        values = GetEvtValues(run, evt_vars);
+        if (values.size() == 0) { // error in reading values
+          for (char * var : evt_vars) {
+            printf("%-10.5g +/- %-10.5g | ", -1, -1);
+          }
+        } else {
+          for (char * var : evt_vars) {
+            printf("%-10.5g +/- %-10.5g | ", values[var].first, values[var].second);
+          }
+        }
+      }
+
+      // slow tree
+      if (do_it["slow"]) {
+        values = GetSlowValues(run, slow_vars);
+        if (values.size() == 0) {
+          for (char * var : evt_vars) {
+            printf("%-10.4g +/- %-10.4g | ", -1, -1);
+          }
+        } else {
+          for (char * var : slow_vars) {
+            printf("%-10.4g +/- %-10.4g | ", values[var].first, values[var].second);
+          }
+        }
+      }
+
+      if (do_it["reg"]) {
+        values = GetRegValues(run, reg_vars);
+        if (values.size() == 0) {
+          for (char * var : reg_vars) {
+            printf("%-10.4g +/- %-10.4g | ", -1, -1);
+          }
+        } else {
+          for (char * var : reg_vars) {
+            printf("%-10.4g +/- %-10.4g | ", values[var].first, values[var].second);
+          }
+        }
+      }
       putchar('\n');
     }
 
-    for (int i=0; i<width; i++)
+    for (int i=1; i<width; i++)
       putchar('-');
     putchar('\n');
 
-    EndConnection();
+    if (rcdb) EndConnection();
   }
 
   if (do_it["cutfiles"]) {
@@ -203,148 +409,24 @@ int main(int argc, char* argv[]) {
     printf("------------------------------------------------\n");
   }
 
-  if (do_it["stat"]) {
-    for (char * var : evt_vars) {
-      StripSpaces(var);
-    }
-
-    map<string, pair<double, double>> values;
-
-    // check variables
-    ifstream fin("evt.branches");
-    if (!fin.is_open()) {
-      cerr << "ERROR:\t can't read the config file: evt.branches. Skip reading stat." << endl;
-      goto EPICS;
-    }
-    set<string> branches;
-    string branch;
-    while (getline(fin, branch))
-      branches.insert(branch);
-
-    fin.close();
-
-    for (vector<char *>::iterator it=evt_vars.begin(); it!=evt_vars.end(); it++) {
-      if (find(branches.begin(), branches.end(), *it) == branches.end()) {
-        if ((*it)[0] != '\0')
-          cerr << "WARNING:\t Unknown branch: " << *it << ". Ignore it" << endl;
-
-        it = evt_vars.erase(it);  
-        if (it == evt_vars.end())
-          break;
-      }
-    }
-
-    if (evt_vars.size() == 0) {
-      cerr << "ERROR:\t no valid stat. variables specified" << endl;
-      goto EPICS;
-    }
-
-    cout << "INFO:\t " << evt_vars.size() << " valid variables specified: " << endl;
-    for (char * var : evt_vars) {
-      cout << "\t" << var << endl;
-    }
-
-    const int width = 28*evt_vars.size()/2-2;
-    for(int i=0; i<width; i++) putchar('-');
-    printf("statistics");
-    for(int i=0; i<width; i++) putchar('-');
-    putchar('\n');
-
-    printf("%-4s | ", "run");
-    for (char * var : evt_vars) {
-      printf("%-25s | ", var);
-    }
-    putchar('\n');
-
-    for(int i=0; i<2*width+10; i++) putchar('-');
-    putchar('\n');
-
-    // get values
+  if (do_it["charge"]) {
+    map<string, pair<double, double>> val;
+    char bcm[] = "bcm_an_ds";
+    vector<char *> vars; // FIXME: which bcm should I use?
+    vars.push_back(bcm);
     for (set<int>::iterator it=runs.cbegin(); it != runs.cend(); it++) {
       int run = *it;
       printf("%-4d | ", run);
 
-      values = GetValues(run, evt_vars);
-      if (values.size() == 0) {
-        printf("ERROR:\t unable to read stat. values for run: \n");
-        continue;
-      }
+      double charge;
+      val = GetEvtValues(run, vars, "");  // total charge
+      charge = val["entries"].first*val[bcm].first/120*1e-6; // total charge
+      printf("%-8.3g | ", charge);
 
-      for (char * var : evt_vars) {
-        printf("%-10.5g +/- %-10.5g | ", values[var].first, values[var].second);
-      }
-      putchar('\n');
+      val = GetEvtValues(run, vars);
+      charge = val["entries"].first*val[bcm].first/120*1e-6; // valid charge
+      printf("%-8.3g | \n", charge);
     }
-    for(int i=0; i<2*width+10; i++) putchar('-');
-    putchar('\n');
-  }
-
-  EPICS:
-  if (do_it["epics"]) {
-    for (char * var : epics_vars) {
-      StripSpaces(var);
-    }
-
-    map<string, pair<double, double>> values;
-
-    /*
-    // check variables
-    ifstream fin("evt.branches");
-    if (!fin.is_open()) {
-      cerr << "ERROR:\t can't read the config file: evt.branches. Skip reading stat." << endl;
-      goto EPICS;
-    }
-    set<string> branches;
-    string branch;
-    while (getline(fin, branch))
-      branches.insert(branch);
-
-    for (vector<char *>::iterator it=epics_vars.begin(); it!=epics_vars.end(); it++) {
-      if (find(branches.begin(), branches.end(), *it) == branches.end()) {
-        cout << "WARNING:\t Unknown branch: " << *it << ". Ignore it" << endl;
-        it = epics_vars.erase(it);  
-      }
-    }
-
-    if (epics_vars.size() == 0) {
-      cerr << "ERROR:\t no valid stat. variables specified" << endl;
-      goto EPICS;
-    }
-    */
-
-    int width = 28*epics_vars.size()/2;
-    for(int i=0; i<width; i++) putchar('-');
-    printf("-epics-");
-    for(int i=0; i<width; i++) putchar('-');
-    putchar('\n');
-
-    printf("%-4s | ", "run");
-    for (char * var : epics_vars) {
-      printf("%-25s | ", var);
-    }
-    putchar('\n');
-
-    for(int i=0; i<2*width+7; i++) putchar('-');
-    putchar('\n');
-
-    // get values
-    for (set<int>::iterator it=runs.cbegin(); it != runs.cend(); it++) {
-      int run = *it;
-      printf("%-4d | ", run);
-
-      values = GetSlowValues(run, epics_vars);
-      if (values.size() == 0) {
-        printf("ERROR:\t unable to read stat. values for this run\n");
-        continue;
-      }
-
-      for (char * var : epics_vars) {
-        printf("%-10.4g +/- %-10.4g | ", values[var].first, values[var].second);
-      }
-      putchar('\n');
-    }
-    for(int i=0; i<2*width+7; i++) putchar('-');
-    putchar('\n');
   }
   return 0;
 }
@@ -365,12 +447,17 @@ void usage() {
        << "\t --arm_flag: get arm flag" << endl
        << "\t --cutfiles: get corresponding cutfiles" << endl
        << "\t --pedestals: get corresponding pedestals" << endl
-       << "\t --stat: followed by evt branches, separated by comma" << endl
-       << "\t --epics: followed by epics variables, separated by comma" << endl
+       << "\t --charge: get charge" << endl
+       << "\t --evt: followed by evt branches, separated by comma (case sensitive)" << endl
+       << "\t --regression: followed by reg. branches, separated by comma (case sensitive)" << endl
+       << "\t --slow: followed by slow variables, separated by comma (case sensitive)" << endl
        << endl
        << "  Example:" << endl
        << "\t ./runinfo -r 6345-6456 --slug" << endl
-       << "\t ./runinfo -r 6543,6677-6680 -s 125,127-130 --target" << endl;
+       << "\t ./runinfo -r 6543,6677-6680 -s 125,127-130 --target" << endl
+       << "\t ./runinfo -r 6543-6566,6677-6680 -s 125,127-130 --evt bcm_an_us,bpm4aX" << endl
+       << "\t ./runinfo -r 6543,6566,6677 --reg diff_bpm12X" << endl
+       << "\t ./runinfo -r 6543-6566,6677 --slow HALLA_dpp" << endl;
 }
 
 set<int> parseRS(const char * input) {

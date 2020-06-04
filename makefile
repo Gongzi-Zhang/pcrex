@@ -30,5 +30,5 @@ tar:
 plots:
 	tar czvf plots.tar.gz *.png 
 clean:
-	rm -f check mulplot
+	rm -f check mulplot checkrun
 # vim: set shiftwidth=2 softtabstop=2 tabstop=2:

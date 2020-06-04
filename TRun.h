@@ -19,27 +19,16 @@
 
 vector<const char *>  GetCutFiles  (const int run);
 vector<const char *>  GetPedestals (const int run);
-int     GetSessions (const int run);
-void    Register    (const char * var);
-void    Register    (vector<const char *> vs);
-map<string, pair<double, double>> GetValues   (const int run);
-map<string, pair<double, double>> GetValues   (const int run, vector<char *> vars);
-map<string, pair<double, double>> GetSlowValues   (const int run, vector<char *> vars);
+int     GetJapanSessions  (const int run);
+int     GetRegSessions    (const int run);
+map<string, pair<double, double>> GetEvtValues    (const int run, vector<char *> vars, TCut cut);
+map<string, pair<double, double>> GetRegValues    (const int run, vector<char *> vars, TCut cut);
+map<string, pair<double, double>> GetSlowValues   (const int run, vector<char *> vars, TCut cut);
 char *  FindCutFile(glob_t, const int run);
 
 const char * cut_dir = "/adaqfs/home/apar/PREX/japan/Parity/prminput";
-const char * japan_output_dir = "/chafs2/work1/apar/japanOutput";
-
-set<string> vars;
-map<string, double> var_buf;
-map<string, pair<double, double>> values = { {"bcm_an_us", {0, 0}} };
-int total_entries = 0;
-int valid_entries = 0;
-double total_charge = 0;
-double valid_charge = 0;
-TCanvas * c = new TCanvas("c", "c", 800, 600);
-
-TCut cut = "ErrorFlag == 0";
+const char * japan_dir = "/chafs2/work1/apar/japanOutput";
+const char * reg_dir = "/chafs2/work1/apar/postpan-outputs";
 
 vector<const char *> GetCutFiles (const int run) {
   vector<const char *> cut_files;
@@ -114,149 +103,179 @@ char * FindCutFile(glob_t globbuf, const int run) {
   return NULL;
 }
 
-int GetSessions (const int run) {
+int GetJapanSessions (const int run) {
   glob_t globbuf;
-  const char * pattern = Form("%s/prexPrompt_pass2_%d.???.root", japan_output_dir, run);
+  const char * pattern = Form("%s/prexPrompt_pass2_%d.???.root", japan_dir, run);
   glob(pattern, 0, NULL, &globbuf);
   return globbuf.gl_pathc;
 }
 
-void Register (const char * v) {
-  vars.insert(v);
-  var_buf[v] = 0;
+int GetRegSessions (const int run) {
+  glob_t globbuf;
+  const char * pattern = Form("%s/prexPrompt_%d_???_regress_postpan.root", reg_dir, run);
+  glob(pattern, 0, NULL, &globbuf);
+  return globbuf.gl_pathc;
 }
 
-void Register (vector<const char *> vs) {
-  for (const char * v : vs) {
-    vars.insert(v);
-    var_buf[v] = 0;
-  }
-}
-  
-map<string, pair<double, double>> GetValues (const int run) {
-  const int s = GetSessions(run);
-  for (int i=0; i<s; i++) {
-    double ErrorFlag;
-    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_output_dir, run, i);
-    TFile fin(root_file, "read");
-    if (!fin.IsOpen()) {
-      cerr << __PRETTY_FUNCTION__ << "FATAL:\t Can open root file: " << root_file;
-      exit(4);
-    }
-    TTree * tin = (TTree*) fin.Get("evt");
-    if (! tin) {
-      cerr << __PRETTY_FUNCTION__ << "FATAL:\t Can receive evt tree from root file: " << root_file;
-      exit(5);
-    }
-    for (set<string>::iterator it=vars.begin(); it != vars.end(); it++) {
-      const char * var = (*it).c_str();
-      // FIXME: check var validness
-      tin->SetBranchAddress(var, &(var_buf[var]));
-    }
-    tin->SetBranchAddress("ErrorFlag", &ErrorFlag);
-
-    int n = tin->GetEntries();
-    for (int i=0; i<n; i++) {
-      // if (i % 10000 == 0)
-      //   cout << "Processing " << i << " entry" << endl;
-
-      tin->GetEntry(i);
-      total_charge += var_buf["bcm_an_us"];
-      if (ErrorFlag == 0) { // cut
-        valid_entries++;
-        valid_charge += var_buf["bcm_an_us"];
-        for (set<string>::iterator it=vars.begin(); it != vars.end(); it++) {
-          string var = *it;
-          values[var].first += var_buf[var];
-          values[var].second += var_buf[var] * var_buf[var];
-        }
-      }
-    }
-    total_entries += n;
-  }
-
-  for (set<string>::iterator it=vars.begin(); it != vars.end(); it++) {
-    string var = *it;
-    double mean = values[var].first / valid_entries;
-    double rms = sqrt((values[var].second / valid_entries) - mean * mean);
-    values[var].first = mean;
-    values[var].second = rms;
-  }
-  total_charge /= 120;  // helicity frequency
-  total_charge /= 1e6;
-  valid_charge /= 120;  
-  valid_charge /= 1e6;
-
-  values["entries"] = {total_entries, valid_entries};
-  values["charge"]  = {total_charge,  valid_charge};
-  return values;
-}
-
-map<string, pair<double, double>> GetValues (const int run, vector<char *> vars) {
+map<string, pair<double, double>> GetEvtValues (const int run, vector<char *> vars, TCut cut = "ErrorFlag == 0") {
   map<string, pair<double, double>> res;
-  const int s = GetSessions(run);
+  long long entries = 0;
+  const int s = GetJapanSessions(run);
   gROOT->SetBatch(1);
+  TCanvas * c = new TCanvas("c", "c", 800, 600);
   for (int i=0; i<s; i++) {
     double ErrorFlag;
-    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_output_dir, run, i);
+    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_dir, run, i);
     TFile fin(root_file, "read");
     if (!fin.IsOpen()) {
-      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can open root file: " << root_file;
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't open root file: " << root_file;
       return res;
     }
     TTree * tin = (TTree*) fin.Get("evt");
     if (! tin) {
-      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can receive evt tree from root file: " << root_file;
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't receive evt tree from root file: " << root_file;
       return res;
     }
 
+    long long n = tin->GetEntries(cut);
+    double mean, rms;
     for (char * var : vars) {
       c->cd();
       const char * hname = Form("h_%s", var);
-      tin->Draw(Form("%s>>%s", var, hname), "ErrorFlag == 0");
+      tin->Draw(Form("%s>>%s", var, hname), cut);
       TH1F *h = (TH1F*) gROOT->FindObject(hname);
       if (h) {
-        res[var] = make_pair(h->GetMean(), h->GetRMS());
+        mean = h->GetMean();
+        rms  = h->GetRMS();
         h->Delete();
+        h = NULL;
       } else {
-        res[var] = make_pair(0, 0);
+        mean = 0;
+        rms  = 0;
+      }
+      if (res.find(var) != res.end()) {
+        double m = (entries*res[var].first + n*mean) / (entries + n);
+        double r = ( entries*pow(res[var].second, 2) + pow(res[var].first, 2)
+                   + n*pow(rms, 2) + pow(mean, 2) ) / (entries + n) - pow(m, 2);
+        res[var] = make_pair(m, r);
+      } else {
+        res[var] = make_pair(mean, rms);
       }
     }
+    entries += n;
   }
+  c->Close();
+  delete c;
+  c = NULL;
+  res["entries"] = make_pair(entries, entries);
   return res;
 }
 
-map<string, pair<double, double>> GetSlowValues (const int run, vector<char *> vars) {
+map<string, pair<double, double>> GetSlowValues (const int run, vector<char *> vars, TCut cut = "") {
   map<string, pair<double, double>> res;
-  const int s = GetSessions(run);
+  long long entries = 0;
+  const int s = GetJapanSessions(run);
   gROOT->SetBatch(1);
+  TCanvas * c = new TCanvas("c", "c", 800, 600);
   for (int i=0; i<s; i++) {
     double ErrorFlag;
-    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_output_dir, run, i);
+    const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_dir, run, i);
     TFile fin(root_file, "read");
     if (!fin.IsOpen()) {
-      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can open root file: " << root_file;
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't open root file: " << root_file;
       return res;
     }
     TTree * tin = (TTree*) fin.Get("slow");
     if (! tin) {
-      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can receive evt tree from root file: " << root_file;
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't receive evt tree from root file: " << root_file;
       return res;
     }
 
+    long long n = tin->GetEntries(cut);
+    double mean, rms;
     for (char * var : vars) {
       c->cd();
       const char * hname = Form("h_%s", var);
-      tin->Draw(Form("%s>>%s", var, hname));
+      tin->Draw(Form("%s>>%s", var, hname), cut);
       TH1F *h = (TH1F*) gROOT->FindObject(hname);
       if (h) {
-        res[var] = make_pair(h->GetMean(), h->GetRMS());
+        mean = h->GetMean();
+        rms  = h->GetRMS();
         h->Delete();
+        h = NULL;
       } else {
-        res[var] = make_pair(0, 0);
+        mean = 0;
+        rms  = 0;
+      }
+      if (res.find(var) != res.end()) {
+        double m = (entries*res[var].first + n*mean) / (entries + n);
+        double r = ( entries*pow(res[var].second, 2) + pow(res[var].first, 2)
+                   + n*pow(rms, 2) + pow(mean, 2) ) / (entries + n) - pow(m, 2);
+        res[var] = make_pair(m, r);
+      } else {
+        res[var] = make_pair(mean, rms);
       }
     }
+    entries += n;
   }
+  c->Close();
+  delete c;
+  c = NULL;
+  res["entries"] = make_pair(entries, entries);
+  return res;
+}
+
+map<string, pair<double, double>> GetRegValues (const int run, vector<char *> vars, TCut cut = "ok_cut") {
+  map<string, pair<double, double>> res;
+  long long entries = 0;
+  const int s = GetRegSessions(run);
+  gROOT->SetBatch(1);
+  TCanvas * c = new TCanvas("c", "c", 800, 600);
+  for (int i=0; i<s; i++) {
+    double ErrorFlag;
+    const char * root_file = Form("%s/prexPrompt_%d_%03d_regress_postpan.root", reg_dir, run, i);
+    TFile fin(root_file, "read");
+    if (!fin.IsOpen()) {
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't open root file: " << root_file << endl;
+      return res;
+    }
+    TTree * tin = (TTree*) fin.Get("reg");
+    if (! tin) {
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't receive reg tree from root file: " << root_file << endl;
+      return res;
+    }
+
+    long long n = tin->GetEntries(cut);
+    double mean, rms;
+    for (char * var : vars) {
+      c->cd();
+      const char * hname = Form("h_%s", var);
+      tin->Draw(Form("%s>>%s", var, hname), cut);
+      TH1F *h = (TH1F*) gROOT->FindObject(hname);
+      if (h) {
+        mean = h->GetMean();
+        rms  = h->GetRMS();
+        h->Delete();
+        h = NULL;
+      } else {
+        mean = 0;
+        rms  = 0;
+      }
+      if (res.find(var) != res.end()) {
+        double m = (entries*res[var].first + n*mean) / (entries + n);
+        double r = ( entries*pow(res[var].second, 2) + pow(res[var].first, 2)
+                   + n*pow(rms, 2) + pow(mean, 2) ) / (entries + n) - pow(m, 2);
+        res[var] = make_pair(m, r);
+      } else {
+        res[var] = make_pair(mean, rms);
+      }
+    }
+    entries += n;
+  }
+  c->Close();
+  delete c;
+  c = NULL;
+  res["entries"] = make_pair(entries, entries);
   return res;
 }
 #endif
