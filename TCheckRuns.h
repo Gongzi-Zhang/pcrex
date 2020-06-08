@@ -46,19 +46,19 @@ enum Format {pdf, png};
 
 using namespace std;
 
-class TCheckRun {
+class TCheckRuns {
 
-    // ClassDe (TCheckRun, 0) // check statistics
+    // ClassDe (TCheckRuns, 0) // check statistics
 
   private:
     TConfig fConf;
     Format format = pdf;
     const char *out_name = "checkrun";
-    const char *dir	= "/chafs2/work1/apar/japanOutput/";
-    const char *prefix = "prexPrompt_pass2";
-    const char *tree   = "evt";	// evt, mul, pr
+    const char *dir	  = "/chafs2/work1/apar/japanOutput/";
+    string pattern    = "prexPrompt_pass2_xxxx.???.root";
+    const char *tree  = "evt";	// evt, mul, pr
 		set<int>		fRuns;
-    map<int, int> fSessions;
+    map<int, vector<string>> fRootFiles;
     map<int, int> fEntries;  
     int   nRuns;
     int	  nVars;
@@ -100,13 +100,13 @@ class TCheckRun {
 
     TCanvas * c;
   public:
-     TCheckRun(const char*);
-     ~TCheckRun();
+     TCheckRuns(const char*);
+     ~TCheckRuns();
 		 void SetRuns(set<int> runs);
      void SetOutName(const char * name) {if (name) out_name = name;}
      void SetOutFormat(const char * f);
      void SetDir(const char * d);
-     void CheckRun();
+     void CheckRuns();
      void CheckVars();
      bool CheckVar(string exp);
 		 bool CheckCustomVar(Node * node);
@@ -123,9 +123,9 @@ class TCheckRun {
      const char * GetUnit(string var);
 };
 
-// ClassImp(TCheckRun);
+// ClassImp(TCheckRuns);
 
-TCheckRun::TCheckRun(const char* config_file) :
+TCheckRuns::TCheckRuns(const char* config_file) :
   fConf(config_file)
 {
   fConf.ParseConfFile();
@@ -162,11 +162,11 @@ TCheckRun::TCheckRun(const char* config_file) :
   gROOT->SetBatch(1);
 }
 
-TCheckRun::~TCheckRun() {
-  cerr << __PRETTY_FUNCTION__ << ":INFO\t Release TCheckRun\n";
+TCheckRuns::~TCheckRuns() {
+  cerr << __PRETTY_FUNCTION__ << ":INFO\t Release TCheckRuns\n";
 }
 
-void TCheckRun::SetDir(const char * d) {
+void TCheckRuns::SetDir(const char * d) {
   struct stat info;
   if (stat( d, &info) != 0) {
     cerr << __PRETTY_FUNCTION__ << ":FATAL\t can't access specified dir: " << dir << endl;
@@ -178,7 +178,7 @@ void TCheckRun::SetDir(const char * d) {
   dir = d;
 }
 
-void TCheckRun::SetOutFormat(const char * f) {
+void TCheckRuns::SetOutFormat(const char * f) {
   if (strcmp(f, "pdf") == 0) {
     format = pdf;
   } else if (strcmp(f, "png") == 0) {
@@ -189,9 +189,8 @@ void TCheckRun::SetOutFormat(const char * f) {
   }
 }
 
-void TCheckRun::SetRuns(set<int> runs) {
-  for(set<int>::const_iterator it=runs.cbegin(); it != runs.cend(); it++) {
-    int run = *it;
+void TCheckRuns::SetRuns(set<int> runs) {
+  for(int run : runs) {
     if (run < START_RUN || run > END_RUN) {
       cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << endl;
       continue;
@@ -201,19 +200,24 @@ void TCheckRun::SetRuns(set<int> runs) {
   nRuns = fRuns.size();
 }
 
-void TCheckRun::CheckRun() {
+void TCheckRuns::CheckRuns() {
   // check runs against database
   for (set<int>::const_iterator it = fRuns.cbegin(); it != fRuns.cend(); ) {
     int run = *it;
+    string p_buf(pattern);
+    p_buf.replace(p_buf.find("xxxx"), 4, to_string(run));
+    const char * p = Form("%s/%s", dir, p_buf.c_str());
+
     glob_t globbuf;
-    const char * pattern  = Form("%s/%s_%d.???.root", dir, prefix, run);
-    glob(pattern, 0, NULL, &globbuf);
+    glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
       cout << __PRETTY_FUNCTION__ << ":ERROR\t no root file for run: " << run << endl;
       it = fRuns.erase(it);
       continue;
     }
-    fSessions[run] = globbuf.gl_pathc;
+    for (int i=0; i<globbuf.gl_pathc; i++)
+      fRootFiles[run].push_back(globbuf.gl_pathv[i]);
+
     globfree(&globbuf);
     it++;
   }
@@ -230,35 +234,53 @@ void TCheckRun::CheckRun() {
   }
 }
 
-void TCheckRun::CheckVars() {
-	const char * file_name = Form("%s/%s_%d.000.root", dir, prefix, *(fRuns.cbegin()));
-	TFile * f_rootfile = new TFile(file_name, "read");
-	if (f_rootfile->IsOpen()) {
-		TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
-		if (tin != NULL) {
-			TObjArray * l_var = tin->GetListOfBranches();
-			bool error_var_flag = false;
-			for (set<string>::const_iterator it=fVars.cbegin(); it != fVars.cend(); it++) {
-				if (!l_var->FindObject(it->c_str())) {
-					cerr << __PRETTY_FUNCTION__ << ":WARNING\t Variable not found: " << *it << endl;
-					it = fVars.erase(it);
-					error_var_flag = true;
-          if (it == fVars.end())
-            break;
-				}
-			}
-			if (error_var_flag) {
-				TIter next(l_var);
-				TBranch *br;
-				cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid variables:\n";
-				while (br = (TBranch*) next()) {
-					cout << "\t" << br->GetName() << endl;
-				}
-			}
+void TCheckRuns::CheckVars() {
+  srand(time(NULL));
+  int s = rand() % nRuns;
+  set<int>::const_iterator it_r=fRuns.cbegin();
+  for(int i=0; i<s; i++)
+    it_r++;
 
-      tin->Delete();
-			f_rootfile->Close();
+  while (it_r != fRuns.cend()) {
+    int run = *it_r;
+    const char *file_name = fRootFiles[run][0].c_str();
+    TFile * f_rootfile = new TFile(file_name, "read");
+    if (f_rootfile->IsOpen()) {
+      if (!f_rootfile->GetListOfKeys()->Contains(tree)) {
+        cerr << __PRETTY_FUNCTION__ << ":FATAL\t no tree: " << tree << " in root file: " << file_name;
+        exit(22);
+      }
+      TTree * tin = (TTree*) f_rootfile->Get(tree);
+      if (tin != NULL) {
+        TObjArray * l_var = tin->GetListOfBranches();
+        bool error_var_flag = false;
+        cout << __PRETTY_FUNCTION__ << ":INFO\t use file to check vars: " << file_name << endl;
+        for(string var : fVars) {
+          if (!l_var->FindObject(var.c_str())) {
+            cerr << __PRETTY_FUNCTION__ << ":WARNING\t Variable not found: " << var << endl;
+            error_var_flag = true;
+            break;
+          } 
+        }
+        if (error_var_flag) {
+          TIter next(l_var);
+          TBranch *br;
+          cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid variables:\n";
+          while (br = (TBranch*) next()) {
+            cout << "\t" << br->GetName() << endl;
+          }
+          exit(23);
+        }
+        tin->Delete();
+        f_rootfile->Close();
+        break;
+      }
 		}
+    cerr << __PRETTY_FUNCTION__ << ":WARNING\t root file of run: " << run << " is broken, ignore it.\n";
+    it_r = fRuns.erase(it_r);
+
+    if (it_r == fRuns.cend())
+      it_r = fRuns.cbegin();
 	} 
   nVars = fVars.size();
 
@@ -332,38 +354,38 @@ void TCheckRun::CheckVars() {
 	nCustoms = fCustoms.size();
 
 	// initialization
-	for(set<string>::const_iterator it=fVars.cbegin(); it!=fVars.cend(); it++) {
-		vars_buf[*it] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-		fVarSum[*it] = 0;  
-		fVarSum2[*it] = 0;
-		fVarValues[*it] = vector<double>();
+  for(string var : fVars) {
+		vars_buf[var] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+		fVarSum[var] = 0;  
+		fVarSum2[var] = 0;
+		fVarValues[var] = vector<double>();
 	}
-	for(set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); it++) {
-		vars_buf[*it] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-		fVarSum[*it] = 0;
-		fVarSum2[*it] = 0;
-		fVarValues[*it] = vector<double>();
+  for(string custom : fCustoms) {
+		vars_buf[custom] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+		fVarSum[custom] = 0;
+		fVarSum2[custom] = 0;
+		fVarValues[custom] = vector<double>();
 	}
 
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSolos << " valid solo variables specified:\n";
-  for(set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend(); it++) {
-    cout << "\t" << *it << endl;
+  for(string solo : fSolos) {
+    cout << "\t" << solo << endl;
   }
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nComps << " valid comparisons specified:\n";
-  for(set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); it++) {
-    cout << "\t" << it->first << " , " << it->second << endl;
+  for(pair<string, string> comp : fComps) {
+    cout << "\t" << comp.first << " , " << comp.second << endl;
   }
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCors << " valid correlations specified:\n";
-  for(set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); it++) {
-    cout << "\t" << it->first << " : " << it->second << endl;
+  for(pair<string, string> cor : fCors) {
+    cout << "\t" << cor.first << " : " << cor.second << endl;
   }
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCustoms << " valid customs specified:\n";
-  for(set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); it++) {
-    cout << "\t" << *it << endl;
+  for(string custom : fCustoms) {
+    cout << "\t" << custom << endl;
   }
 }
 
-bool TCheckRun::CheckVar(string var) {
+bool TCheckRuns::CheckVar(string var) {
   if (fVars.find(var) == fVars.cend()) {
     cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknown variable: " << var << endl;
     return false;
@@ -371,7 +393,7 @@ bool TCheckRun::CheckVar(string var) {
   return true;
 }
 
-bool TCheckRun::CheckCustomVar(Node * node) {
+bool TCheckRuns::CheckCustomVar(Node * node) {
   if (node) {
 		if (	 node->token.type == variable 
 				&& fCustoms.find(node->token.value) == fCustoms.cend()
@@ -388,10 +410,11 @@ bool TCheckRun::CheckCustomVar(Node * node) {
 	return true;
 }
 
-void TCheckRun::GetValues() {
+void TCheckRuns::GetValues() {
   for (int run : fRuns) {
-    for (int session=0; session<fSessions[run]; session++) {
-      const char * file_name = Form("%s/%s_%d.%03d.root", dir, prefix, run, session);
+    const size_t sessions = fRootFiles[run].size();
+    for (size_t session=0; session<sessions; session++) {
+      const char * file_name = fRootFiles[run][session].c_str();
       TFile * f_rootfile = new TFile(file_name, "read");
       if (!f_rootfile->IsOpen()) {
         cerr << __PRETTY_FUNCTION__ << ":WARNING\t Can't open root file: " << file_name << endl;
@@ -400,7 +423,7 @@ void TCheckRun::GetValues() {
       }
 
       cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d\t", run, session)
-           << Form("%s_%d.%03d.root", prefix, run, session) << endl;
+           << file_name << endl;
       TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
       if (! tin) {
         cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such tree: " << tree << " in root file: " << file_name << endl;
@@ -410,8 +433,8 @@ void TCheckRun::GetValues() {
 
       double ErrorFlag;
       tin->SetBranchAddress("ErrorFlag", &ErrorFlag);
-      for (set<string>::const_iterator it=fVars.cbegin(); it!=fVars.cend(); it++)
-        tin->SetBranchAddress(it->c_str(), &(vars_buf[*it]));
+      for (string var : fVars)
+        tin->SetBranchAddress(var.c_str(), &(vars_buf[var]));
 
       const int nentries = tin->GetEntries();  // number of events
       nTotal += nentries;
@@ -430,15 +453,15 @@ void TCheckRun::GetValues() {
 
         if (ErrorFlag == 0) {
           nOk++;
-          for (set<string>::const_iterator it=fVars.cbegin(); it!=fVars.cend(); it++) {
-            double val = vars_buf[*it].hw_sum;
-            fVarSum[*it]	+= val;
-            fVarSum2[*it] += val * val;
+          for (string var : fVars) {
+            double val = vars_buf[var].hw_sum;
+            fVarSum[var]	+= val;
+            fVarSum2[var] += val * val;
           }
-          for (set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); it++) {
-            double val = get_custom_value(fCustomDefs[*it]);
-            fVarSum[*it]	+= val;
-            fVarSum2[*it]	+= val * val;
+          for (string custom : fCustoms) {
+            double val = get_custom_value(fCustomDefs[custom]);
+            fVarSum[custom]	+= val;
+            fVarSum2[custom]  += val * val;
           }
         }
       }
@@ -449,7 +472,7 @@ void TCheckRun::GetValues() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t read " << nOk << " ok events in total" << endl;
 }
 
-double TCheckRun::get_custom_value(Node *node) {
+double TCheckRuns::get_custom_value(Node *node) {
 	if (!node) {
 		cerr << __PRETTY_FUNCTION__ << ":ERROR\t Null node\n";
 		return -999999;
@@ -493,20 +516,18 @@ double TCheckRun::get_custom_value(Node *node) {
 	return -999999;
 }
 
-void TCheckRun::CheckValues() {
-  for (set<string>::const_iterator it=fSolos.begin(); it!=fSolos.end(); it++) {
-    string var = *it;
-
-    const double low  = fSoloCuts[*it].low;
-    const double high = fSoloCuts[*it].high;
-    const double stat = fSoloCuts[*it].stability;
+void TCheckRuns::CheckValues() {
+  for (string solo : fSolos) {
+    const double low  = fSoloCuts[solo].low;
+    const double high = fSoloCuts[solo].high;
+    const double stat = fSoloCuts[solo].stability;
     double sum  = 0;
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
     const int n = fErrorFlags.size();
 		for (int i=0; i<n; i++) {
       double val;
-			val = fVarValues[var][i];
+			val = fVarValues[solo][i];
 
       if (i == 0) {
         mean = val;
@@ -518,9 +539,9 @@ void TCheckRun::CheckValues() {
             || (high != 1024 && val > high)
             || (stat != 1024 && abs(val-mean) > stat*sigma) ) ) {
         // cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in " << var << endl;
-        if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), *it) == fSoloPlots.cend())
-          fSoloPlots.push_back(var);
-        fSoloBadPoints[var].insert(i);
+        if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
+          fSoloPlots.push_back(solo);
+        fSoloBadPoints[solo].insert(i);
       }
 
       sum  += val;
@@ -530,12 +551,12 @@ void TCheckRun::CheckValues() {
     }
 	}
 
-  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); it++) {
-    string var1 = it->first;
-    string var2 = it->second;
-    const double low  = fCompCuts[*it].low;
-    const double high = fCompCuts[*it].high;
-    const double stat = fCompCuts[*it].stability;
+  for (pair<string, string> comp : fComps) {
+    string var1 = comp.first;
+    string var2 = comp.second;
+    const double low  = fCompCuts[comp].low;
+    const double high = fCompCuts[comp].high;
+    const double stat = fCompCuts[comp].stability;
     const int n = fErrorFlags.size();
 		for (int i=0; i<n; i++) {
       double val1, val2;
@@ -549,19 +570,19 @@ void TCheckRun::CheckValues() {
         // || (stat != 1024 && abs(diff-mean) > stat*sigma
 				) {
         // cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Comp: " << var1 << " vs " << var2 << endl;
-        if (find(fCompPlots.cbegin(), fCompPlots.cend(), *it) == fCompPlots.cend())
-          fCompPlots.push_back(*it);
-        fCompBadPoints[*it].insert(i);
+        if (find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
+          fCompPlots.push_back(comp);
+        fCompBadPoints[comp].insert(i);
       }
     }
 	}
 
-  for (set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); it++) {
-    string yvar = it->first;
-    string xvar = it->second;
-    const double low   = fCorCuts[*it].low;
-    const double high  = fCorCuts[*it].high;
-    const double stat = fCompCuts[*it].stability;
+  for (pair<string, string> cor : fCors) {
+    string yvar = cor.first;
+    string xvar = cor.second;
+    const double low   = fCorCuts[cor].low;
+    const double high  = fCorCuts[cor].high;
+    const double stat = fCompCuts[cor].stability;
     const int n = fErrorFlags.size();
 		for (int i=0; i<n; i++) {
       double xval, yval;
@@ -582,7 +603,7 @@ void TCheckRun::CheckValues() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t done with checking values\n";
 }
 
-void TCheckRun::Draw() {
+void TCheckRuns::Draw() {
   c = new TCanvas("c", "c", 800, 600);
   c->SetGridy();
   gStyle->SetOptFit(111);
@@ -606,7 +627,7 @@ void TCheckRun::Draw() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t done with drawing plots\n";
 }
 
-void TCheckRun::DrawSolos() {
+void TCheckRuns::DrawSolos() {
   for (string var : fSoloPlots) {
     string unit = GetUnit(var);
 
@@ -614,15 +635,18 @@ void TCheckRun::DrawSolos() {
     TGraphErrors * g_err = new TGraphErrors();  // ErrorFlag != 0
     TGraphErrors * g_bad = new TGraphErrors();  // ok data points that don't pass check
 
-    for(int i=0, ibad=0, ierr=0; i<nTotal; i++) {
+    for(int i=0, ibad=0, ierr=0, igood=0; i<nTotal; i++) {
       double val;
 			val = fVarValues[var][i];
 
-      g->SetPoint(i, i+1, val);
+      // g->SetPoint(i, i+1, val);
 
       if (fErrorFlags[i] != 0) {
         g_err->SetPoint(ierr, i+1, val);
         ierr++;
+      } else {
+        g->SetPoint(igood, i+1, val);
+        igood++;
       }
       if (fSoloBadPoints[var].find(i) != fSoloBadPoints[var].cend()) {
         g_bad->SetPoint(ibad, i+1, val);
@@ -637,7 +661,7 @@ void TCheckRun::DrawSolos() {
 
     c->cd();
     g->Draw("AP");
-    g_err->Draw("P same");
+    // g_err->Draw("P same");
     g_bad->Draw("P same");
 
     TAxis * ay = g->GetYaxis();
@@ -646,13 +670,12 @@ void TCheckRun::DrawSolos() {
 
     if (nRuns > 1) {
       for (int run : fRuns) {
-        cout << "DEBUG: " << fEntries[run] << endl;
-        cout << "DEBUG1: " << ymin << "\t" << ymax << endl;
         TLine *l = new TLine(fEntries[run], ymin, fEntries[run], ymax);
         l->SetLineStyle(2);
         l->SetLineColor(kRed);
         l->Draw("same");
-        TText *t = new TText(fEntries[run]-nTotal/(5*nRuns), ymin+(ymax-ymin)/30, Form("%d", run));
+        TText *t = new TText(fEntries[run]-nTotal/(5*nRuns), ymin+(ymax-ymin)/30*(run%5), Form("%d", run));
+        t->SetTextSize((t->GetTextSize())/(nRuns/5+1));
         t->Draw("same");
       }
     }
@@ -669,7 +692,7 @@ void TCheckRun::DrawSolos() {
 }
 
 // it looks like not a good idea to draw diff plots with a few hundred thousands points
-void TCheckRun::DrawComps() {
+void TCheckRuns::DrawComps() {
   int MarkerStyles[] = {29, 33, 34, 31};
   for (pair<string, string> var : fCompPlots) {
     string var1 = var.first;
@@ -784,7 +807,7 @@ void TCheckRun::DrawComps() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Comparisons.\n";
 }
 
-void TCheckRun::DrawCors() {
+void TCheckRuns::DrawCors() {
   for (pair<string, string> var : fCorPlots) {
     string xvar = var.second;
     string yvar = var.first;
@@ -852,7 +875,7 @@ void TCheckRun::DrawCors() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Correlations.\n";
 }
 
-const char * TCheckRun::GetUnit (string var) {
+const char * TCheckRuns::GetUnit (string var) {
   if (var.find("asym") != string::npos) {
 		return "ppm";
   } else if (var.find("diff") != string::npos) {

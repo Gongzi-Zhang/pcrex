@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <set>
 
-#include "TCheckRun.h"
+#include "TCheckRuns.h"
 #include "const.h"
 
 using namespace std;
@@ -12,7 +12,7 @@ set<int> parseRS(const char *);	// parse runs|slugs
 
 int main(int argc, char* argv[]) {
   set<int> runs;
-  const char * config_file("checkrun.conf");
+  const char * config_file("conf/checkruns.conf");
   bool cflag = true;
   const char * out_name = NULL;
   const char * out_format = NULL;
@@ -43,19 +43,19 @@ int main(int argc, char* argv[]) {
 
   if (cflag) 
     cout << __PRETTY_FUNCTION__ << "INFO:\t no config file specified, use default one: " << config_file << endl;
-  TCheckRun fCheckRun(config_file);
+  TCheckRuns fCheckRuns(config_file);
   if (runs.size() > 0)
-    fCheckRun.SetRuns(runs);
+    fCheckRuns.SetRuns(runs);
   if (out_format)
-    fCheckRun.SetOutFormat(out_format);
+    fCheckRuns.SetOutFormat(out_format);
   if (out_name)
-    fCheckRun.SetOutName(out_name);
+    fCheckRuns.SetOutName(out_name);
 
-  fCheckRun.CheckRun();
-  fCheckRun.CheckVars();
-  fCheckRun.GetValues();
-  fCheckRun.CheckValues();
-  fCheckRun.Draw();
+  fCheckRuns.CheckRuns();
+  fCheckRuns.CheckVars();
+  fCheckRuns.GetValues();
+  fCheckRuns.CheckValues();
+  fCheckRuns.Draw();
 
   return 0;
 }

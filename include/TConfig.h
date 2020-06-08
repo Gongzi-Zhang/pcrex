@@ -30,10 +30,10 @@ public:
   virtual ~TConfig();
   const char*	GetConfFile()	  {return fConfFile;}
   const char*	GetDir()	      {return dir;}
+  const char* GetPattern()    {return pattern;}
   const char*	GetTreeName()	  {return tree;}
+  const char* GetTreeCut()    {return tcut;}
   const char*	GetFileType()	  {return ft;}
-  const char*	GetJapanPass()	{return japan_pass;}
-  const char*	GetDitBPM()	    {return dit_bpm;}
   bool		    GetLogy()	      {return logy;}
   set<int>	  GetRuns()	      {return fRuns;}			// for ChectStat
   set<int>	  GetBoldRuns()	  {return fBoldRuns;}	// for ChectStat
@@ -78,10 +78,10 @@ private:
   const char *fConfFile;
   const char *fRunFile; // run list file
   const char *dir     = NULL;
+  const char *pattern = NULL;
   const char *tree    = NULL;
+  const char *tcut    = NULL; // tree cut
   const char *ft      = NULL;
-  const char *japan_pass  = NULL;
-  const char *dit_bpm = NULL;
   bool logy = false;
   set<int> fRuns;	      // all runs that are going to be checked
   // set<int> fSlugs;   // FIXME slugs? -- not now
@@ -232,10 +232,10 @@ void TConfig::ParseConfFile() {
     cout << "\t" << "root file type: " << ft << endl;
   if (dir)
     cout << "\t" << "root file dir: " << dir << endl;
+  if (pattern)
+    cout << "\t" << "file name pattern: " << pattern << endl;
   if (tree)
     cout << "\t" << "read tree: " << tree << endl;
-  if (japan_pass)
-    cout << "\t" << "japan pass: " << japan_pass << endl;
 }
 
 void TConfig::ParseRunFile() {
@@ -712,15 +712,15 @@ bool TConfig::ParseOtherCommands(char *line) {
   } else if (strcmp(command, "@dithering") == 0) {
     if (strcmp(value, "true") == 0) 
       ft = "dithering";
-  } else if (strcmp(command, "@dir") == 0)
+  } else if (strcmp(command, "@dir") == 0) {
     dir = value;
-  else if (strcmp(command, "@tree") == 0)
+  } else if (strcmp(command, "@pattern") == 0) {
+    pattern = value;
+  } else if (strcmp(command, "@tree") == 0) {
     tree = value;
-  else if (strcmp(command, "@japan_pass") == 0)
-    japan_pass = value;
-  else if (strcmp(command, "@dit_bpm") == 0)
-    dit_bpm = value;
-  else if (strcmp(command, "@logy") == 0) {
+  } else if (strcmp(command, "@cut") == 0) {
+    tcut = value;
+  } else if (strcmp(command, "@logy") == 0) {
     if (strcmp(value, "true") == 0) 
       logy = true;
   } else {
