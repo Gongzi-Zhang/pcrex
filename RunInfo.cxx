@@ -411,21 +411,42 @@ ENDREG:
 
   if (do_it["charge"]) {
     map<string, pair<double, double>> val;
-    char bcm[] = "bcm_an_ds";
-    vector<char *> vars; // FIXME: which bcm should I use?
-    vars.push_back(bcm);
+    char bcm1[] = "bcm_an_ds";
+    char bcm2[] = "cav4cQ";
+    char bcm3[] = "bcm_an_us";
+    double acc1 = 0, acc2 = 0;
+    double flip = 120;  // CREX flip rate
     for (set<int>::iterator it=runs.cbegin(); it != runs.cend(); it++) {
       int run = *it;
+      char * bcm;
+      if (run < 3583)
+        bcm = bcm1;
+      else if (run < 5000)
+        bcm = bcm2;
+      else 
+        bcm = bcm3;
+
+      if (run < 4981)
+        flip = 240;
+
+      vector<char *> vars(1, bcm);
       printf("%-4d | ", run);
 
       double charge;
       val = GetEvtValues(run, vars, "");  // total charge
-      charge = val["entries"].first*val[bcm].first/120*1e-6; // total charge
+      charge = val["entries"].first*val[bcm].first/flip*1e-6; // total charge
       printf("%-8.3g | ", charge);
+      if (charge > 0) // total charge may be negative
+        acc1 += charge; // accumulated total charge
 
       val = GetEvtValues(run, vars);
-      charge = val["entries"].first*val[bcm].first/120*1e-6; // valid charge
-      printf("%-8.3g | \n", charge);
+      charge = val["entries"].first*val[bcm].first/flip*1e-6; // valid charge
+      printf("%-8.3g | ", charge);
+      acc2 += charge; // accumulated valid charge
+
+      printf("%-8.3g | %-8.3g |\n", acc1, acc2);
+
+      vars.clear();
     }
   }
   return 0;

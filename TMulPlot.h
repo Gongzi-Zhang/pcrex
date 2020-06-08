@@ -20,6 +20,7 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TBranch.h"
+#include "TEntryList.h"
 #include "TCollection.h"
 #include "TGraphErrors.h"
 #include "TH1F.h"
@@ -49,20 +50,16 @@ class TMulPlot {
     // ClassDe (TMulPlot, 0) // mul plots
 
   private:
-    Format      format = pdf; // default pdf output
+    Format format     = pdf; // default pdf output
     const char *out_name = "mulplot";
-    // root file: $dir/${prefix}xxxx${midfix}000${suffix}.root
-    const char *dir    = "/adaqfs/home/apar/PREX/prompt/results/";
-    const char *prefix = "prexPrompt_";
-    const char *suffix = "_regress_postpan";
-          char  midfix = '_';
-    const char *tree   = "reg";
+    // root file: $dir/$pattern
     const char *filetype = "postpan";
-    FileType    ft = postpan;
-    const char *postpan_type = "prexPrompt"; // exclude quick postpan result
-    const char *japan_pass = "pass1";
-    const char *dit_bpm    = NULL;
-          bool  logy = false;
+    FileType ft       = postpan;
+    const char *dir   = "/adaqfs/home/apar/PREX/prompt/results/";
+    string pattern    = "prexPrompt_xxxx_???_regress_postpan.root";
+    const char *tree  = "reg";
+    const char *cut   = "ok_cut";
+    bool logy         = false;
 
     TConfig fConf;
     int     nSlugs;
@@ -84,7 +81,7 @@ class TMulPlot {
     map<pair<string, string>, VarCut>   fSlopeCuts;
     map<pair<string, string>, VarCut>   fCorCuts;
 
-    map<int, int> fSessions;
+    map<int, vector<string>> fRootFiles;
     map<int, int> fSigns;
     map<pair<string, string>, pair<int, int>>	  fSlopeIndexes;
     map<string, double>  vars_postpan_buf;    // read postpan output
@@ -109,14 +106,13 @@ class TMulPlot {
      void SetOutFormat(const char * f);
      void SetDir(const char * d);
      void SetFileType(const char * ftype);
-     void SetJapanPass(const char * pass);
      void SetLogy(bool log) {logy = log;}
      void SetSlugs(set<int> slugs);
      void SetRuns(set<int> runs);
      void CheckRuns();
      void CheckVars();
      void GetValues();
-     // void CheckValues();
+     void CheckValues();
      void DrawHistogram();
 };
 
@@ -139,11 +135,11 @@ TMulPlot::TMulPlot(const char* config_file, const char* run_list) :
   fSlopeCuts  = fConf.GetSlopeCuts();
   fCorCuts    = fConf.GetCorCuts();
 
+  if (fConf.GetFileType())  SetFileType(fConf.GetFileType()); // must precede the following statements
   if (fConf.GetDir())       SetDir(fConf.GetDir());
-  if (fConf.GetFileType())  SetFileType(fConf.GetFileType());
+  if (fConf.GetPattern())   pattern = fConf.GetPattern();
   if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
-  if (fConf.GetJapanPass()) SetJapanPass(fConf.GetJapanPass());
-  if (fConf.GetDitBPM())    dit_bpm = fConf.GetDitBPM();
+  if (fConf.GetTreeCut())   cut     = fConf.GetTreeCut();
   logy = fConf.GetLogy();
 
   gROOT->SetBatch(1);
@@ -157,10 +153,12 @@ void TMulPlot::Draw() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t draw mul plots of" << endl
        << "\troot file type: " << filetype << endl 
        << "\tin directory: " << dir << endl
+       << "\tfrom files: " << pattern << endl
        << "\tuse tree: " << tree << endl;
 
   CheckRuns();
   CheckVars();
+  // CheckValues();
   GetValues();
   DrawHistogram();
 }
@@ -176,15 +174,24 @@ void TMulPlot::SetFileType(const char * ftype) {
   if (strcmp(type, "postpan") == 0) {
     filetype = "postpan";
     ft = postpan;
+    dir = "/chafs2/work1/apar/postpan-outputs/";
+    pattern = "prexPrompt_xxxx_???_regress_postpan.root";
     tree = "reg"; // default tree
+    cut  = "ok_cut";  // default cut
   } else if (strcmp(type, "japan") == 0) {
     filetype = "japan";
     ft = japan;
+    dir = "/chafs2/work1/apar/japanOutput/";
+    pattern = "prexPrompt_pass2_xxxx.???.root";
     tree = "mul";
+    cut  = "ErrorFlag == 0";  // default cut
   } else if (strcmp(type, "dithering") == 0) {
     filetype = "dithering";
     ft = dithering;
+    dir = "/chafs2/work1/apar/DitherCorrection/";
+    pattern = "prexPrompt_dither_1X_xxxx_???.root";
     tree = "dit";
+    cut  = "ErrorFlag == 0";  // default cut
   } else {
     cerr << __PRETTY_FUNCTION__ << ":FATAL\t unknown root file type: " << type << ".\t Allowed type: " << endl
          << "\t postpan" << endl
@@ -196,7 +203,7 @@ void TMulPlot::SetFileType(const char * ftype) {
 
 void TMulPlot::SetDir(const char * d) {
   struct stat info;
-  if (stat( d, &info) != 0) {
+  if (stat(d, &info) != 0) {
     cerr << __PRETTY_FUNCTION__ << ":FATAL\t can't access specified dir: " << dir << endl;
     exit(30);
   } else if ( !(info.st_mode & S_IFDIR)) {
@@ -216,25 +223,9 @@ void TMulPlot::SetOutFormat(const char * f) {
     exit(40);
   }
 }
-void TMulPlot::SetJapanPass(const char * pass) {
-  if (pass == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t no pass specified, use default value: " << japan_pass << endl;
-    return;
-  }
-
-  if (strcmp(pass, "pass1") == 0)
-    japan_pass = pass;
-  else if (strcmp(pass, "pass2") == 0)
-    japan_pass = pass;
-  else {
-    cerr << ":FATAL\t unknow japan pass: " << pass << endl;
-    exit(24);
-  }
-}
 
 void TMulPlot::SetSlugs(set<int> slugs) {
-  for(set<int>::const_iterator it=slugs.cbegin(); it != slugs.cend(); it++) {
-    int slug = *it;
+  for(int slug : slugs) {
     if (slug < START_SLUG || slug > END_SLUG) {
       cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << endl;
       continue;
@@ -245,8 +236,7 @@ void TMulPlot::SetSlugs(set<int> slugs) {
 }
 
 void TMulPlot::SetRuns(set<int> runs) {
-  for(set<int>::const_iterator it=runs.cbegin(); it != runs.cend(); it++) {
-    int run = *it;
+  for(int run : runs) {
     if (run < START_RUN || run > END_RUN) {
       cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << endl;
       continue;
@@ -261,10 +251,10 @@ void TMulPlot::CheckRuns() {
 
   if (nSlugs > 0) {
     set<int> runs;
-    for(set<int>::const_iterator it=fSlugs.cbegin(); it != fSlugs.cend(); it++) {
-      runs = GetRunsFromSlug(*it);
-      for (set<int>::const_iterator it_r=runs.cbegin(); it_r != runs.cend(); it_r++) {
-        fRuns.insert(*it_r);
+    for(int slug : fSlugs) {
+      runs = GetRunsFromSlug(slug);
+      for (int run : runs) {
+        fRuns.insert(run);
       }
     }
   }
@@ -274,38 +264,22 @@ void TMulPlot::CheckRuns() {
   GetValidRuns(fRuns);
   nRuns = fRuns.size();
 
-  bool flag = false;
   for (set<int>::const_iterator it = fRuns.cbegin(); it != fRuns.cend(); ) {
     int run = *it;
-    const char * pattern  = Form("%s/*%s*%d[_.]???*.root", dir, postpan_type, run);
-    if (ft == japan)
-      pattern = Form("%s/*%s*%d[_.]???*.root", dir, japan_pass, run);
-    else if (ft == dithering) {
-      if (dit_bpm)
-        pattern = Form("%s/*%s*%d[_.]???*.root", dir, dit_bpm, run);
-      else
-        pattern = Form("%s/*dither_%d[_.]???*.root", dir, run); // FIXME
-    }
+    string p_buf(pattern);
+    p_buf.replace(p_buf.find("xxxx"), 4, to_string(run));
+    const char * p = Form("%s/%s", dir, p_buf.c_str());
 
     glob_t globbuf;
-    glob(pattern, 0, NULL, &globbuf);
+    glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
       cout << __PRETTY_FUNCTION__ << ":WARNING\t no root file for run " << run << ". Ignore it.\n";
       it = fRuns.erase(it);
       continue;
     }
-    fSessions[run] = globbuf.gl_pathc;
-    if (!flag) {
-      char * path = globbuf.gl_pathv[0];
-      const char * bname = basename(path);
-      pair<int, int> index1 = Index(bname, Form("%d", run));
-      prefix = Sub(bname, 0, index1.first-0);
-      const int l = Size(Form("%d", run));
-      midfix = bname[index1.first+l];
-      pair<int, int> index2 = Index(bname, ".root");
-      suffix = Sub(bname, index1.first+l+4, index2.first-(index1.first+l+4));
-      flag = true;
-    }
+    for (int i=0; i<globbuf.gl_pathc; i++)
+      fRootFiles[run].push_back(globbuf.gl_pathv[i]);
+
     globfree(&globbuf);
     it++;
   }
@@ -318,8 +292,8 @@ void TMulPlot::CheckRuns() {
   }
 
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nRuns << " valid runs specified:\n";
-  for(set<int>::const_iterator it=fRuns.cbegin(); it!=fRuns.cend(); it++) {
-    cout << "\t" << *it << endl;
+  for(int run : fRuns) {
+    cout << "\t" << run << endl;
   }
 
   fSigns = GetSign(fRuns); // sign corrected
@@ -335,7 +309,7 @@ void TMulPlot::CheckVars() {
 
   while (it_r != fRuns.cend()) {
     int run = *it_r;
-    const char * file_name = Form("%s/%s%d%c000%s.root", dir, prefix, run, midfix, suffix);
+    const char *file_name = fRootFiles[run][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
     if (f_rootfile->IsOpen()) {
       if (!f_rootfile->GetListOfKeys()->Contains(tree)) {
@@ -347,13 +321,12 @@ void TMulPlot::CheckVars() {
         TObjArray * l_var = tin->GetListOfBranches();
         bool error_var_flag = false;
         cout << __PRETTY_FUNCTION__ << ":INFO\t use file to check vars: " << file_name << endl;
-        for (set<string>::const_iterator it_v=fVars.cbegin(); it_v != fVars.cend(); ) {
-          if (!l_var->FindObject(it_v->c_str())) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t Variable not found: " << *it_v << endl;
-            it_v = fVars.erase(it_v);
+        for (string var : fVars) {
+          if (!l_var->FindObject(var.c_str())) {
+            cerr << __PRETTY_FUNCTION__ << ":FATAL\t Variable not found: " << var << endl;
             error_var_flag = true;
-          } else
-            it_v++;
+            break;
+          } 
         }
         if (error_var_flag) {
           TIter next(l_var);
@@ -362,6 +335,7 @@ void TMulPlot::CheckVars() {
           while (br = (TBranch*) next()) {
             cout << "\t" << br->GetName() << endl;
           }
+          exit(23);
         }
 
         /*  FIXME: no slope now
@@ -408,6 +382,7 @@ void TMulPlot::CheckVars() {
           }
         }
         */
+        tin->Delete();
         f_rootfile->Close();
         break;
       }
@@ -474,52 +449,51 @@ void TMulPlot::CheckVars() {
   nCors  = fCors.size();
 
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSolos << " valid solo variables specified:\n";
-  for(set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend(); it++) {
-    cout << "\t" << *it << endl;
+  for(string solo : fSolos) {
+    cout << "\t" << solo << endl;
   }
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nComps << " valid comparisons specified:\n";
-  for(set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); it++) {
-    cout << "\t" << it->first << " , " << it->second << endl;
+  for(pair<string, string> comp : fComps) {
+    cout << "\t" << comp.first << " , " << comp.second << endl;
   }
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSlopes << " valid slopes specified:\n";
-  for(set<pair<string, string>>::const_iterator it=fSlopes.cbegin(); it!=fSlopes.cend(); it++) {
-    cout << "\t" << it->first << " : " << it->second << endl;
+  for(pair<string, string> slope : fSlopes) {
+    cout << "\t" << slope.first << " : " << slope.second << endl;
   }
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCors << " valid correlations specified:\n";
-  for(set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); it++) {
-    cout << "\t" << it->first << " : " << it->second << endl;
+  for(pair<string, string> cor : fCors) {
+    cout << "\t" << cor.first << " : " << cor.second << endl;
   }
 }
 
 void TMulPlot::GetValues() {
   // initialize histogram
-  for (set<string>::const_iterator it=fSolos.cbegin(); it != fSolos.cend(); it++) {
-    string var = *it;
+  for (string solo : fSolos) {
     double min = -100;
     double max = 100;
     const char * unit = "";
-    if (var.find("asym") != string::npos) {
+    if (solo.find("asym") != string::npos) {
       unit = "ppm";
       min  = -3000;
       max  = 3000;
     }
-    else if (var.find("diff") != string::npos) {
+    else if (solo.find("diff") != string::npos) {
       unit = "um";
       min  = -50;
       max  = 50;
     } 
 
-    if (fSoloCuts[*it].low != 1024)
-      min = fSoloCuts[*it].low;
-    if (fSoloCuts[*it].high != 1024)
-      max = fSoloCuts[*it].high;
+    if (fSoloCuts[solo].low != 1024)
+      min = fSoloCuts[solo].low;
+    if (fSoloCuts[solo].high != 1024)
+      max = fSoloCuts[solo].high;
     
-    fSoloHists[var] = new TH1F(var.c_str(), Form("%s;%s", var.c_str(), unit), 100, min, max);
+    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), unit), 100, min, max);
   }
 
-  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it != fComps.cend(); it++) {
-    string var1 = it->first;
-    string var2 = it->second;
+  for (pair<string, string> comp : fComps) {
+    string var1 = comp.first;
+    string var2 = comp.second;
     double min = -100;
     double max = 100;
     const char * unit = "";
@@ -534,27 +508,27 @@ void TMulPlot::GetValues() {
       max  = 50;
     } 
 
-    if (fCompCuts[*it].low != 1024)
-      min = fCompCuts[*it].low;
-    if (fCompCuts[*it].high != 1024)
-      max = fCompCuts[*it].high;
+    if (fCompCuts[comp].low != 1024)
+      min = fCompCuts[comp].low;
+    if (fCompCuts[comp].high != 1024)
+      max = fCompCuts[comp].high;
 
     size_t h = hash<string>{}(var1+var2);
-    fCompHists[*it].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), unit), 100, min, max);
-    fCompHists[*it].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), unit), 100, min, max);
+    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), unit), 100, min, max);
+    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), unit), 100, min, max);
   }
 
-  for (set<string>::const_iterator it=fVars.cbegin(); it!=fVars.cend(); it++) {
-    vars_postpan_buf[*it] = 1024;
-    vars_japan_buf[*it] = {1024, 1024, 1024, 1024, 1024, 1024, 1024};
-    vars_dithering_buf[*it] = {1024, 1024, 1024};
+  for (string var : fVars) {
+    vars_postpan_buf[var] = 1024;
+    vars_japan_buf[var] = {1024, 1024, 1024, 1024, 1024, 1024, 1024};
+    vars_dithering_buf[var] = {1024, 1024, 1024};
   }
 
   int total = 0;
-  for (set<int>::const_iterator it_r=fRuns.cbegin(); it_r!=fRuns.cend(); it_r++) {
-    int run = *it_r;
-    for (int session=0; session<fSessions[run]; session++) {
-      const char * file_name = Form("%s/%s%d%c%03d%s.root", dir, prefix, run, midfix, session, suffix);
+  for (int run : fRuns) {
+    size_t sessions = fRootFiles[run].size();
+    for (size_t session=0; session < sessions; session++) {
+      const char *file_name = fRootFiles[run][session].c_str();
       TFile f_rootfile(file_name, "read");
       if (!f_rootfile.IsOpen()) {
         cerr << __PRETTY_FUNCTION__ << ":WARNING\t Can't open root file: " << file_name << endl;
@@ -562,24 +536,20 @@ void TMulPlot::GetValues() {
       }
 
       cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d: ", run, session)
-           << Form("%s%d%c%03d%s.root", prefix, run, midfix, session, suffix) << endl;
+           << file_name << endl;
       TTree * tin = (TTree*) f_rootfile.Get(tree);
       if (! tin) {
         cerr << __PRETTY_FUNCTION__ << ":WARNING\t No " << tree << " tree in root file: " << file_name << endl;
         continue;
       }
 
-      double ErrorFlag = 1024, ok_cut = 0;
-      for (set<string>::const_iterator it_v=fVars.cbegin(); it_v!=fVars.cend(); it_v++) {
+      for (string var : fVars) {
         if (ft == postpan) {
-          tin->SetBranchAddress(it_v->c_str(), &(vars_postpan_buf[*it_v]));
-          tin->SetBranchAddress("ok_cut", &ok_cut);
+          tin->SetBranchAddress(var.c_str(), &(vars_postpan_buf[var]));
         } else if (ft == japan) {
-          tin->SetBranchAddress(it_v->c_str(), &(vars_japan_buf[*it_v]));
-          tin->SetBranchAddress("ErrorFlag", &ErrorFlag);
+          tin->SetBranchAddress(var.c_str(), &(vars_japan_buf[var]));
         } else if (ft == dithering) {
-          tin->SetBranchAddress(it_v->c_str(), &(vars_dithering_buf[*it_v]));
-          tin->SetBranchAddress("ErrorFlag", &ErrorFlag);
+          tin->SetBranchAddress(var.c_str(), &(vars_dithering_buf[var]));
         }
       }
 
@@ -588,69 +558,61 @@ void TMulPlot::GetValues() {
       //   tin->SetBranchAddress("err_coeff", slopes_err_buf);
       // }
 
-      const int nentries = tin->GetEntries();
-      bool ok = false;
+      const int nentries = tin->Draw(">>elist", cut, "entrylist");
+      TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
+      // tin->SetEntryList(elist);
       for(int n=0; n<nentries; n++) {
-        tin->GetEntry(n);
+        tin->GetEntry(elist->GetEntry(n));
         if (n%10000 == 0)
           cout << __PRETTY_FUNCTION__ << ":INFO\t processing " << n << " event\n";
 
-        if (ft == postpan)
-          ok  = ok_cut ? true : false;
-        else if (ft == japan)
-          ok  = !ErrorFlag ? true : false;
-        else if (ft == dithering)
-          ok  = !ErrorFlag ? true : false;
-
-        if (!ok)  continue;
-
-        for (set<string>::const_iterator it_v=fSolos.cbegin(); it_v!=fSolos.cend(); it_v++) {
+        for (string solo : fSolos) {
           double val;
           if (ft == postpan)
-            val = vars_postpan_buf[*it_v];
+            val = vars_postpan_buf[solo];
           else if (ft == japan)
-            val = vars_japan_buf[*it_v].hw_sum;
+            val = vars_japan_buf[solo].hw_sum;
           else if (ft == dithering)
-            val = vars_dithering_buf[*it_v].hw_sum;
+            val = vars_dithering_buf[solo].hw_sum;
 
           double unit = 1;
-          if (it_v->find("asym") != string::npos)
+          if (solo.find("asym") != string::npos)
             unit = ppm;
-          else if (it_v->find("diff") != string::npos)
+          else if (solo.find("diff") != string::npos)
             unit = um/mm; // japan output has a unit of mm
 
           val *= fSigns[run];
           val /= unit;
-          fSoloHists[*it_v]->Fill(val);
+          fSoloHists[solo]->Fill(val);
         }
-        for (set<pair<string, string>>::const_iterator it_v=fComps.cbegin(); it_v!=fComps.cend(); it_v++) {
+        for (pair<string, string> vars : fComps) {
           double val1, val2;
           if (ft == postpan) {
-            val1 = vars_postpan_buf[it_v->first];
-            val2 = vars_postpan_buf[it_v->second];
+            val1 = vars_postpan_buf[vars.first];
+            val2 = vars_postpan_buf[vars.second];
           } else if (ft == japan) {
-            val1 = vars_japan_buf[it_v->first].hw_sum;
-            val2 = vars_japan_buf[it_v->second].hw_sum;
+            val1 = vars_japan_buf[vars.first].hw_sum;
+            val2 = vars_japan_buf[vars.second].hw_sum;
           } else if (ft == dithering) {
-            val1 = vars_dithering_buf[it_v->first].hw_sum;
-            val2 = vars_dithering_buf[it_v->second].hw_sum;
+            val1 = vars_dithering_buf[vars.first].hw_sum;
+            val2 = vars_dithering_buf[vars.second].hw_sum;
           }
 
           double unit = 1;
-          if ((it_v->first).find("asym") != string::npos)
+          if ((vars.first).find("asym") != string::npos)
             unit = ppm;
-          else if ((it_v->first).find("diff") != string::npos)
+          else if ((vars.first).find("diff") != string::npos)
             unit = mm;
 
           val1 *= fSigns[run];
           val2 *= fSigns[run];
           val1 /= unit;
           val2 /= unit;
-          fCompHists[*it_v].first->Fill(val1);
-          fCompHists[*it_v].second->Fill(val2);
+          fCompHists[vars].first->Fill(val1);
+          fCompHists[vars].second->Fill(val2);
         }
 
-        // for (set<pair<string, string>>::const_iterator it=fSlopes.cbegin(); it!=fSlopes.cend(); it++) {
+        // for (pair<string, string> vars : fSlopes) {
         // }
       }
       total += nentries;
@@ -676,10 +638,10 @@ void TMulPlot::DrawHistogram() {
     c.Print(Form("%s.pdf[", out_name));
 
 
-  for (set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend(); it++) {
+  for (string var : fSolos) {
     c.cd();
-    fSoloHists[*it]->Fit("gaus");
-    TH1F * hc = (TH1F*) fSoloHists[*it]->DrawClone();
+    fSoloHists[var]->Fit("gaus");
+    TH1F * hc = (TH1F*) fSoloHists[var]->DrawClone();
 
     gPad->Update();
     TPaveStats * st = (TPaveStats*) gPad->GetPrimitive("stats");
@@ -688,23 +650,23 @@ void TMulPlot::DrawHistogram() {
     l_line->Remove(st->GetLineWith("Constant"));
     hc->SetStats(0);
     gPad->Modified();
-    fSoloHists[*it]->SetStats(0);
-    fSoloHists[*it]->Draw("same");
+    fSoloHists[var]->SetStats(0);
+    fSoloHists[var]->Draw("same");
 
     if (format == pdf) 
       c.Print(Form("%s.pdf", out_name));
     else if (format == png)
-      c.Print(Form("%s_%s.png", out_name, it->c_str()));
+      c.Print(Form("%s_%s.png", out_name, var.c_str()));
 
     c.Clear();
   }
-  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); it++) {
+  for (pair<string, string> comp : fComps) {
     c.cd();
-    TH1F * h1 = fCompHists[*it].first;
-    TH1F * h2 = fCompHists[*it].second;
+    TH1F * h1 = fCompHists[comp].first;
+    TH1F * h2 = fCompHists[comp].second;
     Color_t color1 = h1->GetLineColor();
     Color_t color2 = 28;
-    h1->SetTitle(Form("#color[%d]{%s} & #color[%d]{%s}", color1, it->first.c_str(), color2, it->second.c_str()));
+    h1->SetTitle(Form("#color[%d]{%s} & #color[%d]{%s}", color1, comp.first.c_str(), color2, comp.second.c_str()));
     h1->Fit("gaus");
     h2->Fit("gaus");
     TH1F * hc1 = (TH1F*) h1->DrawClone();
@@ -743,7 +705,7 @@ void TMulPlot::DrawHistogram() {
     if (format == pdf) 
       c.Print(Form("%s.pdf", out_name));
     else if (format == png)
-      c.Print(Form("%s_%s-%s.png", out_name, it->first.c_str(), it->second.c_str()));
+      c.Print(Form("%s_%s-%s.png", out_name, comp.first.c_str(), comp.second.c_str()));
     c.Clear();
   }
 

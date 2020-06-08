@@ -37,8 +37,12 @@
 
 
 # todo
+* var: branch_name.leaf_name
 * single arm slug
 * how to cut on slow tree? e.g.  IGL1I00OD16_16 (row 83) in /chafs2/work1/apar/japanOutput/prexPrompt_pass2_6400.000.root is wrong
+* how to add customized branch to a tree?
+* TCheckStat: how to deal with slope in reg result and dit result?
+* TCheckRuns: with or without error points
 
 # problem
 * munmap_chunk(): invalid pointer

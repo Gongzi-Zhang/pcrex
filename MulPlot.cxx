@@ -11,7 +11,7 @@ void usage();
 set<int> parseRS(const char *);	// parse runs|slugs
 
 int main(int argc, char* argv[]) {
-  const char * config_file("mul_plot.conf");
+  const char * config_file("conf/mul_plot.conf");
   const char * run_list = NULL;
   const char * out_name = NULL;
   const char * out_format = NULL;
@@ -88,13 +88,13 @@ void usage() {
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
        << "\t -t: specify root file type: japan or postpan (default: postpan)" << endl
-       << "\t -l: logy" << endl
+       << "\t -l: set log scale" << endl
        << "\t -n: prefix of name of output" << endl
        << "\t -f: output file format (pdf or png: default pdf)" << endl
        << endl
        << "  Example:" << endl
        << "\t ./mulplot -c myconf.conf -R slug123.lsit -t japan -n slug123" << endl
-       << "\t ./mulplot -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -n test -f png" << endl;
+       << "\t ./mulplot -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -l -n test -f png" << endl;
 }
 
 set<int> parseRS(const char * input) {

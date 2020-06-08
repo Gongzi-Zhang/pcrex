@@ -11,7 +11,7 @@ void usage();
 set<int> parseRS(const char *);	// parse runs|slugs
 
 int main(int argc, char* argv[]) {
-  const char * config_file("check.conf");
+  const char * config_file("conf/check.conf");
   const char * run_list = NULL;
   const char * out_name = NULL;
   const char * out_format = NULL;
