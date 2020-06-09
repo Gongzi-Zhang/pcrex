@@ -18,6 +18,9 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TBranch.h"
+#include "TLeaf.h"
+#include "TEntryList.h"
+#include "TCut.h"
 #include "TCollection.h"
 #include "TGraphErrors.h"
 #include "TH1F.h"
@@ -33,15 +36,6 @@
 #include "line.h"
 #include "TConfig.h"
 
-typedef struct {
-  double hw_sum;
-  double block0, block1, block2, block3;
-  double num_samples;
-  double Device_Error_Code;
-  double hw_sum_raw;
-  double block0_raw, block1_raw, block2_raw, block3_raw;
-  double sequence_number;
-} DATASET;
 enum Format {pdf, png};
 
 using namespace std;
@@ -51,22 +45,24 @@ class TCheckRuns {
     // ClassDe (TCheckRuns, 0) // check statistics
 
   private:
-    TConfig fConf;
     Format format = pdf;
-    const char *out_name = "checkrun";
+    const char *out_name = "checkruns";
     const char *dir	  = "/chafs2/work1/apar/japanOutput/";
     string pattern    = "prexPrompt_pass2_xxxx.???.root";
     const char *tree  = "evt";	// evt, mul, pr
-		set<int>		fRuns;
-    map<int, vector<string>> fRootFiles;
-    map<int, int> fEntries;  
+    TCut cut          = "ErrorFlag == 0";
+    vector<pair<long, long>> ecuts;
+
+    TConfig fConf;
     int   nRuns;
     int	  nVars;
     int	  nSolos;
 		int		nCustoms;
     int	  nComps;
     int	  nCors;
-    set<string>	  fVars;	// native variables, no custom variable
+
+		set<int>		fRuns;
+    set<string>	fVars;	// native variables, no custom variable
 
     set<string>					fSolos;
     vector<string>	    fSoloPlots;
@@ -85,16 +81,20 @@ class TCheckRuns {
     vector< pair<string, string> >			fCorPlots;
     map< pair<string, string>, CorCut>  fCorCuts;
 
-    int nTotal = 0;
-		int	nOk = 0;	// total number of ok events
     map<string, set<int>>									fSoloBadPoints;
     map<string, set<int>>									fCustomBadPoints;
     map<pair<string, string>, set<int>>	  fCompBadPoints;
     map<pair<string, string>, set<int>>	  fCorBadPoints;
 
-    map<string, DATASET>				vars_buf;		// for native variables
+    int nTotal = 0;
+		int	nOk = 0;	// total number of ok events
+    vector<long> fEntryNumber;
+    map<int, vector<string>>  fRootFiles;
+    map<int, int> fEntries;     // number of entries for each run
+    map<string, pair<string, string>> fVarNames;
+    map<string, TLeaf *>        fVarLeaves;
+    map<string, double>         vars_buf;
     map<string, vector<double>> fVarValues;	// for all variables
-    vector<double>              fErrorFlags;
     map<string, double>					fVarSum;		// all
     map<string, double>					fVarSum2;		// sum of square; all
 
@@ -111,11 +111,12 @@ class TCheckRuns {
      bool CheckVar(string exp);
 		 bool CheckCustomVar(Node * node);
      void GetValues();
+     bool CheckEntryCut(const long entry);
 		 double get_custom_value(Node * node);
      void CheckValues();
      void Draw();
      void DrawSolos();
-     void DrawCustoms();
+     // void DrawCustoms();
      void DrawComps();
      void DrawCors();
 
@@ -157,7 +158,10 @@ TCheckRuns::TCheckRuns(const char* config_file) :
   nCors       = fCors.size();
 
   if (fConf.GetDir())       SetDir(fConf.GetDir());
-  if (fConf.GetTreeName())  tree = fConf.GetTreeName();
+  if (fConf.GetPattern())   pattern = fConf.GetPattern();
+  if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
+  if (fConf.GetTreeCut())   cut     = fConf.GetTreeCut();
+  ecuts = fConf.GetEntryCuts();
 
   gROOT->SetBatch(1);
 }
@@ -252,24 +256,45 @@ void TCheckRuns::CheckVars() {
       }
       TTree * tin = (TTree*) f_rootfile->Get(tree);
       if (tin != NULL) {
-        TObjArray * l_var = tin->GetListOfBranches();
-        bool error_var_flag = false;
         cout << __PRETTY_FUNCTION__ << ":INFO\t use file to check vars: " << file_name << endl;
-        for(string var : fVars) {
-          if (!l_var->FindObject(var.c_str())) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t Variable not found: " << var << endl;
-            error_var_flag = true;
-            break;
-          } 
-        }
-        if (error_var_flag) {
-          TIter next(l_var);
-          TBranch *br;
-          cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid variables:\n";
-          while (br = (TBranch*) next()) {
-            cout << "\t" << br->GetName() << endl;
+
+        TObjArray * l_var = tin->GetListOfBranches();
+        for (string var : fVars) {
+          size_t dot_pos = var.find_first_of('.');
+          string branch = (dot_pos == string::npos) ? var : var.substr(0, dot_pos);
+          string leaf = (dot_pos == string::npos) ? "" : var.substr(dot_pos+1);
+
+          TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
+          if (!bbuf) {
+            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such branch: " << branch << " in var: " << var << endl;
+            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid branches:\n";
+            TIter next(l_var);
+            TBranch *br;
+            while (br = (TBranch*) next()) {
+              cout << "\t" << br->GetName() << endl;
+            }
+            // FIXME: clear up before exit
+            exit(24);
           }
-          exit(23);
+
+          TObjArray * l_leaf = bbuf->GetListOfLeaves();
+          if (leaf.size() == 0) {
+            leaf = l_leaf->At(0)->GetName();  // use the first leaf
+          }
+          TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
+          if (!lbuf) {
+            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such leaf: " << leaf << " in var: " << var << endl;
+            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid leaves:" << endl;
+            TIter next(l_leaf);
+            TLeaf *l;
+            while (l = (TLeaf*) next()) {
+              cout << "\t" << l->GetName() << endl;
+            }
+            // FIXME: clear up before exit
+            exit(24);
+          }
+
+          fVarNames[var] = make_pair(branch, leaf);
         }
         tin->Delete();
         f_rootfile->Close();
@@ -355,13 +380,11 @@ void TCheckRuns::CheckVars() {
 
 	// initialization
   for(string var : fVars) {
-		vars_buf[var] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 		fVarSum[var] = 0;  
 		fVarSum2[var] = 0;
 		fVarValues[var] = vector<double>();
 	}
   for(string custom : fCustoms) {
-		vars_buf[custom] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 		fVarSum[custom] = 0;
 		fVarSum2[custom] = 0;
 		fVarValues[custom] = vector<double>();
@@ -431,45 +454,73 @@ void TCheckRuns::GetValues() {
         continue;
       }
 
-      double ErrorFlag;
-      tin->SetBranchAddress("ErrorFlag", &ErrorFlag);
-      for (string var : fVars)
-        tin->SetBranchAddress(var.c_str(), &(vars_buf[var]));
+      bool error = false;
+      for (string var : fVars) {
+        string branch = fVarNames[var].first;
+        string leaf   = fVarNames[var].second;
+        TBranch * br = tin->GetBranch(branch.c_str());
+        if (!br) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no branch: " << branch << " in tree: " << tree
+            << " of file: " << file_name << endl;
+          error = true;
+          break;
+        }
+        TLeaf * l = br->GetLeaf(leaf.c_str());
+        if (!l) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no leaf: " << leaf << " in branch: " << branch 
+            << " in tree: " << tree << " of file: " << file_name << endl;
+          error = true;
+          break;
+        }
+        fVarLeaves[var] = l;
+      }
 
-      const int nentries = tin->GetEntries();  // number of events
-      nTotal += nentries;
-      fEntries[run] = nTotal;
+      if (error)
+        continue;
 
-      for(int n=0; n<nentries; n++) { // loop through the events
+      const int N = tin->Draw(">>elist", cut, "entrylist");
+      TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
+      for(int n=0; n<N; n++) { // loop through the events
         if (n % 20000 == 0)
           cout << __PRETTY_FUNCTION__ << ":INFO\t processing " << n << " evnets!" << endl;
 
-        tin->GetEntry(n);
-        fErrorFlags.push_back(ErrorFlag);
-        for (string var : fVars)
-          fVarValues[var].push_back(vars_buf[var].hw_sum);
-        for (string var : fCustoms)
-          fVarValues[var].push_back(get_custom_value(fCustomDefs[var]));
+        const int en = elist->GetEntry(n);
+        if (CheckEntryCut(nTotal+en))
+          continue;
 
-        if (ErrorFlag == 0) {
-          nOk++;
-          for (string var : fVars) {
-            double val = vars_buf[var].hw_sum;
-            fVarSum[var]	+= val;
-            fVarSum2[var] += val * val;
-          }
-          for (string custom : fCustoms) {
-            double val = get_custom_value(fCustomDefs[custom]);
-            fVarSum[custom]	+= val;
-            fVarSum2[custom]  += val * val;
-          }
+        nOk++;
+        fEntryNumber.push_back(nTotal+en);
+        for (string var : fVars) {
+          double val;
+          fVarLeaves[var]->GetBranch()->GetEntry(en);
+          val = fVarLeaves[var]->GetValue();
+          vars_buf[var] = val;
+          fVarValues[var].push_back(val);
+          fVarSum[var]	+= val;
+          fVarSum2[var] += val * val;
+        }
+        for (string custom : fCustoms) {
+          double val = get_custom_value(fCustomDefs[custom]);
+          vars_buf[custom] = val;
+          fVarValues[custom].push_back(val);
+          fVarSum[custom]	+= val;
+          fVarSum2[custom]  += val * val;
         }
       }
+      nTotal += tin->GetEntries();
+      fEntries[run] = nTotal;
+
+      // delete elist;
+      // elist = NULL;
+      // for (string var : fVars) {
+      //   delete fVarLeaves[var];
+      //   fVarLeaves[var] = NULL;
+      // }
       tin->Delete();
       f_rootfile->Close();
     }
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t read " << nOk << " ok events in total" << endl;
+  cout << __PRETTY_FUNCTION__ << ":INFO\t read " << nOk << "/" << nTotal << " ok events." << endl;
 }
 
 double TCheckRuns::get_custom_value(Node *node) {
@@ -508,12 +559,28 @@ double TCheckRuns::get_custom_value(Node *node) {
 		case variable:
 			if (	 fVars.find(val) != fVars.cend()
 					|| fCustoms.find(val) != fCustoms.cend())
-				return vars_buf[val].hw_sum;
+				return vars_buf[val];
 		default:
 			cerr << __PRETTY_FUNCTION__ << ":ERROR\t unkonw token type: " << TypeName[node->token.type] << endl;
 			return -999999;
 	}
 	return -999999;
+}
+
+bool TCheckRuns::CheckEntryCut(const long entry) {
+  if (ecuts.size() == 0) return false;
+
+  for (pair<long, long> cut : ecuts) {
+    long start = cut.first;
+    long end = cut.second;
+    if (entry >= start) {
+      if (end == -1)
+        return true;
+      else if (entry < end)
+        return true;
+    }
+  }
+  return false;
 }
 
 void TCheckRuns::CheckValues() {
@@ -524,7 +591,7 @@ void TCheckRuns::CheckValues() {
     double sum  = 0;
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
-    const int n = fErrorFlags.size();
+    const int n = fEntryNumber.size();
 		for (int i=0; i<n; i++) {
       double val;
 			val = fVarValues[solo][i];
@@ -534,10 +601,9 @@ void TCheckRuns::CheckValues() {
         sigma = 0;
       }
 
-      if (  fErrorFlags[i] == 0 
-         && (  (low  != 1024 && val < low)
+      if (  (low  != 1024 && val < low)
             || (high != 1024 && val > high)
-            || (stat != 1024 && abs(val-mean) > stat*sigma) ) ) {
+            || (stat != 1024 && abs(val-mean) > stat*sigma) ) {
         // cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in " << var << endl;
         if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
           fSoloPlots.push_back(solo);
@@ -557,16 +623,15 @@ void TCheckRuns::CheckValues() {
     const double low  = fCompCuts[comp].low;
     const double high = fCompCuts[comp].high;
     const double stat = fCompCuts[comp].stability;
-    const int n = fErrorFlags.size();
+    const int n = fEntryNumber.size();
 		for (int i=0; i<n; i++) {
       double val1, val2;
 			val1 = fVarValues[var1][i];
 			val2 = fVarValues[var2][i];
 			double diff = abs(val1 - val2);
 
-      if (  fErrorFlags[i] == 0 
-         && (  (low  != 1024 && diff < low)
-            || (high != 1024 && diff > high) )
+      if (  (low  != 1024 && diff < low)
+            || (high != 1024 && diff > high) 
         // || (stat != 1024 && abs(diff-mean) > stat*sigma
 				) {
         // cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Comp: " << var1 << " vs " << var2 << endl;
@@ -583,7 +648,7 @@ void TCheckRuns::CheckValues() {
     const double low   = fCorCuts[cor].low;
     const double high  = fCorCuts[cor].high;
     const double stat = fCompCuts[cor].stability;
-    const int n = fErrorFlags.size();
+    const int n = fEntryNumber.size();
 		for (int i=0; i<n; i++) {
       double xval, yval;
 			xval = fVarValues[xvar][i];
@@ -632,30 +697,27 @@ void TCheckRuns::DrawSolos() {
     string unit = GetUnit(var);
 
     TGraphErrors * g = new TGraphErrors();      // all data points
-    TGraphErrors * g_err = new TGraphErrors();  // ErrorFlag != 0
+    // TGraphErrors * g_err = new TGraphErrors();  // ErrorFlag != 0
     TGraphErrors * g_bad = new TGraphErrors();  // ok data points that don't pass check
 
-    for(int i=0, ibad=0, ierr=0, igood=0; i<nTotal; i++) {
+    for(int i=0, ibad=0; i<nOk; i++) {
       double val;
 			val = fVarValues[var][i];
 
       // g->SetPoint(i, i+1, val);
 
-      if (fErrorFlags[i] != 0) {
-        g_err->SetPoint(ierr, i+1, val);
-        ierr++;
-      } else {
-        g->SetPoint(igood, i+1, val);
-        igood++;
-      }
+      // g_err->SetPoint(ierr, i+1, val);
+      // ierr++;
+
+      g->SetPoint(i, fEntryNumber[i], val);
       if (fSoloBadPoints[var].find(i) != fSoloBadPoints[var].cend()) {
-        g_bad->SetPoint(ibad, i+1, val);
+        g_bad->SetPoint(ibad, fEntryNumber[i], val);
         ibad++;
       }
     }
 		g->SetTitle((var + ";;" + unit).c_str());
-    g_err->SetMarkerStyle(1.2);
-    g_err->SetMarkerColor(kBlue);
+    // g_err->SetMarkerStyle(1.2);
+    // g_err->SetMarkerColor(kBlue);
     g_bad->SetMarkerStyle(1.2);
     g_bad->SetMarkerColor(kRed);
 
@@ -674,8 +736,9 @@ void TCheckRuns::DrawSolos() {
         l->SetLineStyle(2);
         l->SetLineColor(kRed);
         l->Draw("same");
-        TText *t = new TText(fEntries[run]-nTotal/(5*nRuns), ymin+(ymax-ymin)/30*(run%5), Form("%d", run));
-        t->SetTextSize((t->GetTextSize())/(nRuns/5+1));
+        TText *t = new TText(fEntries[run]-nTotal/(2*nRuns), ymin+(ymax-ymin)/30*(run%5 + 1), Form("%d", run));
+        t->SetTextSize((t->GetTextSize())/(nRuns/7+1));
+        t->SetTextColor(kRed);
         t->Draw("same");
       }
     }
@@ -709,7 +772,7 @@ void TCheckRuns::DrawComps() {
     TH1F * h_diff = new TH1F("diff", "", nOk, 0, nOk);
 
     double ymin, ymax;
-    for(int i=0, ibad=0, ierr; i<nOk; i++) {
+    for(int i=0, ibad=0; i<nOk; i++) {
       double val1;
       double val2;
 			val1 = fVarValues[var1][i];
@@ -722,18 +785,16 @@ void TCheckRuns::DrawComps() {
       if (val2 < ymin) ymin = val2;
       if (val2 > ymax) ymax = val2;
 
-      g1->SetPoint(i, i+1, val1);
-      g2->SetPoint(i, i+1, val2);
+      g1->SetPoint(i, fEntryNumber[i], val1);
+      g2->SetPoint(i, fEntryNumber[i], val2);
       h_diff->SetBinContent(i+1, val1-val2);
       
-      if (fErrorFlags[i] != 0) {
-        g_err1->SetPoint(ierr, i+1, val1);
-        g_err2->SetPoint(ierr, i+1, val2);
-        ierr++;
-      }
+      //  g_err1->SetPoint(ierr, i+1, val1);
+      //  g_err2->SetPoint(ierr, i+1, val2);
+      //  ierr++;
       if (fCompBadPoints[var].find(i) != fCompBadPoints[var].cend()) {
-        g_bad1->SetPoint(ibad, i+1, val1);
-        g_bad2->SetPoint(ibad, i+1, val2);
+        g_bad1->SetPoint(ibad, fEntryNumber[i], val1);
+        g_bad2->SetPoint(ibad, fEntryNumber[i], val2);
         ibad++;
       }
     }
@@ -816,9 +877,9 @@ void TCheckRuns::DrawCors() {
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
-    TGraphErrors * g_good = new TGraphErrors();
+    // TGraphErrors * g_good = new TGraphErrors();
 
-    for(int i=0, ibad=0, igood=0; i<nOk; i++) {
+    for(int i=0, ibad=0; i<nOk; i++) {
       double xval;
       double yval;
 			xval = fVarValues[xvar][i];
@@ -826,10 +887,7 @@ void TCheckRuns::DrawCors() {
 
       g->SetPoint(i, xval, yval);
       
-      if (fErrorFlags[i] == 0) {
-        g_good->SetPoint(igood, xval, yval);
-        igood++;
-      }
+      // g_good->SetPoint(i, xval, yval);
       if (fCorBadPoints[var].find(i) != fCorBadPoints[var].cend()) {
         g_bad->SetPoint(ibad, xval, yval);
         ibad++;
@@ -838,11 +896,11 @@ void TCheckRuns::DrawCors() {
 		g->SetTitle((yvar + " vs " + xvar + ";" + xunit + ";" + yunit).c_str());
     g->SetMarkerStyle(1.2);
     g->SetMarkerColor(kBlue);
-    g_good->SetMarkerColor(kBlack);
+    // g_good->SetMarkerColor(kBlack);
     g_bad->SetMarkerStyle(1.2);
     g_bad->SetMarkerColor(kRed);
 
-    g_good->Fit("pol1");
+    // g_good->Fit("pol1");
 
     // TPaveStats * st;
     c->cd();
@@ -856,7 +914,7 @@ void TCheckRuns::DrawCors() {
     // st->SetY2NDC(0.9);
     // st->SetY1NDC(0.75);
 
-    g_good->Draw("P same");
+    // g_good->Draw("P same");
     g_bad->Draw("P same");
     
     // TAxis * ay = g->GetYaxis();

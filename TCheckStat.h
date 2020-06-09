@@ -21,6 +21,7 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TBranch.h"
+#include "TLeaf.h"
 #include "TCut.h"
 #include "TCollection.h"
 #include "TGraphErrors.h"
@@ -38,10 +39,6 @@
 #include "TConfig.h"
 
 
-typedef struct {double mean, err, rms;} DATASET;
-
-enum StatsType { mean, rms };
-enum FileType { postpan, dithering }; 
 enum Format {pdf, png};
 
 map<int, const char *> legends = {
@@ -63,8 +60,6 @@ class TCheckStat {
     TConfig fConf;
     Format format         = pdf;
     const char *out_name  = "check";
-    const char *filetype  = "postpan";
-    FileType ft           = postpan;
     const char *dir	      = "/chafs2/work1/apar/postpan-outputs/";
     string pattern        = "prexPrompt_xxxx_???_regress_postpan.root"; 
     const char *tree      = "mini";
@@ -102,9 +97,10 @@ class TCheckStat {
     map<int, int> fSigns;
     map<string, string> fUnits;
     map<pair<string, string>, pair<int, int>>	  fSlopeIndexes;
-    map<string, StatsType> fStatsTypes;
-    map<string, string> fVarNames;
-    map<string, DATASET> vars_buf;
+    // map<string, StatsType> fStatsTypes;
+    // map<string, string> fVarNames;
+    map<string, pair<string, string>> fVarNames;
+    map<string, TLeaf *> fVarLeaves;
     // double slopes_buf[ROWS][COLS];
     // double slopes_err_buf[ROWS][COLS];
     int      rows, cols;
@@ -116,7 +112,7 @@ class TCheckStat {
     map<pair<string, string>, set<pair<int, int>>>	  fCompBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fSlopeBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fCorBadMiniruns;
-    map<string, vector<DATASET>> fVarValues;
+    map<string, vector<double>> fVarValues;
     map<pair<string, string>, vector<double>> fSlopeValues;
     map<pair<string, string>, vector<double>> fSlopeErrs;
 
@@ -126,7 +122,7 @@ class TCheckStat {
      ~TCheckStat();
      void SetOutName(const char * name) {if (name) out_name = name;}
      void SetOutFormat(const char * f);
-     void SetFileType(const char * f);
+     // void SetFileType(const char * f);
      void SetDir(const char * d);
      void SetLatestRun(int run);
      void SetRuns(set<int> runs);
@@ -173,7 +169,7 @@ TCheckStat::TCheckStat(const char* config_file) :
   fSlopeCuts  = fConf.GetSlopeCuts();
   fCorCuts    = fConf.GetCorCuts();
 
-  if (fConf.GetFileType())  SetFileType(fConf.GetFileType()); // must precede the following statements
+  // if (fConf.GetFileType())  SetFileType(fConf.GetFileType()); // must precede the following statements
   if (fConf.GetDir())       SetDir(fConf.GetDir());
   if (fConf.GetPattern())   pattern = fConf.GetPattern();
   if (fConf.GetTreeName())  tree  = fConf.GetTreeName();
@@ -185,6 +181,7 @@ TCheckStat::~TCheckStat() {
   cerr << __PRETTY_FUNCTION__ << ":INFO\t Release TCheckStat\n";
 }
 
+/*
 void TCheckStat::SetFileType(const char * ftype) {
   if (ftype == NULL) {
     cerr << __PRETTY_FUNCTION__ << ":FATAL\t no filetype specified" << endl;
@@ -212,6 +209,7 @@ void TCheckStat::SetFileType(const char * ftype) {
     exit(10);
   }
 }
+*/
 
 void TCheckStat::SetDir(const char * d) {
   struct stat info;
@@ -381,23 +379,56 @@ void TCheckStat::CheckVars() {
         sflag = (l_iv != NULL && l_dv != NULL);
 
       if (tin != NULL && sflag) {
+        cout << __PRETTY_FUNCTION__ << ":INFO\t use file to check vars: " << file_name << endl;
+
         TObjArray * l_var = tin->GetListOfBranches();
-        bool error_var_flag = false;
         for (string var : fVars) {
-          if (!l_var->FindObject(var.c_str())) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t Variable not found: " << var << endl;
-            error_var_flag = true;
-            break;
+          size_t dot_pos = var.find_first_of('.');
+          string branch = (dot_pos == string::npos) ? var : var.substr(0, dot_pos);
+          string leaf = (dot_pos == string::npos) ? "" : var.substr(dot_pos+1);
+
+          TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
+          if (!bbuf) {
+            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such branch: " << branch << " in var: " << var << endl;
+            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid branches:\n";
+            TIter next(l_var);
+            TBranch *br;
+            while (br = (TBranch*) next()) {
+              cout << "\t" << br->GetName() << endl;
+            }
+            // FIXME: clear up before exit
+            exit(24);
           }
-        }
-        if (error_var_flag) {
-          TIter next(l_var);
-          TBranch *br;
-          cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid variables:\n";
-          while (br = (TBranch*) next()) {
-            cout << "\t" << br->GetName() << endl;
+
+          TObjArray * l_leaf = bbuf->GetListOfLeaves();
+          if (leaf.size() == 0) {
+            leaf = l_leaf->At(0)->GetName();  // use the first leaf
           }
-          exit(24);
+          TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
+          if (!lbuf) {
+            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such leaf: " << leaf << " in var: " << var << endl;
+            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid leaves:" << endl;
+            TIter next(l_leaf);
+            TLeaf *l;
+            while (l = (TLeaf*) next()) {
+              cout << "\t" << l->GetName() << endl;
+            }
+            // FIXME: clear up before exit
+            exit(24);
+          }
+
+          fVarNames[var] = make_pair(branch, leaf);
+
+          if (leaf == "mean") {
+            string err_var = branch + ".err";
+            lbuf = (TLeaf *) l_leaf->FindObject("err");
+            if (lbuf) {
+              fVars.insert(err_var);
+              fVarNames[err_var] = make_pair(branch, "err");
+            } else {
+              cerr << __PRETTY_FUNCTION__ << ":WARNING\t No err leaf for mean var: " << var << endl;
+            }
+          }
         }
 
         if (nSlopes>0) {
@@ -473,10 +504,6 @@ void TCheckStat::CheckVars() {
     exit(11);
   }
 
-  for (string var : fVars) {
-    vars_buf[var] = {1024, 1024, 1024};
-  }
-
   for (set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend();) {
     if (!CheckVar(*it)) {
 			vector<string>::iterator it_p = find(fSoloPlots.begin(), fSoloPlots.end(), *it);
@@ -495,12 +522,12 @@ void TCheckStat::CheckVars() {
 
   for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
 		if (CheckVar(it->first) && CheckVar(it->second)
-				&& fStatsTypes[it->first] == fStatsTypes[it->second]) {
+				&& fVarNames[it->first].second == fVarNames[it->second].second) {
 			it++;
 			continue;
 		} 
 			
-    if (fStatsTypes[it->first] != fStatsTypes[it->second])
+    if (fVarNames[it->first].second != fVarNames[it->second].second)
       cerr << __PRETTY_FUNCTION__ << ":WARNING\t different statistical types for comparison in: " << it->first << " , " << it->second << endl;
     else 
 			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid Comp variable: " << it->first << "\t" << it->second << endl;
@@ -536,6 +563,10 @@ void TCheckStat::CheckVars() {
   nComps = fComps.size();
   nCors  = fCors.size();
 
+  // cout << __PRETTY_FUNCTION__ << ":DEBUG\t " << " internal variables:\n";
+  // for (string var : fVars) {
+  //   cout << "\t" << var << endl;
+  // }
   cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSolos << " valid solo variables specified:\n";
   for(string solo : fSolos) {
     cout << "\t" << solo << endl;
@@ -554,33 +585,11 @@ void TCheckStat::CheckVars() {
   }
 }
 
-bool TCheckStat::CheckVar(string exp) {
-  string var;
-  StatsType stype = mean; // default to be mean
-  if (exp.find('.') == string::npos) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t no statistical type (mean or rms) in: " << exp << endl;
-    return false;
-  }
-
-  int idx = exp.find('.');
-  var = exp.substr(0, idx);
-  const char * stats = exp.substr(idx+1).c_str();
-  if (strcmp(stats, "mean") == 0)
-    stype = mean;
-  else if (strcmp(stats, "rms") == 0)
-    stype = rms;
-  else {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t unknown statistical type in: " << exp << endl;
-    return false;
-  }
-
+bool TCheckStat::CheckVar(string var) {
   if (fVars.find(var) == fVars.cend()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknown variable in: " << exp << endl;
+    cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknown variable in: " << var << endl;
     return false;
   }
-
-  fVarNames[exp] = var;
-  fStatsTypes[exp] = stype;
 
   return true;
 }
@@ -596,7 +605,7 @@ void TCheckStat::GetValues() {
         continue;
       }
 
-      cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d\n", run, session)
+      cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d\t", run, session)
            << file_name << endl;
       TTree * tin = (TTree*) f_rootfile.Get(tree); // receive minitree
       if (! tin) {
@@ -604,11 +613,45 @@ void TCheckStat::GetValues() {
         continue;
       }
 
-      int minirun;
-      tin->SetBranchAddress("minirun", &minirun);
+      bool error = false;
+      // minirun
+      vector<const char *> mini_names = {"minirun", "mini", "miniruns"};
+      TBranch * b_minirun = NULL;
+      for (const char * mini_name : mini_names) {
+        if (!b_minirun)
+          b_minirun = tin->GetBranch(mini_name);
+        if (b_minirun) 
+          break;
+      }
+      if (!b_minirun) {
+        cerr << __PRETTY_FUNCTION__ << ":ERROR\t no minirun branch in tree: " << tree 
+          << " of file: " << file_name << endl;
+        continue;
+      }
+      TLeaf *l_minirun = (TLeaf *)b_minirun->GetListOfLeaves()->At(0);
 
-      for (string var : fVars)
-        tin->SetBranchAddress(var.c_str(), &(vars_buf[var]));
+      for (string var : fVars) {
+        string branch = fVarNames[var].first;
+        string leaf   = fVarNames[var].second;
+        TBranch * br = tin->GetBranch(branch.c_str());
+        if (!br) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no branch: " << branch << " in tree: " << tree
+            << " of file: " << file_name << endl;
+          error = true;
+          break;
+        }
+        TLeaf * l = br->GetLeaf(leaf.c_str());
+        if (!l) {
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no leaf: " << leaf << " in branch: " << branch 
+            << " in tree: " << tree << " of file: " << file_name << endl;
+          error = true;
+          break;
+        }
+        fVarLeaves[var] = l;
+      }
+
+      if (error)
+        continue;
 
       if (nSlopes > 0) {
         tin->SetBranchAddress("coeff", slopes_buf);
@@ -619,26 +662,36 @@ void TCheckStat::GetValues() {
       for(int n=0; n<nentries; n++) { // loop through the miniruns
         tin->GetEntry(n);
 
-        fMiniruns.push_back(make_pair(run, minirun));
+        l_minirun->GetBranch()->GetEntry(n);
+        fMiniruns.push_back(make_pair(run, l_minirun->GetValue()));
         for (string var : fVars) {
           double unit = 1;
+          double value;
+          string leaf = fVarNames[var].second;
           if (var.find("asym") != string::npos) {
-            unit = ppm;
+            if (leaf == "mean" || leaf == "err")
+              unit = ppb;
+            else if (leaf == "rms")
+              unit = ppm;
           }
           else if (var.find("diff")) {
-            unit = um/mm;
+            if (leaf == "mean" || leaf == "err")
+              unit = um/mm;
+            else if (leaf == "rms")
+              unit = mm/mm;
           }
 
-          vars_buf[var].mean /= (unit*1e-3);
-          vars_buf[var].err  /= (unit*1e-3);
-          vars_buf[var].rms  /= unit;
+          fVarLeaves[var]->GetBranch()->GetEntry(n);
+          value = fVarLeaves[var]->GetValue() / unit;
           if (sign) {
-            if (fSigns[run] == 0)
-              vars_buf[var].mean = 0;
-            else 
-              vars_buf[var].mean *= (fSigns[run] > 0 ? 1 : -1);
+            if (fVarNames[var].second == "mean") {
+              if (fSigns[run] == 0)
+                value = 0;
+              else 
+                value *= (fSigns[run] > 0 ? 1 : -1);
+            }
           }
-          fVarValues[var].push_back(vars_buf[var]);
+          fVarValues[var].push_back(value);
         }
         for (pair<string, string> slope : fSlopes) {
           double unit = ppm/(um/mm);
@@ -665,11 +718,7 @@ void TCheckStat::CheckValues() {
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
     for (int i=0; i<nMiniruns; i++) {
-      double val;
-      if (fStatsTypes[solo] == mean)
-        val = fVarValues[fVarNames[solo]][i].mean;
-      else if (fStatsTypes[solo] == rms)
-        val = fVarValues[fVarNames[solo]][i].rms;
+      double val = fVarValues[solo][i];
 
       if (i == 0) {
         mean = val;
@@ -699,16 +748,10 @@ void TCheckStat::CheckValues() {
     const double low_cut  = fCompCuts[comp].low;
     const double high_cut = fCompCuts[comp].high;
     for (int i=0; i<nMiniruns; i++) {
-      double val1, val2;
-      if (fStatsTypes[var1] == mean) {
-        val1 = fVarValues[fVarNames[var1]][i].mean;
-        val2 = fVarValues[fVarNames[var2]][i].mean;
-      } else if (fStatsTypes[var1] == rms) {
-        val1 = fVarValues[fVarNames[var1]][i].rms;
-        val2 = fVarValues[fVarNames[var2]][i].rms;
-      }
-
+      double val1 = fVarValues[var1][i];
+      double val2 = fVarValues[var1][i];
 			double diff = abs(val1 - val2);
+
       if ( (low_cut  != 1024 && diff < low_cut)
         || (high_cut != 1024 && diff > high_cut)) {
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Comp: " << var1 << " vs " << var2 
@@ -757,16 +800,8 @@ void TCheckStat::CheckValues() {
     const double high_cut  = fCorCuts[cor].high;
     // const double 
     for (int i=0; i<nMiniruns; i++) {
-      double xval, yval;
-      if (fStatsTypes[xvar] == mean)
-        xval = fVarValues[fVarNames[xvar]][i].mean;
-      else if (fStatsTypes[xvar] == rms)
-        xval = fVarValues[fVarNames[xvar]][i].rms;
-
-      if (fStatsTypes[yvar] == mean)
-        yval = fVarValues[fVarNames[yvar]][i].mean;
-      else if (fStatsTypes[yvar] == rms)
-        yval = fVarValues[fVarNames[yvar]][i].rms;
+      double xval = fVarValues[xvar][i];
+      double yval = fVarValues[yvar][i];
 
 			/*
       if () {
@@ -807,10 +842,11 @@ void TCheckStat::Draw() {
 
 void TCheckStat::DrawSolos() {
   for (string solo : fSoloPlots) {
-    cout << "DEBUG: draw solo: " << solo << endl;
-    string var_name = fVarNames[solo];
-    StatsType vt = fStatsTypes[solo];
     string unit = GetUnit(solo);
+    string err_var;
+    bool mean = (fVarNames[solo].second == "mean");
+    if (mean)
+      err_var = fVarNames[solo].first + ".err";
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bold = new TGraphErrors();
@@ -821,13 +857,10 @@ void TCheckStat::DrawSolos() {
     }
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
-      double val, err;
-      if (vt == mean) {
-        val = fVarValues[var_name][i].mean;
-        err = fVarValues[var_name][i].err;
-      } else if (vt == rms) {
-        val = fVarValues[var_name][i].rms;
-        err = 0;
+      double val, err=0;
+      val = fVarValues[solo][i];
+      if (mean) {
+        err = fVarValues[err_var][i];
       }
       g->SetPoint(i, i+1, val);
       g->SetPointError(i, 0, err);
@@ -873,13 +906,13 @@ void TCheckStat::DrawSolos() {
     double mean_value = fit->GetParameter(0);
 
     TGraph * pull = NULL; 
-    if (vt == mean) {
+    if (mean) {
       pull = new TGraph();
 
       for (int i=0; i<nMiniruns; i++) {
         double ratio = 0;
-        if (fVarValues[var_name][i].err != 0)
-          ratio = (fVarValues[var_name][i].mean-mean_value)/fVarValues[var_name][i].err;
+        if (fVarValues[err_var][i]!= 0)
+          ratio = (fVarValues[solo][i]-mean_value)/fVarValues[err_var][i];
 
         pull->SetPoint(i, i+1, ratio);
       }
@@ -892,7 +925,7 @@ void TCheckStat::DrawSolos() {
     TPad * p1;
     TPad * p2;
     c->cd();
-    if (vt == mean) {
+    if (mean) {
       p1 = new TPad("p1", "p1", 0.0, 0.35, 1.0, 1.0);
       p1->SetBottomMargin(0);
       p1->SetRightMargin(0.05);
@@ -905,7 +938,7 @@ void TCheckStat::DrawSolos() {
       p2->SetRightMargin(0.05);
       p2->Draw();
       p2->SetGrid();
-    } else if (vt == rms) {
+    } else {
       p1 = new TPad("p1", "p1", 0.0, 0.0, 1.0, 1.0);
       p1->SetBottomMargin(0.16);
       p1->SetRightMargin(0.05);
@@ -945,7 +978,7 @@ void TCheckStat::DrawSolos() {
     TAxis * ax = g->GetXaxis();
     TAxis * ay = g->GetYaxis();
 
-    if (vt == mean) {
+    if (mean) {
       g->GetXaxis()->SetLabelSize(0);
       g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
 
@@ -1135,12 +1168,15 @@ void TCheckStat::DrawComps() {
   for (pair<string, string> comp : fCompPlots) {
     string var1 = comp.first;
     string var2 = comp.second;
-    string var_name1 = fVarNames[var1];
-    string var_name2 = fVarNames[var2];
-    string name1 = var_name1.substr(var_name1.find_last_of('_')+1);
-    string name2 = var_name2.substr(var_name2.find_last_of('_')+1);
+    string branch1 = fVarNames[var1].first;
+    string branch2 = fVarNames[var2].first;
+    string name1 = branch1.substr(branch1.find_last_of('_')+1);
+    string name2 = branch2.substr(branch2.find_last_of('_')+1);
 
-    StatsType vt = fStatsTypes[var1];
+    const char * err_var1 = Form("%s.err", branch1.c_str());
+    const char * err_var2 = Form("%s.err", branch2.c_str());
+    bool mean = (fVarNames[var1].second == "mean");
+
     string unit = GetUnit(var1);
 
     TGraphErrors * g1 = new TGraphErrors();
@@ -1165,18 +1201,13 @@ void TCheckStat::DrawComps() {
 
     double min, max;
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
-      double val1, err1;
-      double val2, err2;
-      if (vt == mean) {
-        val1 = fVarValues[var_name1][i].mean;
-        err1 = fVarValues[var_name1][i].err;
-        val2 = fVarValues[var_name2][i].mean;
-        err2 = fVarValues[var_name2][i].err;
-      } else if (vt == rms) {
-        val1 = fVarValues[var_name1][i].rms;
-        err1 = 0;
-        val2 = fVarValues[var_name2][i].rms;
-        err2 = 0;
+      double val1, err1=0;
+      double val2, err2=0;
+      val1 = fVarValues[var1][i];
+      val2 = fVarValues[var2][i];
+      if (mean) {
+        err1 = fVarValues[err_var1][i];
+        err2 = fVarValues[err_var2][i];
       }
       if (i==0) 
         min = max = val1;
@@ -1358,12 +1389,15 @@ void TCheckStat::DrawCors() {
   for (pair<string, string> cor : fCorPlots) {
     string xvar = cor.second;
     string yvar = cor.first;
-    string xvar_name = fVarNames[xvar];
-    string yvar_name = fVarNames[yvar];
-    StatsType xvt = fStatsTypes[xvar];
-    StatsType yvt = fStatsTypes[yvar];
+    string xbranch = fVarNames[xvar].first;
+    string ybranch = fVarNames[yvar].first;
     string xunit = GetUnit(xvar);
     string yunit = GetUnit(yvar);
+
+    bool xmean = (fVarNames[xvar].second == "mean");
+    bool ymean = (fVarNames[yvar].second == "mean");
+    const char * xerr_var = Form("%s.err", xbranch.c_str());
+    const char * yerr_var = Form("%s.err", ybranch.c_str());
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bold = new TGraphErrors();
@@ -1374,21 +1408,15 @@ void TCheckStat::DrawCors() {
     }
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
-      double xval, xerr;
-      double yval, yerr;
-      if (xvt == mean) {
-        xval = fVarValues[xvar_name][i].mean;
-        xerr = fVarValues[xvar_name][i].err;
-      } else if (xvt == rms) {
-        xval = fVarValues[xvar_name][i].rms;
-        xerr = 0;
+      double xval, xerr=0;
+      double yval, yerr=0;
+      xval = fVarValues[xvar][i];
+      yval = fVarValues[yvar][i];
+      if (xmean) {
+        xerr = fVarValues[xerr_var][i];
       }
-      if (yvt == mean) {
-        yval = fVarValues[yvar_name][i].mean;
-        yerr = fVarValues[yvar_name][i].err;
-      } else if (yvt == rms) {
-        yval = fVarValues[yvar_name][i].rms;
-        yerr = 0;
+      if (ymean) {
+        yerr = fVarValues[yerr_var][i];
       }
 
       g->SetPoint(i, xval, yval);
@@ -1483,16 +1511,17 @@ void TCheckStat::DrawCors() {
 }
 
 const char * TCheckStat::GetUnit (string var) {
-  StatsType vt = fStatsTypes[var];
-  if (var.find("asym") != string::npos) {
-    if (vt == mean)
+  string branch = fVarNames[var].first;
+  string leaf   = fVarNames[var].second;
+  if (branch.find("asym") != string::npos) {
+    if (leaf == "mean")
       return "ppb";
-    else if (vt == rms)
+    else if (leaf == "rms")
       return "ppm";
-  } else if (var.find("diff") != string::npos) {
-    if (vt == mean)
+  } else if (branch.find("diff") != string::npos) {
+    if (leaf == "mean")
       return "nm";
-    else if (vt == rms)
+    else if (leaf == "rms")
       return "um";
   } else {
     return "";

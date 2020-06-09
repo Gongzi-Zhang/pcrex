@@ -15,14 +15,13 @@ int main(int argc, char* argv[]) {
   const char * run_list = NULL;
   const char * out_name = NULL;
   const char * out_format = NULL;
-  const char * ft = NULL;
   bool logy = false;
   bool dconf = true;
   set<int> runs;
   set<int> slugs;
 
   char opt;
-  while((opt = getopt(argc, argv, "hlc:r:R:s:t:n:f:")) != -1)
+  while((opt = getopt(argc, argv, "hlc:r:R:s:n:f:")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -39,9 +38,6 @@ int main(int argc, char* argv[]) {
         break;
       case 's':
         slugs = parseRS(optarg);
-        break;
-      case 't':
-        ft = optarg;
         break;
       case 'l':
         logy = true;
@@ -65,8 +61,6 @@ int main(int argc, char* argv[]) {
     fMulPlot.SetOutName(out_name);
   if (out_format)
     fMulPlot.SetOutFormat(out_format);
-  if (ft)
-    fMulPlot.SetFileType(ft);
   if (logy)
     fMulPlot.SetLogy(logy);
   if (runs.size() > 0)
@@ -109,22 +103,22 @@ set<int> parseRS(const char * input) {
     if (Contain(val, "-")) {
       vector<char*> range = Split(val, '-');
       if (!IsInteger(range[0]) || !IsInteger(range[1])) {
-	cerr << __PRETTY_FUNCTION__ << ":FATAL\t invalid range input" << endl;
-	exit(3);
+        cerr << __PRETTY_FUNCTION__ << ":FATAL\t invalid range input" << endl;
+        exit(3);
       }
       const int start = atoi(range[0]);
       const int end   = atoi(range[1]);
       if (start > end) {
-	cerr << __PRETTY_FUNCTION__ << ":FATAL\t for range input: start must less than end" << endl;
-	exit(4);
+        cerr << __PRETTY_FUNCTION__ << ":FATAL\t for range input: start must less than end" << endl;
+        exit(4);
       }
       for (int j=start; j<=end; j++) {
-	vals.insert(j);
+        vals.insert(j);
       }
     } else {
       if (!IsInteger(val)) {
-	cerr << __PRETTY_FUNCTION__ << ":FATAL\t run/slug must be an integer number" << endl;
-	exit(4);
+        cerr << __PRETTY_FUNCTION__ << ":FATAL\t run/slug must be an integer number" << endl;
+        exit(4);
       }
       vals.insert(atoi(val));
     }

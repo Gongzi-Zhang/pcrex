@@ -3,16 +3,19 @@
  * it support 4 kinds of variables:
     * solos: 
     * comparisons
-    * slopes
+    * slopes  (for postpan root file only)
     * correlations
     see check.conf about how to setup each of them
 
+ * default config file: conf/check.conf
+
   e.x.
-    ./check   # use the default configuration: check.conf
-    ./check -c myconf.conf -l 6666    # check 'latest' run: which will compared it to previous 10 production runs
-    ./check -c myconf.conf -R runs.list   # specified runs in seperated run list file, instead of in config file
+    > ./check   # use the default configuration: conf/check.conf
+    > ./check -c myconf.conf -l 6666    # check 'latest' run: which will compared it to previous 10 production runs
+    > ./check -c myconf.conf -R runs.list   # specified runs in seperated run list file, instead of in config file
   all runs specified with different approaches will be checked together, unless you use '-l' option, which will
   ignore all other runs, and check only 'latest' run and previous 10 runs
+
 
 ### plot explanation:
   bold runs will be marked with blue and larger size dot, which bad miniruns (fail the cut) will be marked
@@ -21,13 +24,17 @@
   For comparisons, the two different variables will be marked with different colored dots, but for bold runs
   and bad miniruns, they will have the same color, though different marker styles.
 
-## checkrun: check evt tree of a signle run
-  similar to check
-  ./checkrun -h for help
+## checkruns: check every event/pattern along the time
+  its usage is similar to check
+  > ./checkruns -h       # for help
+
+ * default config file: conf/checkruns.conf
 
 ## mulplot: draw pair/mul plots 
   mulplot has similar usage to check
-  ./mulplot -h for help
+  > ./mulplot -h        # for help
+
+ * default config file: conf/mul_plot.conf
 
 ## 
 # compilation
@@ -37,12 +44,11 @@
 
 
 # todo
-* var: branch_name.leaf_name
 * single arm slug
 * how to cut on slow tree? e.g.  IGL1I00OD16_16 (row 83) in /chafs2/work1/apar/japanOutput/prexPrompt_pass2_6400.000.root is wrong
-* how to add customized branch to a tree?
 * TCheckStat: how to deal with slope in reg result and dit result?
-* TCheckRuns: with or without error points
+* TCheckRuns: bold point cut
+* TCheckRuns: should be able to fetch glitch
 
 # problem
 * munmap_chunk(): invalid pointer

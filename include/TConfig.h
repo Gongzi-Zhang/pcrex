@@ -33,11 +33,11 @@ public:
   const char* GetPattern()    {return pattern;}
   const char*	GetTreeName()	  {return tree;}
   const char* GetTreeCut()    {return tcut;}
-  const char*	GetFileType()	  {return ft;}
   bool		    GetLogy()	      {return logy;}
   set<int>	  GetRuns()	      {return fRuns;}			// for ChectStat
   set<int>	  GetBoldRuns()	  {return fBoldRuns;}	// for ChectStat
   set<string> GetVars()	      {return fVars;}
+  vector<pair<long, long>> GetEntryCuts() {return ecuts;}
 
   set<string>									GetSolos()	    {return fSolos;}
   vector<string>		          GetSoloPlots()  {return fSoloPlots;}
@@ -68,6 +68,7 @@ public:
   bool ParseSlope(char *line);
   bool ParseCor(char *line);
   bool ParseCustom(char *line);
+  bool ParseEntryCut(char *line);
 	void add_variables(Node * node);	// used only by ParseCustom
   bool ParseOtherCommands(char *line);
   void ParseConfFile();
@@ -81,7 +82,8 @@ private:
   const char *pattern = NULL;
   const char *tree    = NULL;
   const char *tcut    = NULL; // tree cut
-  const char *ft      = NULL;
+  vector<pair<long, long>> ecuts;  // cut on entry number
+  
   bool logy = false;
   set<int> fRuns;	      // all runs that are going to be checked
   // set<int> fSlugs;   // FIXME slugs? -- not now
@@ -186,6 +188,8 @@ void TConfig::ParseConfFile() {
         session = 16;
       else if (strcmp(current_line, "@customs") == 0)
         session = 32;
+      else if (strcmp(current_line, "@entrycuts") == 0)
+        session = 64; 
       else if (ParseOtherCommands(current_line)) 
 	      ;
       else {
@@ -208,6 +212,8 @@ void TConfig::ParseConfFile() {
       parsed = ParseCor(current_line);
     } else if (session & 32) {
       parsed = ParseCustom(current_line);
+    } else if (session & 64) {
+      parsed = ParseEntryCut(current_line);
     } else {
       cerr << __PRETTY_FUNCTION__ << ":WARNING\t unknown session, ignore line " << nline << endl;
       continue;
@@ -228,8 +234,6 @@ void TConfig::ParseConfFile() {
   if (fComps.size() > 0)    cout << "\t" << fComps.size() << " Comparison pairs\n";
   if (fSlopes.size() > 0)   cout << "\t" << fSlopes.size() << " Slopes\n";
   if (fCors.size() > 0)     cout << "\t" << fCors.size() << " Correlation pairs\n";
-  if (ft)
-    cout << "\t" << "root file type: " << ft << endl;
   if (dir)
     cout << "\t" << "root file dir: " << dir << endl;
   if (pattern)
@@ -371,7 +375,7 @@ bool TConfig::ParseSolo(char *line) {
   fSolos.insert(var);
   if (plot) fSoloPlots.push_back(var);
   fSoloCuts[var] = cut;
-  fVars.insert(Split(var, '.')[0]);	// for CheckStat, which need it to imply variable type: mean/rms
+  fVars.insert(var);
   return true;
 }
 
@@ -458,6 +462,45 @@ bool TConfig::ParseCustom(char *line) {
   return true;
 }
 
+bool TConfig::ParseEntryCut(char *line) {
+  long start, end;
+  vector<char*> fields = Split(line, ':');
+  switch (fields.size()) {
+    case 2: // xxxx:xxxx or :xxxx
+      if (!IsInteger(fields[1])) {
+        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end entry number in range: " << line << endl;
+        return false;
+      }
+      end = atoi(fields[1]);
+      if (line[0] != ':' && !IsInteger(fields[0])) {
+        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end entry number in range: " << line << endl;
+        return false;
+      }
+      start = atoi(fields[0]);
+      break;
+    case 1: // xxxx:  or xxxx
+      if (!IsInteger(fields[0])) {
+        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end entry number in range: " << line << endl;
+        return false;
+      }
+      start = atoi(fields[0]);
+      if (line[Size(line) - 1] == ':')  // xxxx:
+        end = -1;
+      else 
+        end = start;
+      break;
+    default:
+      cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid entry cut in line: " << line << endl;
+      return false;
+  }
+  if (start > end) {
+    cerr << __PRETTY_FUNCTION__ << ":WARNING\t start value larger than end value in line: " << line << endl;
+    return false;
+  }
+  ecuts.push_back(make_pair(start, end));
+  return true;
+}
+
 void TConfig::add_variables(Node * node) {
 	if (node) {
 		add_variables(node->lchild);
@@ -539,8 +582,10 @@ bool TConfig::ParseComp(char *line) {
   fComps.insert(make_pair(vars[0], vars[1]));
   if (plot) fCompPlots.push_back(make_pair(vars[0], vars[1]));
   fCompCuts[make_pair(vars[0], vars[1])] = cut;
-  fVars.insert(Split(vars[0], '.')[0]);
-  fVars.insert(Split(vars[1], '.')[0]);
+  if (fCustoms.find(vars[0]) == fCustoms.cend())
+    fVars.insert(vars[0]);
+  if (fCustoms.find(vars[1]) == fCustoms.cend())
+    fVars.insert(vars[1]);
   return true;
 }
 
@@ -685,8 +730,10 @@ bool TConfig::ParseCor(char *line) {
   fCors.insert(make_pair(vars[0], vars[1]));
   if (plot) fCorPlots.push_back(make_pair(vars[0], vars[1]));
   fCorCuts[make_pair(vars[0], vars[1])] = cut;
-  fVars.insert(Split(vars[0], '.')[0]);
-  fVars.insert(Split(vars[1], '.')[0]);
+  if (fCustoms.find(vars[0]) == fCustoms.cend())
+    fVars.insert(vars[0]);
+  if (fCustoms.find(vars[1]) == fCustoms.cend())
+    fVars.insert(vars[1]);
   return true;
 }
 
@@ -694,25 +741,25 @@ bool TConfig::ParseOtherCommands(char *line) {
   if (IsEmpty(line)) {
     return true;
   }
-  vector<char *> fields = Split(line);
-  if (fields.size() == 1) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t no value specified for command: " << fields[0] << endl;
+  
+  int i=0;
+  while (line[i] != '\0') {
+    if (line[i] != ' ' && line[i] != '\t') 
+      i++;
+    else 
+      break;
+  }
+  const char * command = Sub(line, 0, i);
+  while (line[i] != '\0' && (line[i] == ' ' || line[i] == '\t'))
+    i++;
+
+  const char * value = Sub(line, i);
+  if (value[0] == '\0') {
+    cerr << __PRETTY_FUNCTION__ << ":WARNING\t no value specified for command: " << command << endl;
     return false;
   }
-  StripSpaces(fields[0]);
-  StripSpaces(fields[1]);
-  const char * command = fields[0];
-  const char * value   = fields[1];
-  if (strcmp(command, "@postpan") == 0) {
-    if (strcmp(value, "true") == 0) 
-      ft = "postpan";
-  } else if (strcmp(command, "@japan") == 0) {
-    if (strcmp(value, "true") == 0) 
-      ft = "japan";
-  } else if (strcmp(command, "@dithering") == 0) {
-    if (strcmp(value, "true") == 0) 
-      ft = "dithering";
-  } else if (strcmp(command, "@dir") == 0) {
+
+  if (strcmp(command, "@dir") == 0) {
     dir = value;
   } else if (strcmp(command, "@pattern") == 0) {
     pattern = value;
