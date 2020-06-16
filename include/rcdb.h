@@ -251,13 +251,10 @@ void GetValidRuns(set<int> &runs) {
 
   for(set<int>::const_iterator it=runs.cbegin(); it!=runs.cend(); ) {
     int run = *it;
-    sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=3", run);
-    mysql_query(con, query);
-    res = mysql_store_result(con);
-    row = mysql_fetch_row(res);
-    StripSpaces(row[0]);
-    if (row == NULL || strcmp(row[0], "Production") != 0) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t run " << run << " is not a production run, ignore it.\n";
+    char * type = GetRunType(run);
+    char * flag = GetRunFlag(run);
+    if (!type || strcmp(type, "Production") != 0 || !flag || strcmp(flag, "Good") != 0) {
+      cerr << __PRETTY_FUNCTION__ << ":WARNING\t run " << run << " is not a good production run, ignore it.\n";
       it = runs.erase(it);
     } else
       it++;

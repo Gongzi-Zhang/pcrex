@@ -9,6 +9,8 @@
 #define END_RUN     7430
 #define START_SLUG  100
 #define END_SLUG    185
+#define AT_START_SLUG 4001
+#define AT_END_SLUG 4019
 // #define ROWS      69	// number of dv in slopes
 // #define COLS      5	// number of iv in slopes
 

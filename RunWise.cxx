@@ -3,54 +3,32 @@
 #include <set>
 
 #include "line.h"
-#include "TCheckStat.h"
+#include "TRunWise.h"
 
 using namespace std;
 
 void usage();
-set<int> parseRS(const char *);	// parse runs|slugs
+set<int> parseSlugs(const char *);	// parse slugs
 
 int main(int argc, char* argv[]) {
-  const char * config_file("conf/check.conf");
-  const char * run_list = NULL;
+  const char * config_file("conf/runwise.conf");
   const char * out_name = NULL;
   const char * out_format = NULL;
-  set<int> runs;
   set<int> slugs;
-  int latest_run;
-  bool check_latest_run = false;
-  bool sign = false;
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:l:R:s:f:n:S")) != -1)
+  while((opt = getopt(argc, argv, "hc:s:f:n:")) != -1)
     switch (opt) {
       case 'h':
         usage();
         exit(0);
-      case 'S':
-        sign = true;  // make sign correction
-        break;
       case 'c':
         config_file = optarg;
         dconf = false;
         break;
-      case 'r':
-        runs = parseRS(optarg);
-        break;
-      case 'R':
-        run_list = optarg;
-        break;
-      case 'l':
-        check_latest_run = true;
-        if (!IsInteger(optarg)) {
-          cerr << __PRETTY_FUNCTION__ << ":FATAL\t the argument to -l option must be an integer.\n";
-          exit(20);
-        }
-        latest_run = atoi(optarg);
-        break;
       case 's':
-        slugs = parseRS(optarg);
+        slugs = parseSlugs(optarg);
         break;
       case 'f':
         out_format = optarg;
@@ -66,51 +44,39 @@ int main(int argc, char* argv[]) {
   if (dconf) 
     cout << __PRETTY_FUNCTION__ << "INFO:\t use default config file: " << config_file << endl;
 
-  TCheckStat fCheckStat(config_file);
+  TRunWise fRunWise(config_file);
   if (out_format)
-    fCheckStat.SetOutFormat(out_format);
+    fRunWise.SetOutFormat(out_format);
   if (out_name)
-    fCheckStat.SetOutName(out_name);
-  if (check_latest_run)
-    fCheckStat.SetLatestRun(latest_run);
-  if (runs.size() > 0)
-    fCheckStat.SetRuns(runs);
+    fRunWise.SetOutName(out_name);
   if (slugs.size() > 0)
-    fCheckStat.SetSlugs(slugs);
-  if (sign)
-    fCheckStat.SetSign();
+    fRunWise.SetSlugs(slugs);
 
-  fCheckStat.CheckRuns();
-  fCheckStat.CheckVars();
-  fCheckStat.GetValues();
-  fCheckStat.CheckValues();
-  fCheckStat.Draw();
+  fRunWise.CheckSlugs();
+  fRunWise.CheckVars();
+  fRunWise.GetValues();
+  fRunWise.CheckValues();
+  fRunWise.Draw();
 
   return 0;
 }
 
 void usage() {
-  cout << "Check miniruns of specified runs/slugs" << endl
+  cout << "Check runwise statistics of specified slugs" << endl
        << "  Options:" << endl
        << "\t -h: print this help message" << endl
        << "\t -c: specify config file (default: check.conf)" << endl
-       << "\t -r: specify runs (seperate by comma, no space between them. ran range is supportted: 5678,6666-6670,6688)" << endl
-       << "\t -R: specify run list file" << endl
-       << "\t -l: the latest run mode, which will compare it to the before 10 production runs automatically." << endl
-       << "\t -s: specify slugs (the same syntax as -r)" << endl
+       << "\t -s: specify slugs (seperate by comma, no space between them. ran range is supportted: 4001,4002-4005,4011)" << endl
        << "\t -f: set output file format: pdf or png" << endl
        << "\t -n: prefix of output pdf file" << endl
-       << "\t -S: make sign correction" << endl
        << endl
        << "  Example:" << endl
-       << "\t ./check -c myconf.conf -l 6666" << endl
-       << "\t ./check -c myconf.conf -R slug123.lsit -p slug123" << endl
-       << "\t ./check -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -n test" << endl;
+       << "\t ./runwise -c myconf.conf -s 125,127-130 -n test" << endl;
 }
 
-set<int> parseRS(const char * input) {
+set<int> parseSlugs(const char * input) {
   if (!input) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input for -r or -s" << endl;
+    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input for -s" << endl;
     return {};
   }
   set<int> vals;

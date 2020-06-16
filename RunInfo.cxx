@@ -154,6 +154,9 @@ int main(int argc, char* argv[]) {
     exit(4);
   }
 
+  if (do_it["type"])
+    do_it["run_flag"] = true;
+
   // check evt variables
   if (do_it["evt"]) {
     for (char * var : evt_vars) {

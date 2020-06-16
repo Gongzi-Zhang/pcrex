@@ -792,6 +792,7 @@ void TMulPlot::DrawHistogram() {
     double max2 = hc2->GetMaximum();
     double min2 = hc2->GetMinimum();
     double min  = min1 < min2 ? min1 : min2;
+    if (logy && min <= 0) min = 0.1;
     double max  = max1 > max2 ? max1 : max2;
 
     c.Update();

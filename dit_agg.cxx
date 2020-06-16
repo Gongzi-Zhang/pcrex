@@ -68,13 +68,14 @@ bool dit_agg(int run) {
     cout << "INFO:\t find " << miniruns << " miniruns for run: " << run << endl;
   }
 
-  pattern = Form("/chafs2/work1/apar/aggRootfiles/dithering/minirun_aggregator_%d_*.root", run);
+  const char * dir = "/chafs2/work1/apar/aggRootfiles/dithering_1X";
+  pattern = Form("%s/minirun_aggregator_%d_*.root", dir, run);
   glob(pattern, 0, NULL, &globbuf);
   if (globbuf.gl_pathc != miniruns) {
     cerr << "FATAL:\t unmatched miniruns between BurstCounter in japan tree" << endl
-      << "\tand the number of minirun agg. root files in /chafs2/work1/apar/aggRootfiles/dithering/" << endl
+      << "\tand the number of minirun agg. root files in dir: " << dir << endl
       << "\t" << miniruns << " miniruns from BurstCounter" << endl
-      << "\t" << globbuf.gl_pathc << " minirun agg.  root files in /chafs2/work1/apar/aggRootfiles/dithering/" << endl;
+      << "\t" << globbuf.gl_pathc << " minirun agg.  root files in dir: " << dir << endl;
     return false;
   }
   globfree(&globbuf);
@@ -123,7 +124,7 @@ bool dit_agg(int run) {
 
   // read dit corrected minirun average result
   for(int m=0; m<miniruns; m++) {
-    const char *file_name = Form("/chafs2/work1/apar/aggRootfiles/dithering/minirun_aggregator_%d_%d.root", run, m);
+    const char *file_name = Form("%s/minirun_aggregator_%d_%d.root", dir, run, m);
     TFile fin(file_name, "read");
     if (!fin.IsOpen()) {
       cerr << "WARNING:\t can't open minirun agg. root file: " << file_name << endl;
@@ -154,7 +155,7 @@ bool dit_agg(int run) {
     fin.Close();
   }
 
-  TFile fout(Form("dithering/prexPromt_dit_agg_%d.root", run), "recreate");
+  TFile fout(Form("dithering/prexPromt_dit_1X_agg_%d.root", run), "recreate");
   tout->Write();
   delete tout;
   fout.Close();
@@ -183,6 +184,7 @@ int main(int argc, char ** argv) {
         exit(1);
     }
 
+  StartConnection();
   for (int slug : slugs) {
     for (int run : GetRunsFromSlug(slug)) {
       runs.insert(run);
@@ -190,8 +192,10 @@ int main(int argc, char ** argv) {
   }
 
   GetValidRuns(runs);
+  EndConnection();
   if (runs.size() == 0) {
     cerr << "FATAL:\t no valid runs specified." << endl;
+    usage();
     exit(4);
   }
   cout << "INFO:\t you specify " << runs.size() << " runs:" << endl;

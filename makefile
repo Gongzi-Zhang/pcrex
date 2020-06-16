@@ -20,6 +20,9 @@ checkruns: CheckRuns.cxx TCheckRuns.h $(TConfig) $(rcdb) $(line) $(const)
 mulplot: MulPlot.cxx TMulPlot.h $(TConfig) $(rcdb) $(line) $(const)
 	g++ $(CXXFLAGS) -o $@ MulPlot.cxx $(root_libs) $(mysql_libs)
 
+runwise: RunWise.cxx TRunWise.h $(TConfig) $(line) $(const)
+	g++ $(CXXFLAGS) -o $@ RunWise.cxx $(root_libs)
+
 runinfo: RunInfo.cxx $(rcdb) TRun.h $(line) $(const)
 	g++ $(CXXFLAGS) -o $@ RunInfo.cxx $(root_libs) $(mysql_libs)
 
