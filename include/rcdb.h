@@ -251,9 +251,10 @@ void GetValidRuns(set<int> &runs) {
 
   for(set<int>::const_iterator it=runs.cbegin(); it!=runs.cend(); ) {
     int run = *it;
+    const char * t = (PREX_AT_START_RUN <= run && run <= PREX_AT_END_RUN) ? "A_T" : "Production";
     char * type = GetRunType(run);
     char * flag = GetRunFlag(run);
-    if (!type || strcmp(type, "Production") != 0 || !flag || strcmp(flag, "Good") != 0) {
+    if (!type || strcmp(type, t) != 0 || !flag || strcmp(flag, "Good") != 0) {
       cerr << __PRETTY_FUNCTION__ << ":WARNING\t run " << run << " is not a good production run, ignore it.\n";
       it = runs.erase(it);
     } else

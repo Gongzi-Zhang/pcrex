@@ -5,12 +5,16 @@
 #include <string>
 #include <map>
 
-#define START_RUN   5346
+#define START_RUN   3000
 #define END_RUN     7430
-#define START_SLUG  100
+#define START_SLUG  0
 #define END_SLUG    185
-#define AT_START_SLUG 4001
-#define AT_END_SLUG 4019
+#define PREX_AT_START_RUN 4102
+#define PREX_AT_END_RUN 4135
+#define CREX_AT_START_SLUG 4000
+#define CREX_AT_END_SLUG 4019
+#define PREX_AT_START_SLUG 501
+#define PREX_AT_END_SLUG 510
 // #define ROWS      69	// number of dv in slopes
 // #define COLS      5	// number of iv in slopes
 

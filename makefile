@@ -8,7 +8,7 @@ rcdb				:= include/rcdb.h
 line				:= include/line.h
 const				:= include/const.h
 
-all: check mulplot checkruns
+all: check mulplot checkruns runwise runinfo
 	@echo "compiling ... "
 
 check: Check.cxx TCheckStat.h $(TConfig) $(rcdb) $(line) $(const)
@@ -38,7 +38,7 @@ test: test.cxx $(line) $(rcdb) $(TConfig)
 tar:
 	tar czvf check.tar.gz *.h *.cxx *.conf makefile readme.md
 
-plots:
+plot:
 	tar czvf plots.tar.gz *.png 
 clean:
 	rm -f check mulplot checkrun
