@@ -7,36 +7,35 @@ TConfig			:= include/TConfig.h
 rcdb				:= include/rcdb.h
 line				:= include/line.h
 const				:= include/const.h
+TRun				:= include/TRun.h
+math_eval		:= include/math_eval.h
 
 all: check mulplot checkruns runwise runinfo
 	@echo "compiling ... "
 
-check: Check.cxx TCheckStat.h $(TConfig) $(rcdb) $(line) $(const)
-	g++ $(CXXFLAGS) -o $@ Check.cxx $(root_libs) $(mysql_libs)
+check: src/Check.cxx include/TCheckStat.h $(TConfig) $(rcdb) $(line) $(const)
+	g++ $(CXXFLAGS) -o $@ src/Check.cxx $(root_libs) $(mysql_libs)
 
-checkruns: CheckRuns.cxx TCheckRuns.h $(TConfig) $(rcdb) $(line) $(const)
-	g++ $(CXXFLAGS) -o $@ CheckRuns.cxx $(root_libs) $(mysql_libs)
+checkruns: src/CheckRuns.cxx include/TCheckRuns.h $(TConfig) $(rcdb) $(line) $(const)
+	g++ $(CXXFLAGS) -o $@ src/CheckRuns.cxx $(root_libs) $(mysql_libs)
 
-mulplot: MulPlot.cxx TMulPlot.h $(TConfig) $(rcdb) $(line) $(const)
-	g++ $(CXXFLAGS) -o $@ MulPlot.cxx $(root_libs) $(mysql_libs)
+mulplot: src/MulPlot.cxx include/TMulPlot.h $(TConfig) $(rcdb) $(line) $(const)
+	g++ $(CXXFLAGS) -o $@ src/MulPlot.cxx $(root_libs) $(mysql_libs)
 
-runwise: RunWise.cxx TRunWise.h $(TConfig) $(line) $(const)
-	g++ $(CXXFLAGS) -o $@ RunWise.cxx $(root_libs)
+runwise: src/RunWise.cxx include/TRunWise.h $(TConfig) $(line) $(const)
+	g++ $(CXXFLAGS) -o $@ src/RunWise.cxx $(root_libs)
 
-runinfo: RunInfo.cxx $(rcdb) TRun.h $(line) $(const)
-	g++ $(CXXFLAGS) -o $@ RunInfo.cxx $(root_libs) $(mysql_libs)
+runinfo: src/RunInfo.cxx $(rcdb) $(TRun) $(line) $(const)
+	g++ $(CXXFLAGS) -o $@ src/RunInfo.cxx $(root_libs) $(mysql_libs)
 
-dit_agg: dit_agg.cxx $(rcdb) $(line) $(const)
-	g++ $(CXXFLAGS) -o $@ dit_agg.cxx $(root_libs) $(mysql_libs)
+dit_agg: src/dit_agg.cxx $(rcdb) $(line) $(const)
+	g++ $(CXXFLAGS) -o $@ src/dit_agg.cxx $(root_libs) $(mysql_libs)
 
-math_eval: math_eval.cxx math_eval.h $(line)
-	g++ $(CXXFLAGS) -o $@ math_eval.cxx
+math_eval: src/math_eval.cxx $(math_eval) $(line)
+	g++ $(CXXFLAGS) -o $@ src/math_eval.cxx
 
-test: test.cxx $(line) $(rcdb) $(TConfig)
-	g++ $(CXXFLAGS) -o $@ test.cxx $(root_libs) $(mysql_libs)
-
-tar:
-	tar czvf check.tar.gz *.h *.cxx *.conf makefile readme.md
+test: src/test.cxx $(line) $(rcdb) $(TConfig)
+	g++ $(CXXFLAGS) -o $@ src/test.cxx $(root_libs) $(mysql_libs)
 
 plot:
 	tar czvf plots.tar.gz *.png 

@@ -7,9 +7,11 @@
 #include <cstring>
 #include <set>
 #include <map>
-#include "line.h"
 
 #include "mysql.h"
+
+#include "line.h"
+#include "const.h"
 
 /* condition_type_id
  * 1    float_value   event_rate  

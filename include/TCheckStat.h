@@ -275,11 +275,14 @@ void TCheckStat::SetBoldRuns(set<int> runs) {
 
 void TCheckStat::SetSlugs(set<int> slugs) {
   for(int slug : slugs) {
-    if (slug < START_SLUG || slug > END_SLUG) {
+    if (   (CREX_AT_START_SLUG <= slug && slug <= CREX_AT_END_SLUG)
+        || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
+        || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
+      fSlugs.insert(slug);
+    } else {
       cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << endl;
       continue;
     }
-    fSlugs.insert(slug);
   }
   nSlugs = fSlugs.size();
 }
@@ -1192,8 +1195,8 @@ void TCheckStat::DrawComps() {
     for (int i=0; i<flips.size(); i++) {
       g_flips1[flips[i]] = new TGraphErrors();
       g_flips2[flips[i]] = new TGraphErrors();
-      lnames1.push_back(legends[flips[i]] + ("--" + name1));
-      lnames2.push_back(legends[flips[i]] + ("--" + name2));
+      lnames1.push_back(Form("%s--%s", legends[flips[i]], name1.c_str()));
+      lnames2.push_back(Form("%s--%s", legends[flips[i]], name2.c_str()));
       g_flips1[flips[i]]->SetName(lnames1[i].c_str());
       g_flips2[flips[i]]->SetName(lnames2[i].c_str());
     }

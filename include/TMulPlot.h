@@ -206,11 +206,14 @@ void TMulPlot::SetOutFormat(const char * f) {
 
 void TMulPlot::SetSlugs(set<int> slugs) {
   for(int slug : slugs) {
-    if (slug < START_SLUG || slug > END_SLUG) {
+    if (   (CREX_AT_START_SLUG <= slug && slug <= CREX_AT_END_SLUG)
+        || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
+        || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
+      fSlugs.insert(slug);
+    } else {
       cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << endl;
       continue;
     }
-    fSlugs.insert(slug);
   }
   nSlugs = fSlugs.size();
 }
