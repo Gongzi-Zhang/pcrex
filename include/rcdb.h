@@ -322,6 +322,8 @@ map<int, int> GetSign(set<int> runs) {
       signs[run] = 2;
     else if (strcmp(wien_flip, "Vertical(UP)") == 0)
       signs[run] = 3;
+    else if (strcmp(wien_flip, "Vertical(DOWN)") == 0)
+      signs[run] = 4;
     else
       signs[run] = 0; // unknow flip
 

@@ -48,6 +48,8 @@ map<int, const char *> legends = {
   {-2,  "right out"},
   {3,   "up in"},
   {-3,  "up out"},
+  {4,   "down in"},
+  {-4,  "down out"},
 };
 
 using namespace std;
