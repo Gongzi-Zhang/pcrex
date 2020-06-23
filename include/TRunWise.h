@@ -38,6 +38,7 @@
 
 
 enum Format {pdf, png};
+enum IV {run, cycle}; // draw along eigher run number or cycle number
 
 using namespace std;
 
@@ -48,12 +49,13 @@ class TRunWise {
   private:
     TConfig fConf;
     Format format         = pdf;
+    IV iv                 = run;  // default value: run
+    const char *iv_name   = "run";
     const char *out_name  = "runwise";
     const char *dir	      = "/chafs2/work1/apar/BMODextractor/";
     string pattern        = "dit_alldet_slopes_1X_slugxxxx.root";
     const char *tree      = "dit";
-    vector<int> flips;
-    int	  nRuns;
+    int	  nIvs;
     int	  nSlugs;
     int	  nVars;
     int	  nSolos;
@@ -73,13 +75,13 @@ class TRunWise {
 
     map<int, string> fRootFiles;
     map<string, string> fUnits;
-    vector<int> fRuns;
+    vector<int> fIvs; // x variable: run or cyclenum
     map<string, pair<string, string>> fVarNames;
     map<string, TLeaf *> fVarLeaves;
 
-    map<string, set<int>>  fSoloBadRuns;
-    map<pair<string, string>, set<int>>	  fCompBadRuns;
-    map<pair<string, string>, set<int>>	  fCorBadRuns;
+    map<string, set<int>>  fSoloBadIvs;
+    map<pair<string, string>, set<int>>	  fCompBadIvs;
+    map<pair<string, string>, set<int>>	  fCorBadIvs;
     map<string, vector<double>> fVarValues;
 
     TCanvas * c;
@@ -89,6 +91,7 @@ class TRunWise {
      void SetOutName(const char * name) {if (name) out_name = name;}
      void SetOutFormat(const char * f);
      // void SetFileType(const char * f);
+     void SetIV(const char * var) { if (Contain(var, "cycle")) {iv = cycle; iv_name = "cycle";} }
      void SetDir(const char * d);
      void SetSlugs(set<int> slugs);
      void CheckSlugs();
@@ -274,7 +277,7 @@ void TRunWise::CheckVars() {
 
   nSlugs = fSlugs.size();
   if (nSlugs == 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t no valid runs, aborting.\n";
+    cerr << __PRETTY_FUNCTION__ << ":FATAL\t no valid slug, aborting.\n";
     exit(10);
   }
 
@@ -388,20 +391,28 @@ void TRunWise::GetValues() {
 
     bool error = false;
     // run
-    vector<const char *> run_names = {"run"};
-    TBranch * b_run = NULL;
-    for (const char * run_name : run_names) {
-      if (!b_run)
-        b_run = tin->GetBranch(run_name);
-      if (b_run) 
+    set<const char *> iv_names;
+    if (iv == cycle) {
+      iv_names.insert("cycle");
+      iv_names.insert("cyclenum");
+      iv_names.insert("cycleNum");
+    } else {
+      iv_names.insert("run");
+      iv_names.insert("runnum");
+    }
+    TBranch * b_iv = NULL;
+    for (const char * iname : iv_names) {
+      if (!b_iv)
+        b_iv = tin->GetBranch(iname);
+      if (b_iv) 
         break;
     }
-    if (!b_run) {
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t no run branch in tree: " << tree 
+    if (!b_iv) {
+      cerr << __PRETTY_FUNCTION__ << ":ERROR\t no " << iv_name << " branch in tree: " << tree 
         << " of file: " << file_name << endl;
       continue;
     }
-    TLeaf *l_run = (TLeaf *)b_run->GetListOfLeaves()->At(0);
+    TLeaf *l_iv = (TLeaf *)b_iv->GetListOfLeaves()->At(0);
 
     for (string var : fVars) {
       string branch = fVarNames[var].first;
@@ -426,12 +437,12 @@ void TRunWise::GetValues() {
     if (error)
       continue;
 
-    const int nentries = tin->GetEntries();  // number of miniruns
-    for(int n=0; n<nentries; n++) { // loop through the miniruns
+    const int nentries = tin->GetEntries();  
+    for(int n=0; n<nentries; n++) { 
       tin->GetEntry(n);
 
-      l_run->GetBranch()->GetEntry(n);
-      fRuns.push_back(l_run->GetValue());
+      l_iv->GetBranch()->GetEntry(n);
+      fIvs.push_back(l_iv->GetValue());
       for (string var : fVars) {
         double unit = 1;
         double value;
@@ -458,7 +469,7 @@ void TRunWise::GetValues() {
     tin->Delete();
     f_rootfile.Close();
   }
-  nRuns = fRuns.size();
+  nIvs = fIvs.size();
 }
 
 void TRunWise::CheckValues() {
@@ -469,7 +480,7 @@ void TRunWise::CheckValues() {
     double sum  = 0;
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
-    for (int i=0; i<nRuns; i++) {
+    for (int i=0; i<nIvs; i++) {
       double val = fVarValues[solo][i];
 
       if (i == 0) {
@@ -481,10 +492,10 @@ void TRunWise::CheckValues() {
         || (high_cut != 1024 && val > high_cut)
         || (stat_cut != 1024 && abs(val-mean) > stat_cut*sigma)) {
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in " << solo
-             << " in run: " << fRuns[i] << endl;
+             << " in run: " << fIvs[i] << endl;
         if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
           fSoloPlots.push_back(solo);
-        fSoloBadRuns[solo].insert(fRuns[i]);
+        fSoloBadIvs[solo].insert(fIvs[i]);
       }
 
       sum  += val;
@@ -499,7 +510,7 @@ void TRunWise::CheckValues() {
     string var2 = comp.second;
     const double low_cut  = fCompCuts[comp].low;
     const double high_cut = fCompCuts[comp].high;
-    for (int i=0; i<nRuns; i++) {
+    for (int i=0; i<nIvs; i++) {
       double val1 = fVarValues[var1][i];
       double val2 = fVarValues[var1][i];
 			double diff = abs(val1 - val2);
@@ -507,10 +518,10 @@ void TRunWise::CheckValues() {
       if ( (low_cut  != 1024 && diff < low_cut)
         || (high_cut != 1024 && diff > high_cut)) {
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Comp: " << var1 << " vs " << var2 
-             << " in run: " << fRuns[i] << endl;
+             << " in run: " << fIvs[i] << endl;
         if (find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
           fCompPlots.push_back(comp);
-        fCompBadRuns[comp].insert(fRuns[i]);
+        fCompBadIvs[comp].insert(fIvs[i]);
       }
     }
   }
@@ -521,17 +532,17 @@ void TRunWise::CheckValues() {
     const double low_cut   = fCorCuts[cor].low;
     const double high_cut  = fCorCuts[cor].high;
     // const double 
-    for (int i=0; i<nRuns; i++) {
+    for (int i=0; i<nIvs; i++) {
       double xval = fVarValues[xvar][i];
       double yval = fVarValues[yvar][i];
 
 			/*
       if () {
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Cor: " << yvar << " vs " << xvar 
-             << " in run: " << fRuns[i] << endl;
+             << " in run: " << fIvs[i] << endl;
         if (find(fCorPlots.cbegin(), fCorPlots.cend(), *it) == fCorPlots.cend())
           fCorPlots.push_back(*it);
-        fCorBadRuns[*it].insert(fRuns[i]);
+        fCorBadIvs[*it].insert(fIvs[i]);
       }
 			*/
     }
@@ -569,22 +580,22 @@ void TRunWise::DrawSolos() {
     TGraphErrors * gc = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
 
-    for(int i=0, ibad=0; i<nRuns; i++) {
+    for(int i=0, ibad=0; i<nIvs; i++) {
       double val, err=0;
       val = fVarValues[solo][i];
-      g->SetPoint(i, i+1, val);
-      g->SetPointError(i, 0, err);
-      gc->SetPoint(i, i+1, val);
-      gc->SetPointError(i, 0, err);
+      g->SetPoint(i, fIvs[i], val);
+      // g->SetPointError(i, 0, err);
+      gc->SetPoint(i, fIvs[i], val);
+      // gc->SetPointError(i, 0, err);
 
-      if (fSoloBadRuns[solo].find(fRuns[i]) != fSoloBadRuns[solo].cend()) {
-        g_bad->SetPoint(ibad, i+1, val);
-        g_bad->SetPointError(ibad, 0, err);
+      if (fSoloBadIvs[solo].find(fIvs[i]) != fSoloBadIvs[solo].cend()) {
+        g_bad->SetPoint(ibad, fIvs[i], val);
+        // g_bad->SetPointError(ibad, 0, err);
         ibad++;
       }
     }
-    g->GetXaxis()->SetRangeUser(0, nRuns+1);
-    g->SetTitle((solo + ";;" + unit).c_str());
+    g->GetXaxis()->SetRangeUser(0, nIvs+1);
+    g->SetTitle((solo + ";" + iv_name + ";" + unit).c_str());
     gc->SetMarkerStyle(20);
     g_bad->SetMarkerStyle(20);
     g_bad->SetMarkerSize(1.2);
@@ -599,15 +610,15 @@ void TRunWise::DrawSolos() {
     gc->Draw("P same");
     g_bad->Draw("P same");
 
-    TAxis * ax = g->GetXaxis();
+    // TAxis * ax = g->GetXaxis();
 
-    ax->SetNdivisions(-(nRuns+1));
-    ax->ChangeLabel(1, -1, 0);  // erase first label
-    ax->ChangeLabel(-1, -1, 0); // erase last label
-    // ax->SetLabelOffset(0.02);
-    for (int i=0; i<=nRuns; i++) {
-      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d", fRuns[i]));
-    }
+    // ax->SetNdivisions(-(nIvs+1));
+    // ax->ChangeLabel(1, -1, 0);  // erase first label
+    // ax->ChangeLabel(-1, -1, 0); // erase last label
+    // // ax->SetLabelOffset(0.02);
+    // for (int i=0; i<=nIvs; i++) {
+    //   ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d", fIvs[i]));
+    // }
 
     c->Modified();
     if (format == pdf)
@@ -643,10 +654,10 @@ void TRunWise::DrawComps() {
     map<int, TGraphErrors *> g_flips2;
     vector<string> lnames1;
     vector<string> lnames2;
-    TH1F * h_diff = new TH1F("diff", "", nRuns, 0, nRuns);
+    TH1F * h_diff = new TH1F("diff", "", nIvs, 0, nIvs);
 
     double min, max;
-    for(int i=0, ibad=0; i<nRuns; i++) {
+    for(int i=0, ibad=0; i<nIvs; i++) {
       double val1, err1=0;
       double val2, err2=0;
       val1 = fVarValues[var1][i];
@@ -659,21 +670,21 @@ void TRunWise::DrawComps() {
       if ((val2-err2) < min) min = val2-err2;
       if ((val2+err2) > max) max = val2+err2;
 
-      g1->SetPoint(i, i+1, val1);
-      g1->SetPointError(i, 0, err1);
-      g2->SetPoint(i, i+1, val2);
-      g2->SetPointError(i, 0, err2);
-      gc1->SetPoint(i, i+1, val1);
-      gc1->SetPointError(i, 0, err1);
-      gc2->SetPoint(i, i+1, val2);
-      gc2->SetPointError(i, 0, err2);
-      h_diff->SetBinContent(i+1, val1-val2);
+      g1->SetPoint(i, fIvs[i], val1);
+      // g1->SetPointError(i, 0, err1);
+      g2->SetPoint(i, fIvs[i], val2);
+      // g2->SetPointError(i, 0, err2);
+      gc1->SetPoint(i, fIvs[i], val1);
+      // gc1->SetPointError(i, 0, err1);
+      gc2->SetPoint(i, fIvs[i], val2);
+      // gc2->SetPointError(i, 0, err2);
+      h_diff->Fill(fIvs[i], val1-val2);
       
-      if (fCompBadRuns[comp].find(fRuns[i]) != fCompBadRuns[comp].cend()) {
+      if (fCompBadIvs[comp].find(fIvs[i]) != fCompBadIvs[comp].cend()) {
         g_bad1->SetPoint(ibad, i+1, val1);
-        g_bad1->SetPointError(ibad, 0, err1);
+        // g_bad1->SetPointError(ibad, 0, err1);
         g_bad2->SetPoint(ibad, i+1, val2);
-        g_bad2->SetPointError(ibad, 0, err2);
+        // g_bad2->SetPointError(ibad, 0, err2);
         ibad++;
       }
     }
@@ -681,10 +692,10 @@ void TRunWise::DrawComps() {
     min -= margin;
     max += margin;
 
-    g1->GetXaxis()->SetRangeUser(0, nRuns+1);
-    h_diff->GetXaxis()->SetRangeUser(0, nRuns+1);
+    g1->GetXaxis()->SetRangeUser(0, nIvs+1);
+    h_diff->GetXaxis()->SetRangeUser(0, nIvs+1);
 
-    g1->SetTitle(Form("#color[%d]{%s} & #color[%d]{%s};;%s", color1, var1.c_str(), color2, var2.c_str(), unit.c_str()));
+    g1->SetTitle(Form("#color[%d]{%s} & #color[%d]{%s};%s;%s", color1, var1.c_str(), color2, var2.c_str(), iv_name, unit.c_str()));
     gc1->SetMarkerStyle(23);
     gc2->SetMarkerStyle(22);
     gc1->SetMarkerColor(color1);
@@ -715,7 +726,7 @@ void TRunWise::DrawComps() {
 
     p1->cd();
     g1->GetXaxis()->SetLabelSize(0);
-    g1->GetXaxis()->SetNdivisions(-(nRuns+1));
+    g1->GetXaxis()->SetNdivisions(-(nIvs+1));
     g1->Draw("AP");
     p1->Update();
     st1 = (TPaveStats *) g1->FindObject("stats");
@@ -742,14 +753,14 @@ void TRunWise::DrawComps() {
     h_diff->SetBarOffset(0.5);
     h_diff->SetBarWidth(1);
     h_diff->Draw("B");
-    TAxis * ax = h_diff->GetXaxis();
-    ax->SetNdivisions(-(nRuns+1));
-    ax->ChangeLabel(1, -1, 0);  // erase first label
-    ax->ChangeLabel(-1, -1, 0); // erase last label
-    // ax->SetLabelOffset(0.02);
-    for (int i=0; i<=nRuns; i++) {
-      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d", fRuns[i]));
-    }
+    // TAxis * ax = h_diff->GetXaxis();
+    // ax->SetNdivisions(-(nIvs+1));
+    // ax->ChangeLabel(1, -1, 0);  // erase first label
+    // ax->ChangeLabel(-1, -1, 0); // erase last label
+    // // ax->SetLabelOffset(0.02);
+    // for (int i=0; i<=nIvs; i++) {
+    //   ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d", fIvs[i]));
+    // }
     p2->Update();
 
     c->Modified();
@@ -777,20 +788,20 @@ void TRunWise::DrawCors() {
     TGraphErrors * gc = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
 
-    for(int i=0, ibad=0; i<nRuns; i++) {
+    for(int i=0, ibad=0; i<nIvs; i++) {
       double xval, xerr=0;
       double yval, yerr=0;
       xval = fVarValues[xvar][i];
       yval = fVarValues[yvar][i];
 
       g->SetPoint(i, xval, yval);
-      g->SetPointError(i, xerr, yerr);
+      // g->SetPointError(i, xerr, yerr);
       gc->SetPoint(i, xval, yval);
-      gc->SetPointError(i, xerr, yerr);
+      // gc->SetPointError(i, xerr, yerr);
       
-      if (fCorBadRuns[cor].find(fRuns[i]) != fCorBadRuns[cor].cend()) {
+      if (fCorBadIvs[cor].find(fIvs[i]) != fCorBadIvs[cor].cend()) {
         g_bad->SetPoint(ibad, xval, yval);
-        g_bad->SetPointError(ibad, xerr, yerr);
+        // g_bad->SetPointError(ibad, xerr, yerr);
         ibad++;
       }
     }

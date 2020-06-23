@@ -44,12 +44,12 @@ enum Format {pdf, png};
 map<int, const char *> legends = {
   {1,   "left in"},
   {-1,  "left out"},
-  {2,   "right in"},
-  {-2,  "right out"},
+  {-2,  "right in"},
+  {2,   "right out"},
   {3,   "up in"},
   {-3,  "up out"},
-  {4,   "down in"},
-  {-4,  "down out"},
+  {-4,  "down in"},
+  {4,   "down out"},
 };
 
 using namespace std;
@@ -620,7 +620,7 @@ void TCheckStat::GetValues() {
 
       bool error = false;
       // minirun
-      vector<const char *> mini_names = {"minirun", "mini", "miniruns"};
+      set<const char *> mini_names = {"minirun", "mini", "miniruns"};
       TBranch * b_minirun = NULL;
       for (const char * mini_name : mini_names) {
         if (!b_minirun)

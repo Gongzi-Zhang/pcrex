@@ -15,14 +15,18 @@ int main(int argc, char* argv[]) {
   const char * out_name = NULL;
   const char * out_format = NULL;
   set<int> slugs;
+  bool cycle = false;
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:s:f:n:")) != -1)
+  while((opt = getopt(argc, argv, "hCc:s:f:n:")) != -1)
     switch (opt) {
       case 'h':
         usage();
         exit(0);
+      case 'C':
+        cycle=true;
+        break;
       case 'c':
         config_file = optarg;
         dconf = false;
@@ -51,6 +55,8 @@ int main(int argc, char* argv[]) {
     fRunWise.SetOutName(out_name);
   if (slugs.size() > 0)
     fRunWise.SetSlugs(slugs);
+  if (cycle)
+    fRunWise.SetIV("cycle");
 
   fRunWise.CheckSlugs();
   fRunWise.CheckVars();

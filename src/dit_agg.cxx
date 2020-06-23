@@ -76,7 +76,7 @@ bool dit_agg(int run) {
       << "\tand the number of minirun agg. root files in dir: " << dir << endl
       << "\t" << miniruns << " miniruns from BurstCounter" << endl
       << "\t" << globbuf.gl_pathc << " minirun agg.  root files in dir: " << dir << endl;
-    return false;
+    return false; // comment out this line if you don't want burst mismatch check
   }
   globfree(&globbuf);
 
@@ -92,7 +92,7 @@ bool dit_agg(int run) {
   ifstream f_branches(f_branches_name);
   if (!f_branches.is_open()) {
     cerr << "FATAL:\t can't open dit branches file: " << f_branches_name;
-    return false;
+    return false; 
   }
   while (getline(f_branches, branch)) {
     size_t end = branch.find_last_not_of(" \t");
