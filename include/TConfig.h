@@ -16,7 +16,7 @@
 
 using namespace std;
 
-typedef struct { double low, high, stability; } VarCut;
+typedef struct { double low, high, burplevel; } VarCut;
 typedef VarCut CompCut;
 typedef VarCut CorCut;
 
@@ -323,10 +323,10 @@ bool TConfig::ParseSolo(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for stability cut\n";
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
           return false;
         }
-        cut.stability = val;
+        cut.burplevel = val;
       }
     case 3:
       StripSpaces(fields[2]);
@@ -390,10 +390,10 @@ bool TConfig::ParseCustom(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for stability cut\n";
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
           return false;
         }
-        cut.stability = val;
+        cut.burplevel = val;
       }
     case 3:
       StripSpaces(fields[2]);
@@ -526,7 +526,7 @@ bool TConfig::ParseComp(char *line) {
           cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for diff cut\n";
           return false;
         }
-        cut.stability = val;
+        cut.burplevel = val;
       }
     case 3:
       StripSpaces(fields[2]);
@@ -599,10 +599,10 @@ bool TConfig::ParseSlope(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for stability cut\n";
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
           return false;
         }
-        cut.stability = val;
+        cut.burplevel = val;
       }
     case 3:
       StripSpaces(fields[2]);
@@ -671,17 +671,17 @@ bool TConfig::ParseCor(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for xlow cut\n";
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
           return false;
         }
-        cut.stability = val;
+        cut.burplevel = val;
       }
     case 3:
       StripSpaces(fields[2]);
       if (!IsEmpty(fields[2])) {
         double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for yhigh cut\n";
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for correlation slope high cut\n";
           return false;
         }
         cut.high = val;
@@ -691,7 +691,7 @@ bool TConfig::ParseCor(char *line) {
       if (!IsEmpty(fields[1])) {
         double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for correlation ylow cut\n";
+          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for correlation slope low cut\n";
           return false;
         }
         cut.low = val;
@@ -817,10 +817,7 @@ double TConfig::ExtractValue(Node * node) {
         cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknow unit: " << val << endl;
         return -9999;
       }
-      if (Contain(val, "pp"))
-        return UNITS[val] / ppm;  // normalized to ppm
-      else 
-        return UNITS[val] / um;   // normalized to um
+      return UNITS[val];
     default:
       cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknow token type: " << TypeName[node->token.type] << endl;
       return -9999;

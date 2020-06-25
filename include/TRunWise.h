@@ -476,21 +476,22 @@ void TRunWise::CheckValues() {
   for (string solo : fSolos) {
     const double low_cut  = fSoloCuts[solo].low;
     const double high_cut = fSoloCuts[solo].high;
-    const double stat_cut = fSoloCuts[solo].stability;
+    const double burp_cut = fSoloCuts[solo].burplevel;
     double sum  = 0;
     double sum2 = 0;  // sum of square
-    double mean, sigma = 0;
+    double mean;
+    // double sigma = 0;
     for (int i=0; i<nIvs; i++) {
       double val = fVarValues[solo][i];
 
       if (i == 0) {
         mean = val;
-        sigma = 0;
+        // sigma = 0;
       }
 
       if ( (low_cut  != 1024 && val < low_cut)
         || (high_cut != 1024 && val > high_cut)
-        || (stat_cut != 1024 && abs(val-mean) > stat_cut*sigma)) {
+        || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in " << solo
              << " in run: " << fIvs[i] << endl;
         if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
@@ -501,7 +502,7 @@ void TRunWise::CheckValues() {
       sum  += val;
       sum2 += val*val;
       mean = sum/(i+1);
-      sigma = sqrt(sum2/(i+1) - pow(mean, 2));
+      // sigma = sqrt(sum2/(i+1) - pow(mean, 2));
     }
   }
 

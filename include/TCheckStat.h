@@ -143,7 +143,7 @@ class TCheckStat {
      void DrawCors();
 
      // auxiliary funcitons
-     const char * GetUnit(string var);
+     double GetUnit(string var);
 };
 
 // ClassImp(TCheckStat);
@@ -670,8 +670,8 @@ void TCheckStat::GetValues() {
         l_minirun->GetBranch()->GetEntry(n);
         fMiniruns.push_back(make_pair(run, l_minirun->GetValue()));
         for (string var : fVars) {
-          double unit = 1;
           double value;
+          double unit = 1;
           string leaf = fVarNames[var].second;
           if (var.find("asym") != string::npos) {
             if (leaf == "mean" || leaf == "err")
@@ -716,9 +716,17 @@ void TCheckStat::GetValues() {
 
 void TCheckStat::CheckValues() {
   for (string solo : fSolos) {
-    const double low_cut  = fSoloCuts[solo].low;
-    const double high_cut = fSoloCuts[solo].high;
-    const double stat_cut = fSoloCuts[solo].stability;
+    double low_cut  = fSoloCuts[solo].low;
+    double high_cut = fSoloCuts[solo].high;
+    double burp_cut = fSoloCuts[solo].burplevel;
+    double unit = GetUnit(solo);
+    if (low_cut != 1024)
+      low_cut /= unit;
+    if (high_cut != 1024)
+      high_cut /= unit;
+    if (burp_cut != 1024)
+      burp_cut /= unit;
+
     double sum  = 0;
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
@@ -732,7 +740,7 @@ void TCheckStat::CheckValues() {
 
       if ( (low_cut  != 1024 && val < low_cut)
         || (high_cut != 1024 && val > high_cut)
-        || (stat_cut != 1024 && abs(val-mean) > stat_cut*sigma)) {
+        || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in " << solo
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << endl;
         if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
@@ -750,8 +758,14 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    const double low_cut  = fCompCuts[comp].low;
-    const double high_cut = fCompCuts[comp].high;
+    double low_cut  = fCompCuts[comp].low;
+    double high_cut = fCompCuts[comp].high;
+    double unit = GetUnit(var1);
+    if (low_cut != 1024)
+      low_cut /= unit;
+    if (high_cut != 1024)
+      high_cut /= unit;
+
     for (int i=0; i<nMiniruns; i++) {
       double val1 = fVarValues[var1][i];
       double val2 = fVarValues[var1][i];
@@ -769,11 +783,20 @@ void TCheckStat::CheckValues() {
   }
 
   for (pair<string, string> slope : fSlopes) {
-    // string dv = slope.first;
-    // string iv = slope.second;
-    const double low_cut  = fSlopeCuts[slope].low;
-    const double high_cut = fSlopeCuts[slope].high;
-    const double stat_cut = fSlopeCuts[slope].stability;
+    string dv = slope.first;
+    string iv = slope.second;
+    double low_cut  = fSlopeCuts[slope].low;
+    double high_cut = fSlopeCuts[slope].high;
+    double burp_cut = fSlopeCuts[slope].burplevel;
+
+    double dunit = GetUnit(dv);
+    double iunit = GetUnit(iv);
+    if (low_cut != 1024)
+      low_cut /= (dunit/iunit);
+    if (high_cut != 1024)
+      high_cut /= (dunit/iunit);
+    if (burp_cut != 1024)
+      burp_cut /= (dunit/iunit);
 
     double sum  = 0;
     double sum2 = 0;  // sum of square
@@ -783,7 +806,7 @@ void TCheckStat::CheckValues() {
       double val = fSlopeValues[slope][i];
       if ( (low_cut  != 1024 && val < low_cut)
         || (high_cut != 1024 && val > high_cut)
-        || (stat_cut != 1024 && abs(val-mean) > stat_cut*sigma)) {
+        || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in slope: " << slope.first << " vs " << slope.second 
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << endl;
         if (find(fSlopePlots.cbegin(), fSlopePlots.cend(), slope) == fSlopePlots.cend())
@@ -801,8 +824,14 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> cor : fCors) {
     string yvar = cor.first;
     string xvar = cor.second;
-    const double low_cut   = fCorCuts[cor].low;
-    const double high_cut  = fCorCuts[cor].high;
+    double low_cut   = fCorCuts[cor].low;
+    double high_cut  = fCorCuts[cor].high;
+    double xunit = GetUnit(xvar);
+    double yunit = GetUnit(yvar);
+    if (low_cut != 1024)
+      low_cut /= (yunit/xunit);
+    if (high_cut != 1024)
+      high_cut /= (yunit/xunit);
     // const double 
     for (int i=0; i<nMiniruns; i++) {
       double xval = fVarValues[xvar][i];
@@ -847,7 +876,7 @@ void TCheckStat::Draw() {
 
 void TCheckStat::DrawSolos() {
   for (string solo : fSoloPlots) {
-    string unit = GetUnit(solo);
+    string unit = UNITNAMES[GetUnit(solo)];
     string err_var;
     bool mean = (fVarNames[solo].second == "mean");
     if (mean)
@@ -1182,7 +1211,7 @@ void TCheckStat::DrawComps() {
     const char * err_var2 = Form("%s.err", branch2.c_str());
     bool mean = (fVarNames[var1].second == "mean");
 
-    string unit = GetUnit(var1);
+    string unit = UNITNAMES[GetUnit(var1)];
 
     TGraphErrors * g1 = new TGraphErrors();
     TGraphErrors * g2 = new TGraphErrors();
@@ -1396,8 +1425,8 @@ void TCheckStat::DrawCors() {
     string yvar = cor.first;
     string xbranch = fVarNames[xvar].first;
     string ybranch = fVarNames[yvar].first;
-    string xunit = GetUnit(xvar);
-    string yunit = GetUnit(yvar);
+    string xunit = UNITNAMES[GetUnit(xvar)];
+    string yunit = UNITNAMES[GetUnit(yvar)];
 
     bool xmean = (fVarNames[xvar].second == "mean");
     bool ymean = (fVarNames[yvar].second == "mean");
@@ -1515,23 +1544,23 @@ void TCheckStat::DrawCors() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Correlations.\n";
 }
 
-const char * TCheckStat::GetUnit (string var) {
+double TCheckStat::GetUnit (string var) {
   string branch = fVarNames[var].first;
   string leaf   = fVarNames[var].second;
   if (branch.find("asym") != string::npos) {
     if (leaf == "mean")
-      return "ppb";
+      return ppb;
     else if (leaf == "rms")
-      return "ppm";
+      return ppm;
   } else if (branch.find("diff") != string::npos) {
     if (leaf == "mean")
-      return "nm";
+      return nm;
     else if (leaf == "rms")
-      return "um";
+      return um;
   } else {
-    return "";
+    return 1;
   }
-	return "";
+	return 1;
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

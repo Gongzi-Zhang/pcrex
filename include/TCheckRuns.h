@@ -121,7 +121,7 @@ class TCheckRuns {
      void DrawCors();
 
      // auxiliary funcitons
-     const char * GetUnit(string var);
+     double GetUnit(string var);
 };
 
 // ClassImp(TCheckRuns);
@@ -585,44 +585,126 @@ bool TCheckRuns::CheckEntryCut(const long entry) {
 
 void TCheckRuns::CheckValues() {
   for (string solo : fSolos) {
-    const double low  = fSoloCuts[solo].low;
-    const double high = fSoloCuts[solo].high;
-    const double stat = fSoloCuts[solo].stability;
-    double sum  = 0;
-    double sum2 = 0;  // sum of square
-    double mean, sigma = 0;
     const int n = fEntryNumber.size();
+    double sum = 0, sum2 = 0;
+    double mean = 0, sigma = 0;
+    long discontinuity = 120;
+    long pre_entry = 0;
+    long entry = 0;
+    double val = 0;
+
+    // first loop: find out the mean value of largest consecutive events segments 
+    // (with large 1s = 120 events discontinuity)
+    long start_entry = fEntryNumber[0];
+    pre_entry = start_entry;
+    double length = 1;  // length of consecutive segments
 		for (int i=0; i<n; i++) {
-      double val;
+      entry = fEntryNumber[i];
 			val = fVarValues[solo][i];
 
-      if (i == 0) {
-        mean = val;
-        sigma = 0;
+      if (entry - pre_entry > discontinuity || (sigma != 0 && abs(val - mean) > 10*sigma)) {  // end previous segment, start a new segment  
+        if (pre_entry - start_entry > length) {
+          length = pre_entry - start_entry;
+          mean = sum/length;  // length initial value can't be 0
+          sigma = sqrt(sum2/length - mean*mean);
+        }
+        start_entry = entry;
+        sum = 0;
+        sum2 = 0;
       }
 
-      if (  (low  != 1024 && val < low)
-            || (high != 1024 && val > high)
-            || (stat != 1024 && abs(val-mean) > stat*sigma) ) {
-        // cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in " << var << endl;
-        if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
-          fSoloPlots.push_back(solo);
-        fSoloBadPoints[solo].insert(i);
-      }
-
-      sum  += val;
+      sum += val;
       sum2 += val*val;
-      mean = sum/(i+1);
-      sigma = sqrt(sum2/(i+1) - pow(mean, 2));
+      pre_entry = entry;
+    }
+    if (pre_entry - start_entry > length) {
+      length = pre_entry - start_entry;
+      mean = sum/length;  // length initial value can't be 0
+      sigma = sqrt(sum2/length - mean*mean);
+    }
+    cout << __PRETTY_FUNCTION__ << ":INFO\t start entry: " << start_entry 
+         << "\t end_enry: " << pre_entry << "\t length: " << length 
+         << "\tmean: " << mean << "\tsigma: " << sigma << endl;
+
+    double low_cut  = fSoloCuts[solo].low;
+    double high_cut = fSoloCuts[solo].high;
+    double burp_cut = fSoloCuts[solo].burplevel;
+    // if (low_cut == 1024 && high_cut != 1024)
+    //   low_cut = high_cut;
+    // else if (high_cut == 1024 && low_cut != 1024)
+    //   high_cut = low_cut;
+
+    double unit = GetUnit(solo);
+    if (low_cut != 1024) {
+      low_cut /= unit;
+      low_cut = mean - low_cut;
+    }
+    if (high_cut != 1024) {
+      high_cut /= unit;
+      high_cut = mean + high_cut;
+    }
+    if (burp_cut != 1024)
+      burp_cut /= unit;
+    else 
+      burp_cut = 10*sigma;
+
+    pre_entry = fEntryNumber[0];
+    const int burp_length = 120;  // compare with the average value of previous 120 events
+    double burp_ring[burp_length] = {0};
+    int burp_index = 0;
+    int burp_events = 0;  // how many events in the burp ring now
+    mean = fVarValues[solo][0];
+    sum = 0;
+    bool outlier = false;
+    long start_outlier;
+    for (int i=0; i<n; i++) {
+      entry = fEntryNumber[i];
+      val = fVarValues[solo][i];
+
+      if (   (low_cut  != 1024 && val < low_cut)
+          || (high_cut != 1024 && val > high_cut) ) {  // outlier
+        if (!outlier)
+          start_outlier = entry;
+
+        outlier = true;
+      } else {
+        if (outlier)
+          cerr << __PRETTY_FUNCTION__ << ":OUTLIER\t in variable " << solo << " from entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << endl;
+          
+        outlier = false;
+      }
+
+      if (entry - pre_entry > discontinuity) {  // start a new count
+        burp_events = 0;
+        sum = 0;
+        mean = val;
+      }
+
+      if (abs(val - mean) > burp_cut) {
+        cerr << __PRETTY_FUNCTION__ << ":GLITCH\t glitch in variable: " << solo << " in entry " << entry << "mean: " << mean << "\tvalue: " << val << endl;
+      }
+
+      burp_ring[burp_index] = val;
+      burp_index++;
+      burp_index %= burp_length;
+      if (burp_events == burp_length) {
+        sum -= burp_ring[burp_index];
+      } else {
+        burp_events++;
+      }
+      sum += val;
+      mean = sum/burp_events;
+      pre_entry = entry;
     }
 	}
 
+  /*
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    const double low  = fCompCuts[comp].low;
-    const double high = fCompCuts[comp].high;
-    const double stat = fCompCuts[comp].stability;
+    const double low_cut  = fCompCuts[comp].low;
+    const double high_cut = fCompCuts[comp].high;
+    const double burp_cut = fCompCuts[comp].burplevel;
     const int n = fEntryNumber.size();
 		for (int i=0; i<n; i++) {
       double val1, val2;
@@ -641,29 +723,30 @@ void TCheckRuns::CheckValues() {
       }
     }
 	}
+  */
 
+  /*
   for (pair<string, string> cor : fCors) {
     string yvar = cor.first;
     string xvar = cor.second;
-    const double low   = fCorCuts[cor].low;
-    const double high  = fCorCuts[cor].high;
-    const double stat = fCompCuts[cor].stability;
+    const double low_cut  = fCorCuts[cor].low;
+    const double high_cut = fCorCuts[cor].high;
+    const double burp_cut = fCompCuts[cor].burplevel;
     const int n = fEntryNumber.size();
 		for (int i=0; i<n; i++) {
       double xval, yval;
 			xval = fVarValues[xvar][i];
 			yval = fVarValues[yvar][i];
 
-      /*
       if ( 1 ) {	// FIXME
         cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Cor: " << yvar << " vs " << xvar << endl;
         if (find(fCorPlots.cbegin(), fCorPlots.cend(), *it) == fCorPlots.cend())
           fCorPlots.push_back(*it);
         fCorBadPoints[*it].insert(i);
       }
-      */
     }
 	}
+  */
 
   cout << __PRETTY_FUNCTION__ << ":INFO\t done with checking values\n";
 }
@@ -694,7 +777,7 @@ void TCheckRuns::Draw() {
 
 void TCheckRuns::DrawSolos() {
   for (string var : fSoloPlots) {
-    string unit = GetUnit(var);
+    string unit = UNITNAMES[GetUnit(var)];
 
     TGraphErrors * g = new TGraphErrors();      // all data points
     // TGraphErrors * g_err = new TGraphErrors();  // ErrorFlag != 0
@@ -761,7 +844,7 @@ void TCheckRuns::DrawComps() {
     string var1 = var.first;
     string var2 = var.second;
 
-    string unit = GetUnit(var1);
+    string unit = UNITNAMES[GetUnit(var1)];
 
     TGraphErrors *g1 = new TGraphErrors();
     TGraphErrors *g2 = new TGraphErrors();
@@ -872,8 +955,8 @@ void TCheckRuns::DrawCors() {
   for (pair<string, string> var : fCorPlots) {
     string xvar = var.second;
     string yvar = var.first;
-    string xunit = GetUnit(xvar);
-    string yunit = GetUnit(yvar);
+    string xunit = UNITNAMES[GetUnit(xvar)];
+    string yunit = UNITNAMES[GetUnit(yvar)];
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
@@ -933,15 +1016,24 @@ void TCheckRuns::DrawCors() {
   cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Correlations.\n";
 }
 
-const char * TCheckRuns::GetUnit (string var) {
-  if (var.find("asym") != string::npos) {
-		return "ppm";
-  } else if (var.find("diff") != string::npos) {
-		return "um";
-  } else {
-    return "";
+double TCheckRuns::GetUnit (string var) {
+  if (strcmp(tree, "evt") == 0) {  // event tree
+    if (var.find("bpm") != string::npos)
+      return mm;
+    else if (var.find("bcm") != string::npos)
+      return uA;
+    else if (var.find("us") != string::npos || var.find("ds") != string::npos)
+      return mV;  // FIXME
+    else 
+      return 1;
+  } else if (strcmp(tree, "mul") == 0  || strcmp(tree, "dit") == 0) {
+    if (var.find("asym") != string::npos)
+      return ppm;
+    else if (var.find("diff") != string::npos)
+      return um;
+    else
+      return 1;
   }
-	return "";
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

@@ -23,6 +23,12 @@ const double ppm = 1e-6;
 const double mm = 1e-3;
 const double um = 1e-6;
 const double nm = 1e-9;
+const double mA = 1e-3;
+const double uA = 1e-6;
+const double nA = 1e-9;
+const double mV = 1e-3;
+const double uV = 1e-6;
+const double nV = 1e-9;
 
 std::map<std::string, const double> UNITS = {
   {"ppb", ppb},
@@ -30,6 +36,27 @@ std::map<std::string, const double> UNITS = {
   {"mm",  mm},
   {"um",  um},
   {"nm",  nm},
+  {"mA",  mA},
+  {"uA",  uA},
+  {"nA",  nA},
+  {"mV",  mV},
+  {"uV",  uV},
+  {"nV",  nV},
+};
+
+std::map<const double, std::string> UNITNAMES = {
+  {1,   ""},
+  {ppb, "ppb"},
+  {ppm, "ppm"},
+  {mm,  "mm"},
+  {um,  "um"},
+  {nm,  "nm"},
+  {mA,  "mA"},
+  {uA,  "uA"},
+  {nA,  "nA"},
+  {mV,  "mV"},
+  {uV,  "uV"},
+  {nV,  "nV"},
 };
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */
