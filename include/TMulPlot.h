@@ -166,14 +166,14 @@ TMulPlot::TMulPlot(const char* config_file, const char* run_list) :
 }
 
 TMulPlot::~TMulPlot() {
-  cout << __PRETTY_FUNCTION__ << ":INFO\t End of TMulPlot\n";
+  cout << INFO << "End of TMulPlot" << ENDL;
 }
 
 void TMulPlot::Draw() {
-  cout << __PRETTY_FUNCTION__ << ":INFO\t draw mul plots of" << endl
+  cout << INFO << "draw mul plots of" << endl
        << "\tin directory: " << dir << endl
        << "\tfrom files: " << pattern << endl
-       << "\tuse tree: " << tree << endl;
+       << "\tuse tree: " << tree << ENDL;
 
   CheckRuns();
   CheckVars();
@@ -184,10 +184,10 @@ void TMulPlot::Draw() {
 void TMulPlot::SetDir(const char * d) {
   struct stat info;
   if (stat(d, &info) != 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t can't access specified dir: " << dir << endl;
+    cerr << FATAL << "can't access specified dir: " << dir << ENDL;
     exit(30);
   } else if ( !(info.st_mode & S_IFDIR)) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t not a dir: " << dir << endl;
+    cerr << FATAL << "not a dir: " << dir << ENDL;
     exit(31);
   }
   dir = d;
@@ -199,7 +199,7 @@ void TMulPlot::SetOutFormat(const char * f) {
   } else if (strcmp(f, "png") == 0) {
     format = png;
   } else {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t Unknow output format: " << f << endl;
+    cerr << FATAL << "Unknow output format: " << f << ENDL;
     exit(40);
   }
 }
@@ -211,7 +211,7 @@ void TMulPlot::SetSlugs(set<int> slugs) {
         || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
       fSlugs.insert(slug);
     } else {
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << endl;
+      cerr << ERROR << "Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << ENDL;
       continue;
     }
   }
@@ -221,7 +221,7 @@ void TMulPlot::SetSlugs(set<int> slugs) {
 void TMulPlot::SetRuns(set<int> runs) {
   for(int run : runs) {
     if (run < START_RUN || run > END_RUN) {
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << endl;
+      cerr << ERROR << "Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << ENDL;
       continue;
     }
     fRuns.insert(run);
@@ -256,7 +256,7 @@ void TMulPlot::CheckRuns() {
     glob_t globbuf;
     glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
-      cout << __PRETTY_FUNCTION__ << ":WARNING\t no root file for run " << run << ". Ignore it.\n";
+      cout << WARNING << "no root file for run " << run << ". Ignore it." << ENDL;
       it = fRuns.erase(it);
       continue;
     }
@@ -269,12 +269,12 @@ void TMulPlot::CheckRuns() {
 
   nRuns = fRuns.size();
   if (nRuns == 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t No valid runs specified!\n";
+    cerr << FATAL << "No valid runs specified!" << ENDL;
     EndConnection();
     exit(10);
   }
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nRuns << " valid runs specified:\n";
+  cout << INFO << "" << nRuns << " valid runs specified:" << ENDL;
   for(int run : fRuns) {
     cout << "\t" << run << endl;
   }
@@ -296,12 +296,12 @@ void TMulPlot::CheckVars() {
     TFile * f_rootfile = new TFile(file_name, "read");
     if (f_rootfile->IsOpen()) {
       if (!f_rootfile->GetListOfKeys()->Contains(tree)) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t no tree: " << tree << " in root file: " << file_name;
+        cerr << FATAL << "no tree: " << tree << " in root file: " << file_name;
         exit(22);
       }
       TTree * tin = (TTree*) f_rootfile->Get(tree);
       if (tin != NULL) {
-        cout << __PRETTY_FUNCTION__ << ":INFO\t use file to check vars: " << file_name << endl;
+        cout << INFO << "use file to check vars: " << file_name << ENDL;
 
         TObjArray * l_var = tin->GetListOfBranches();
         for (string var : fVars) {
@@ -311,8 +311,8 @@ void TMulPlot::CheckVars() {
 
           TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
           if (!bbuf) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such branch: " << branch << " in var: " << var << endl;
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid branches:\n";
+            cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
+            cout << DEBUG << "List of valid branches:" << ENDL;
             TIter next(l_var);
             TBranch *br;
             while (br = (TBranch*) next()) {
@@ -328,8 +328,8 @@ void TMulPlot::CheckVars() {
           }
           TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
           if (!lbuf) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such leaf: " << leaf << " in var: " << var << endl;
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid leaves:" << endl;
+            cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
+            cout << DEBUG << "List of valid leaves:" << ENDL;
             TIter next(l_leaf);
             TLeaf *l;
             while (l = (TLeaf*) next()) {
@@ -349,7 +349,7 @@ void TMulPlot::CheckVars() {
           slopes_buf = new double[rows*cols];
           slopes_err_buf = new double[rows*cols];
           // if (rows != ROWS || cols != COLS) {
-          //   cerr << __PRETTY_FUNCTION__ << ":FATAL\t Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << endl;
+          //   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
           //   exit(20);
           // }
           bool error_dv_flag = false;
@@ -360,13 +360,13 @@ void TMulPlot::CheckVars() {
             vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
             vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
             if (it_dv == l_dv->cend()) {
-              cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid dv name for slope: " << dv << endl;
+              cerr << WARNING << "Invalid dv name for slope: " << dv << ENDL;
               it = fSlopes.erase(it);
               error_dv_flag = true;
               continue;
             }
             if (it_iv == l_iv->cend()) {
-              cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid iv name for slope: " << iv << endl;
+              cerr << WARNING << "Invalid iv name for slope: " << iv << ENDL;
               it = fSlopes.erase(it);
               error_iv_flag = true;
               continue;
@@ -375,12 +375,12 @@ void TMulPlot::CheckVars() {
             it++;
           }
           if (error_dv_flag) {
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid dv names:\n";
+            cout << DEBUG << "List of valid dv names:" << ENDL;
             for (vector<TString>::const_iterator it = l_dv->cbegin(); it != l_dv->cend(); it++) 
               cout << "\t" << (*it).Data() << endl;
           }
           if (error_iv_flag) {
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid dv names:\n";
+            cout << DEBUG << "List of valid dv names:" << ENDL;
             for (vector<TString>::const_iterator it = l_iv->cbegin(); it != l_iv->cend(); it++) 
               cout << "\t" << (*it).Data() << endl;
           }
@@ -392,7 +392,7 @@ void TMulPlot::CheckVars() {
       }
     } 
       
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t root file of run: " << run << " is broken, ignore it.\n";
+    cerr << WARNING << "root file of run: " << run << " is broken, ignore it." << ENDL;
     it_r = fRuns.erase(it_r);
 
     if (it_r == fRuns.cend())
@@ -401,14 +401,14 @@ void TMulPlot::CheckVars() {
 
   nRuns = fRuns.size();
   if (nRuns == 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t no valid runs, aborting.\n";
+    cerr << FATAL << "no valid runs, aborting." << ENDL;
     exit(10);
   }
 
   nVars = fVars.size();
   nSlopes = fSlopes.size();
   if (nVars == 0 && nSlopes == 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t no valid variables specified, aborting.\n";
+    cerr << FATAL << "no valid variables specified, aborting." << ENDL;
     exit(11);
   }
 
@@ -418,7 +418,7 @@ void TMulPlot::CheckVars() {
 			if (it_c != fSoloCuts.cend())
 				fSoloCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid solo variable: " << *it << endl;
+			cerr << WARNING << "Invalid solo variable: " << *it << ENDL;
       it = fSolos.erase(it);
 		} else
       it++;
@@ -430,7 +430,7 @@ void TMulPlot::CheckVars() {
 			if (it_c != fCompCuts.cend())
 				fCompCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid Comp variable: " << it->first << "\t" << it->second << endl;
+			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
       it = fComps.erase(it);
 		} else 
 			it++;
@@ -442,7 +442,7 @@ void TMulPlot::CheckVars() {
 			if (it_c != fCorCuts.cend())
 				fCorCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid Cor variable: " << it->first << "\t" << it->second << endl;
+			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
       it = fCors.erase(it);
 		} else
       it++;
@@ -454,7 +454,7 @@ void TMulPlot::CheckVars() {
 			if (it_c != fCustomCuts.cend())
 				fCustomCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid custom variable: " << *it << endl;
+			cerr << WARNING << "Invalid custom variable: " << *it << ENDL;
       it = fCustoms.erase(it);
 		} else
       it++;
@@ -465,23 +465,23 @@ void TMulPlot::CheckVars() {
   nCors  = fCors.size();
   nCustoms = fCustoms.size();
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSolos << " valid solo variables specified:\n";
+  cout << INFO << "" << nSolos << " valid solo variables specified:" << ENDL;
   for(string solo : fSolos) {
     cout << "\t" << solo << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nComps << " valid comparisons specified:\n";
+  cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
   for(pair<string, string> comp : fComps) {
     cout << "\t" << comp.first << " , " << comp.second << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSlopes << " valid slopes specified:\n";
+  cout << INFO << "" << nSlopes << " valid slopes specified:" << ENDL;
   for(pair<string, string> slope : fSlopes) {
     cout << "\t" << slope.first << " : " << slope.second << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCors << " valid correlations specified:\n";
+  cout << INFO << "" << nCors << " valid correlations specified:" << ENDL;
   for(pair<string, string> cor : fCors) {
     cout << "\t" << cor.first << " : " << cor.second << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCustoms << " valid customs specified:\n";
+  cout << INFO << "" << nCustoms << " valid customs specified:" << ENDL;
   for(string custom : fCustoms) {
     cout << "\t" << custom << endl;
   }
@@ -492,7 +492,7 @@ bool TMulPlot::CheckCustomVar(Node * node) {
 		if (	 node->token.type == variable 
 				&& fCustoms.find(node->token.value) == fCustoms.cend()
 				&& fVars.find(node->token.value) == fVars.cend() ) {
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknown variable: " << node->token.value << endl;
+			cerr << WARNING << "Unknown variable: " << node->token.value << ENDL;
 			return false;
 		}
 
@@ -588,15 +588,15 @@ void TMulPlot::GetValues() {
       const char *file_name = fRootFiles[run][session].c_str();
       TFile f_rootfile(file_name, "read");
       if (!f_rootfile.IsOpen()) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t Can't open root file: " << file_name << endl;
+        cerr << WARNING << "Can't open root file: " << file_name << ENDL;
         continue;
       }
 
       cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d: ", run, session)
-           << file_name << endl;
+           << file_name << ENDL;
       TTree * tin = (TTree*) f_rootfile.Get(tree);
       if (! tin) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t No " << tree << " tree in root file: " << file_name << endl;
+        cerr << WARNING << "No " << tree << " tree in root file: " << file_name << ENDL;
         continue;
       }
 
@@ -606,15 +606,15 @@ void TMulPlot::GetValues() {
         string leaf   = fVarNames[var].second;
         TBranch * br = tin->GetBranch(branch.c_str());
         if (!br) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no branch: " << branch << " in tree: " << tree
-            << " of file: " << file_name << endl;
+          cerr << ERROR << "no branch: " << branch << " in tree: " << tree
+            << " of file: " << file_name << ENDL;
           error = true;
           break;
         }
         TLeaf * l = br->GetLeaf(leaf.c_str());
         if (!l) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no leaf: " << leaf << " in branch: " << branch 
-            << " in tree: " << tree << " of file: " << file_name << endl;
+          cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch 
+            << " in tree: " << tree << " of file: " << file_name << ENDL;
           error = true;
           break;
         }
@@ -634,7 +634,7 @@ void TMulPlot::GetValues() {
       // tin->SetEntryList(elist);
       for(int n=0; n<N; n++) {
         if (n%10000 == 0)
-          cout << __PRETTY_FUNCTION__ << ":INFO\t processing " << n << " event\n";
+          cout << INFO << "read " << n << " event" << ENDL;
 
         const int en = elist->GetEntry(n);
         if (CheckEntryCut(total+en))
@@ -678,12 +678,12 @@ void TMulPlot::GetValues() {
     }
   }
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t read " << ok << "/" << total << " ok events." << endl;
+  cout << INFO << "read " << ok << "/" << total << " ok events." << ENDL;
 }
 
 double TMulPlot::get_custom_value(Node *node) {
 	if (!node) {
-		cerr << __PRETTY_FUNCTION__ << ":ERROR\t Null node\n";
+		cerr << ERROR << "Null node" << ENDL;
 		return -999999;
 	}
 
@@ -719,7 +719,7 @@ double TMulPlot::get_custom_value(Node *node) {
 					|| fCustoms.find(val) != fCustoms.cend())
 				return vars_buf[val];
 		default:
-			cerr << __PRETTY_FUNCTION__ << ":ERROR\t unkonw token type: " << TypeName[node->token.type] << endl;
+			cerr << ERROR << "unkonw token type: " << TypeName[node->token.type] << ENDL;
 			return -999999;
 	}
 	return -999999;
@@ -831,7 +831,7 @@ void TMulPlot::DrawHistogram() {
   if (format == pdf)
     c.Print(Form("%s.pdf]", out_name));
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t done with drawing plots\n";
+  cout << INFO << "done with drawing plots" << ENDL;
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

@@ -137,20 +137,20 @@ TConfig::~TConfig() {
   fCors.clear();
   fCorPlots.clear();
   fCorCuts.clear();
-  cout << __PRETTY_FUNCTION__ << ":INFO\t End of TConfig\n";
+  cout << INFO << "End of TConfig" << ENDL;
 }
 
 void TConfig::ParseConfFile() {
   // conf file setness
   if (fConfFile == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t no conf file specified" << endl;
+    cerr << FATAL << "no conf file specified" << ENDL;
     exit(1);
   }
 
   // conf file existance and readbility
   ifstream ifs (fConfFile);
   if (! ifs.is_open()) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t conf file " << fConfFile << " doesn't exist or can't be read.\n";
+    cerr << FATAL << "conf file " << fConfFile << " doesn't exist or can't be read." << ENDL;
     exit(2);
   }
 
@@ -168,7 +168,7 @@ void TConfig::ParseConfFile() {
   while (ifs.getline(current_line, MAX)) {
     nline++;
     if (!StripComment(current_line)) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't strip comment in line: " << nline << ", skip it.\n";
+      cerr << WARNING << "can't strip comment in line: " << nline << ", skip it." << ENDL;
       continue;
     }
     StripSpaces(current_line);
@@ -193,7 +193,7 @@ void TConfig::ParseConfFile() {
       else if (ParseOtherCommands(current_line)) 
 	      ;
       else {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t Can't parse line " << nline << ". Ignore it\n";
+        cerr << WARNING << "Can't parse line " << nline << ". Ignore it" << ENDL;
         session = 0;
       }
       continue;
@@ -215,19 +215,19 @@ void TConfig::ParseConfFile() {
     } else if (session & 64) {
       parsed = ParseEntryCut(current_line);
     } else {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t unknown session, ignore line " << nline << endl;
+      cerr << WARNING << "unknown session, ignore line " << nline << ENDL;
       continue;
     }
 
     if (!parsed)
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t line " << nline << " can't be parsed correclty.\n";
+      cerr << ERROR << "line " << nline << " can't be parsed correclty." << ENDL;
   }
   ifs.close();
 
   if (fRunFile)
     ParseRunFile();
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Configuration in config file: " << fConfFile << endl;
+  cout << INFO << "Configuration in config file: " << fConfFile << ENDL;
   if (fRuns.size() > 0)     cout << "\t" << fRuns.size() << " Runs\n";
   if (fSolos.size() > 0)    cout << "\t" << fSolos.size() << " Solo variables\n";
   if (fCustoms.size() > 0)  cout << "\t" << fCustoms.size() << " Custom variables\n";
@@ -240,17 +240,22 @@ void TConfig::ParseConfFile() {
     cout << "\t" << "file name pattern: " << pattern << endl;
   if (tree)
     cout << "\t" << "read tree: " << tree << endl;
+  if (ecuts.size()) {
+    cout << "\t" << "entry cut: (-1 means the end entry)" << endl;
+    for (pair<long, long> cut : ecuts)
+      cout << "\t\t" << cut.first << "\t" << cut.second << endl;
+  }
 }
 
 void TConfig::ParseRunFile() {
   if (!fRunFile) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t No run list file specified.\n";
+    cerr << WARNING << "No run list file specified." << ENDL;
     return;
   }
 
   ifstream ifs(fRunFile);
   if (! ifs.is_open()) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t run list file " << fRunFile << " doesn't exist or can't be read.\n";
+    cerr << FATAL << "run list file " << fRunFile << " doesn't exist or can't be read." << ENDL;
     exit(2);
   }
 
@@ -269,13 +274,13 @@ void TConfig::ParseRunFile() {
 
 bool TConfig::ParseRun(char *line) {
   if (!line) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input" << endl;
+    cerr << ERROR << "empty input" << ENDL;
     return false;
   }
 
   bool bold = false;
   if (Contain(line, "+") && Contain(line, "-")) {
-    cerr << ":WARNING\t bold sign (+) can only be applied to single run, not run range" << endl;
+    cerr << ":WARNING\t bold sign (+) can only be applied to single run, not run range" << ENDL;
     return false;
   }
 
@@ -290,13 +295,13 @@ bool TConfig::ParseRun(char *line) {
   switch (fields.size()) {
     case 2:
       if (!IsInteger(fields[1])) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end run in range: " << line << endl;
+        cerr << WARNING << "invalid end run in range: " << line << ENDL;
         return false;
       }
       end = atoi(fields[1]);
     case 1:
       if (!IsInteger(fields[0])) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid (start) run in line: " << line << endl;
+        cerr << WARNING << "invalid (start) run in line: " << line << ENDL;
         return false;
       }
       start = atoi(fields[0]);
@@ -323,7 +328,7 @@ bool TConfig::ParseSolo(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
+          cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
           return false;
         }
         cut.burplevel = val;
@@ -333,7 +338,7 @@ bool TConfig::ParseSolo(char *line) {
       if (!IsEmpty(fields[2])) {
         double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
+          cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
           return false;
         }
         cut.high = val;
@@ -343,7 +348,7 @@ bool TConfig::ParseSolo(char *line) {
       if (!IsEmpty(fields[1])) {
         double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
+          cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
           return false;
         }
         cut.low = val;
@@ -352,7 +357,7 @@ bool TConfig::ParseSolo(char *line) {
       var = fields[0];
       break;
     default:
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t At most 4 fields per solo line!\n";
+      cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
 
@@ -364,11 +369,11 @@ bool TConfig::ParseSolo(char *line) {
   }
 
   if (IsEmpty(var)) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t Empty variable for solo. \n";
+    cerr << ERROR << "Empty variable for solo. " << ENDL;
     return false;
   }
   if (fSolos.find(var) != fSolos.end()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t repeated solo variable, ignore it. \n";
+    cerr << WARNING << "repeated solo variable, ignore it. " << ENDL;
     return false;
   }
 
@@ -390,7 +395,7 @@ bool TConfig::ParseCustom(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
+          cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
           return false;
         }
         cut.burplevel = val;
@@ -400,7 +405,7 @@ bool TConfig::ParseCustom(char *line) {
       if (!IsEmpty(fields[2])) {
         double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
+          cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
           return false;
         }
         cut.high = val;
@@ -410,7 +415,7 @@ bool TConfig::ParseCustom(char *line) {
       if (!IsEmpty(fields[1])) {
         double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
+          cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
           return false;
         }
         cut.low = val;
@@ -419,7 +424,7 @@ bool TConfig::ParseCustom(char *line) {
 			{
 				vector<char *> vfields = Split(fields[0], ':');
 				if (vfields.size() != 2) {
-					cerr << __PRETTY_FUNCTION__ << ":ERROR\t Wrong format in defining custom variable (var: definition): " << fields[0] << endl;
+					cerr << ERROR << "Wrong format in defining custom variable (var: definition): " << fields[0] << ENDL;
 					return false;
 				}
 				var = vfields[0];
@@ -427,7 +432,7 @@ bool TConfig::ParseCustom(char *line) {
 			}
       break;
     default:
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t At most 4 fields per custom line!\n";
+      cerr << ERROR << "At most 4 fields per custom line!" << ENDL;
       return false;
   }
 
@@ -439,18 +444,18 @@ bool TConfig::ParseCustom(char *line) {
   }
 
   if (IsEmpty(var)) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t Empty variable for custom. \n";
+    cerr << ERROR << "Empty variable for custom. " << ENDL;
     return false;
   }
   if (fCustoms.find(var) != fCustoms.end()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t repeated custom variable, ignore it. \n";
+    cerr << WARNING << "repeated custom variable, ignore it. " << ENDL;
     return false;
   }
 
   Node * node = ParseExpression(def);
   if (node == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t unable to parse definition. \n"
-				 << "\t" << def << endl;
+    cerr << ERROR << "unable to parse definition. \n"
+				 << "\t" << def << ENDL;
 		return false;
 	}
 
@@ -468,19 +473,19 @@ bool TConfig::ParseEntryCut(char *line) {
   switch (fields.size()) {
     case 2: // xxxx:xxxx or :xxxx
       if (!IsInteger(fields[1])) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end entry number in range: " << line << endl;
+        cerr << WARNING << "invalid end entry number in range: " << line << ENDL;
         return false;
       }
       end = atoi(fields[1]);
       if (line[0] != ':' && !IsInteger(fields[0])) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end entry number in range: " << line << endl;
+        cerr << WARNING << "invalid end entry number in range: " << line << ENDL;
         return false;
       }
       start = atoi(fields[0]);
       break;
     case 1: // xxxx:  or xxxx
       if (!IsInteger(fields[0])) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid end entry number in range: " << line << endl;
+        cerr << WARNING << "invalid end entry number in range: " << line << ENDL;
         return false;
       }
       start = atoi(fields[0]);
@@ -490,11 +495,11 @@ bool TConfig::ParseEntryCut(char *line) {
         end = start;
       break;
     default:
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t invalid entry cut in line: " << line << endl;
+      cerr << WARNING << "invalid entry cut in line: " << line << ENDL;
       return false;
   }
-  if (start > end) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t start value larger than end value in line: " << line << endl;
+  if (end != -1 && start > end) {
+    cerr << WARNING << "start value larger than end value in line: " << line << ENDL;
     return false;
   }
   ecuts.push_back(make_pair(start, end));
@@ -523,7 +528,7 @@ bool TConfig::ParseComp(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for diff cut\n";
+          cerr << ERROR << "Non-number value for diff cut" << ENDL;
           return false;
         }
         cut.burplevel = val;
@@ -533,7 +538,7 @@ bool TConfig::ParseComp(char *line) {
       if (!IsEmpty(fields[2])) {
         double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
+          cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
           return false;
         }
         cut.high = val;
@@ -543,7 +548,7 @@ bool TConfig::ParseComp(char *line) {
       if (!IsEmpty(fields[1])) {
         double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
+          cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
           return false;
         }
         cut.low = val;
@@ -552,12 +557,12 @@ bool TConfig::ParseComp(char *line) {
       vars = Split(fields[0], ',');
       break;
     default:
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t At most 4 fields per comparison line\n";
+      cerr << ERROR << "At most 4 fields per comparison line" << ENDL;
       return false;
   }
 
   if (vars.size() != 2) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t wrong variables (should be: varA,varB) for comparison\n";
+    cerr << ERROR << "wrong variables (should be: varA,varB) for comparison" << ENDL;
     return false;
   }
 
@@ -571,11 +576,11 @@ bool TConfig::ParseComp(char *line) {
   }
 
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty variable for comparison\n";
+    cerr << ERROR << "empty variable for comparison" << ENDL;
     return false;
   }
   if (fComps.find(make_pair(vars[0], vars[1])) != fComps.end()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t repeated comparison variables, ignore it. \n";
+    cerr << WARNING << "repeated comparison variables, ignore it. " << ENDL;
     return false;
   }
 
@@ -599,7 +604,7 @@ bool TConfig::ParseSlope(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
+          cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
           return false;
         }
         cut.burplevel = val;
@@ -609,7 +614,7 @@ bool TConfig::ParseSlope(char *line) {
       if (!IsEmpty(fields[2])) {
         double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for upper limit cut\n";
+          cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
           return false;
         }
         cut.high = val;
@@ -619,7 +624,7 @@ bool TConfig::ParseSlope(char *line) {
       if (!IsEmpty(fields[1])) {
         double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Non-number value for lower limit cut\n";
+          cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
           return false;
         }
         cut.low = val;
@@ -628,12 +633,12 @@ bool TConfig::ParseSlope(char *line) {
       vars = Split(fields[0], ':');
       break;
     default:
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t At most 4 fields per slope line\n";
+      cerr << ERROR << "At most 4 fields per slope line" << ENDL;
       return false;
   }
 
   if (vars.size() != 2) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t wrong variables (should be: varA:varB) for slope\n";
+    cerr << ERROR << "wrong variables (should be: varA:varB) for slope" << ENDL;
     return false;
   }
 
@@ -647,11 +652,11 @@ bool TConfig::ParseSlope(char *line) {
   }
 
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty variable for slope\n";
+    cerr << ERROR << "empty variable for slope" << ENDL;
     return false;
   }
   if (fSlopes.find(make_pair(vars[0], vars[1])) != fSlopes.end()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t repeated Slope variables, ignore it. \n";
+    cerr << WARNING << "repeated Slope variables, ignore it. " << ENDL;
     return false;
   }
 
@@ -671,7 +676,7 @@ bool TConfig::ParseCor(char *line) {
       if (!IsEmpty(fields[3])) {
         double val = ExtractValue(ParseExpression(fields[3]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for burplevel cut\n";
+          cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
           return false;
         }
         cut.burplevel = val;
@@ -681,7 +686,7 @@ bool TConfig::ParseCor(char *line) {
       if (!IsEmpty(fields[2])) {
         double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for correlation slope high cut\n";
+          cerr << ERROR << "Invalid value for correlation slope high cut" << ENDL;
           return false;
         }
         cut.high = val;
@@ -691,7 +696,7 @@ bool TConfig::ParseCor(char *line) {
       if (!IsEmpty(fields[1])) {
         double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid value for correlation slope low cut\n";
+          cerr << ERROR << "Invalid value for correlation slope low cut" << ENDL;
           return false;
         }
         cut.low = val;
@@ -700,12 +705,12 @@ bool TConfig::ParseCor(char *line) {
       vars = Split(fields[0], ':');
       break;
     default:
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t At most 2 fields per correlation line\n";
+      cerr << ERROR << "At most 2 fields per correlation line" << ENDL;
       return false;
   }
 
   if (vars.size() != 2) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t wrong variables (should be: varA:varB) for correlation\n";
+    cerr << ERROR << "wrong variables (should be: varA:varB) for correlation" << ENDL;
     return false;
   }
 
@@ -719,11 +724,11 @@ bool TConfig::ParseCor(char *line) {
   }
 
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty variable for correlation\n";
+    cerr << ERROR << "empty variable for correlation" << ENDL;
     return false;
   }
   if (fCors.find(make_pair(vars[0], vars[1])) != fCors.end()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t repeated correlation variables, ignore it. \n";
+    cerr << WARNING << "repeated correlation variables, ignore it. " << ENDL;
     return false;
   }
 
@@ -755,7 +760,7 @@ bool TConfig::ParseOtherCommands(char *line) {
 
   const char * value = Sub(line, i);
   if (value[0] == '\0') {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t no value specified for command: " << command << endl;
+    cerr << WARNING << "no value specified for command: " << command << ENDL;
     return false;
   }
 
@@ -771,7 +776,7 @@ bool TConfig::ParseOtherCommands(char *line) {
     if (strcmp(value, "true") == 0) 
       logy = true;
   } else {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknow commands: " << command << endl;
+    cerr << WARNING << "Unknow commands: " << command << ENDL;
     return false;
   }
 
@@ -780,7 +785,7 @@ bool TConfig::ParseOtherCommands(char *line) {
 
 double TConfig::ExtractValue(Node * node) { 
   if (node == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t NULL node\n";
+    cerr << ERROR << "NULL node" << ENDL;
     return -9999;
   }
 
@@ -814,12 +819,12 @@ double TConfig::ExtractValue(Node * node) {
       return atof(val);
     case variable:
       if (UNITS.find(val) == UNITS.cend()) {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknow unit: " << val << endl;
+        cerr << ERROR << "unknow unit: " << val << ENDL;
         return -9999;
       }
       return UNITS[val];
     default:
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknow token type: " << TypeName[node->token.type] << endl;
+      cerr << ERROR << "unknow token type: " << TypeName[node->token.type] << ENDL;
       return -9999;
   }
 	return -9999;

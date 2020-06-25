@@ -135,16 +135,16 @@ TRunWise::TRunWise(const char* config_file) :
 }
 
 TRunWise::~TRunWise() {
-  cerr << __PRETTY_FUNCTION__ << ":INFO\t Release TRunWise\n";
+  cerr << INFO << "Release TRunWise" << ENDL;
 }
 
 void TRunWise::SetDir(const char * d) {
   struct stat info;
   if (stat( d, &info) != 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t can't access specified dir: " << dir << endl;
+    cerr << FATAL << "can't access specified dir: " << dir << ENDL;
     exit(30);
   } else if ( !(info.st_mode & S_IFDIR)) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t not a dir: " << dir << endl;
+    cerr << FATAL << "not a dir: " << dir << ENDL;
     exit(31);
   }
   dir = d;
@@ -156,7 +156,7 @@ void TRunWise::SetOutFormat(const char * f) {
   } else if (strcmp(f, "png") == 0) {
     format = png;
   } else {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t Unknow output format: " << f << endl;
+    cerr << FATAL << "Unknow output format: " << f << ENDL;
     exit(40);
   }
 }
@@ -168,7 +168,7 @@ void TRunWise::SetSlugs(set<int> slugs) {
         || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
       fSlugs.insert(slug);
     } else {
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << endl;
+      cerr << ERROR << "Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << ENDL;
       continue;
     }
   }
@@ -184,7 +184,7 @@ void TRunWise::CheckSlugs() {
     glob_t globbuf;
     glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
-      cout << __PRETTY_FUNCTION__ << ":WARNING\t no root file for slug " << slug << ". Ignore it.\n";
+      cout << WARNING << "no root file for slug " << slug << ". Ignore it." << ENDL;
       it = fSlugs.erase(it);
       continue;
     }
@@ -196,11 +196,11 @@ void TRunWise::CheckSlugs() {
 
   nSlugs = fSlugs.size();
   if (nSlugs == 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t No valid slugs specified!\n";
+    cerr << FATAL << "No valid slugs specified!" << ENDL;
     exit(10);
   }
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSlugs << " valid slugs specified:\n";
+  cout << INFO << "" << nSlugs << " valid slugs specified:" << ENDL;
   for(int slug : fSlugs) {
     cout << "\t" << slug << endl;
   }
@@ -221,7 +221,7 @@ void TRunWise::CheckVars() {
       TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
 
       if (tin != NULL) {
-        cout << __PRETTY_FUNCTION__ << ":INFO\t use file to check vars: " << file_name << endl;
+        cout << INFO << "use file to check vars: " << file_name << ENDL;
 
         TObjArray * l_var = tin->GetListOfBranches();
         for (string var : fVars) {
@@ -231,8 +231,8 @@ void TRunWise::CheckVars() {
 
           TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
           if (!bbuf) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such branch: " << branch << " in var: " << var << endl;
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid branches:\n";
+            cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
+            cout << DEBUG << "List of valid branches:" << ENDL;
             TIter next(l_var);
             TBranch *br;
             while (br = (TBranch*) next()) {
@@ -248,8 +248,8 @@ void TRunWise::CheckVars() {
           }
           TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
           if (!lbuf) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such leaf: " << leaf << " in var: " << var << endl;
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid leaves:" << endl;
+            cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
+            cout << DEBUG << "List of valid leaves:" << ENDL;
             TIter next(l_leaf);
             TLeaf *l;
             while (l = (TLeaf*) next()) {
@@ -268,7 +268,7 @@ void TRunWise::CheckVars() {
       }
     } 
       
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t root file of slug: " << slug << " is broken, ignore it.\n";
+    cerr << WARNING << "root file of slug: " << slug << " is broken, ignore it." << ENDL;
     it_s = fSlugs.erase(it_s);
 
     if (it_s == fSlugs.cend())
@@ -277,13 +277,13 @@ void TRunWise::CheckVars() {
 
   nSlugs = fSlugs.size();
   if (nSlugs == 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t no valid slug, aborting.\n";
+    cerr << FATAL << "no valid slug, aborting." << ENDL;
     exit(10);
   }
 
   nVars = fVars.size();
   if (nVars == 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t no valid variables specified, aborting.\n";
+    cerr << FATAL << "no valid variables specified, aborting." << ENDL;
     exit(11);
   }
 
@@ -297,7 +297,7 @@ void TRunWise::CheckVars() {
 			if (it_c != fSoloCuts.cend())
 				fSoloCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid solo variable: " << *it << endl;
+			cerr << WARNING << "Invalid solo variable: " << *it << ENDL;
       it = fSolos.erase(it);
 		} else
       it++;
@@ -311,9 +311,9 @@ void TRunWise::CheckVars() {
 		} 
 			
     // if (fVarNames[it->first].second != fVarNames[it->second].second)
-    //   cerr << __PRETTY_FUNCTION__ << ":WARNING\t different statistical types for comparison in: " << it->first << " , " << it->second << endl;
+    //   cerr << WARNING << "different statistical types for comparison in: " << it->first << " , " << it->second << ENDL;
     // else 
-		// 	cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid Comp variable: " << it->first << "\t" << it->second << endl;
+		// 	cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
 
 		vector<pair<string, string>>::iterator it_p = find(fCompPlots.begin(), fCompPlots.end(), *it);
 		if (it_p != fCompPlots.cend())
@@ -336,7 +336,7 @@ void TRunWise::CheckVars() {
 			if (it_c != fCorCuts.cend())
 				fCorCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid Cor variable: " << it->first << "\t" << it->second << endl;
+			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
       it = fCors.erase(it);
 		} else
       it++;
@@ -346,19 +346,19 @@ void TRunWise::CheckVars() {
   nComps = fComps.size();
   nCors  = fCors.size();
 
-  // cout << __PRETTY_FUNCTION__ << ":DEBUG\t " << " internal variables:\n";
+  // cout << DEBUG << "" << " internal variables:" << ENDL;
   // for (string var : fVars) {
   //   cout << "\t" << var << endl;
   // }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSolos << " valid solo variables specified:\n";
+  cout << INFO << "" << nSolos << " valid solo variables specified:" << ENDL;
   for(string solo : fSolos) {
     cout << "\t" << solo << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nComps << " valid comparisons specified:\n";
+  cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
   for(pair<string, string> comp : fComps) {
     cout << "\t" << comp.first << " , " << comp.second << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCors << " valid correlations specified:\n";
+  cout << INFO << "" << nCors << " valid correlations specified:" << ENDL;
   for(pair<string, string> cor : fCors) {
     cout << "\t" << cor.first << " : " << cor.second << endl;
   }
@@ -366,7 +366,7 @@ void TRunWise::CheckVars() {
 
 bool TRunWise::CheckVar(string var) {
   if (fVars.find(var) == fVars.cend()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknown variable in: " << var << endl;
+    cerr << WARNING << "Unknown variable in: " << var << ENDL;
     return false;
   }
 
@@ -378,14 +378,14 @@ void TRunWise::GetValues() {
     const char * file_name = fRootFiles[slug].c_str();
     TFile f_rootfile(file_name, "read");
     if (!f_rootfile.IsOpen()) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t Can't open root file: " << file_name << endl;
+      cerr << WARNING << "Can't open root file: " << file_name << ENDL;
       continue;
     }
 
-    cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read slug: %d", slug) << file_name << endl;
+    cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read slug: %d", slug) << file_name << ENDL;
     TTree * tin = (TTree*) f_rootfile.Get(tree); // receive minitree
     if (! tin) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such tree: " << tree << " in root file: " << file_name << endl;
+      cerr << WARNING << "No such tree: " << tree << " in root file: " << file_name << ENDL;
       continue;
     }
 
@@ -408,8 +408,8 @@ void TRunWise::GetValues() {
         break;
     }
     if (!b_iv) {
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t no " << iv_name << " branch in tree: " << tree 
-        << " of file: " << file_name << endl;
+      cerr << ERROR << "no " << iv_name << " branch in tree: " << tree 
+        << " of file: " << file_name << ENDL;
       continue;
     }
     TLeaf *l_iv = (TLeaf *)b_iv->GetListOfLeaves()->At(0);
@@ -419,15 +419,15 @@ void TRunWise::GetValues() {
       string leaf   = fVarNames[var].second;
       TBranch * br = tin->GetBranch(branch.c_str());
       if (!br) {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t no branch: " << branch << " in tree: " << tree
-          << " of file: " << file_name << endl;
+        cerr << ERROR << "no branch: " << branch << " in tree: " << tree
+          << " of file: " << file_name << ENDL;
         error = true;
         break;
       }
       TLeaf * l = br->GetLeaf(leaf.c_str());
       if (!l) {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t no leaf: " << leaf << " in branch: " << branch 
-          << " in tree: " << tree << " of file: " << file_name << endl;
+        cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch 
+          << " in tree: " << tree << " of file: " << file_name << ENDL;
         error = true;
         break;
       }
@@ -492,8 +492,8 @@ void TRunWise::CheckValues() {
       if ( (low_cut  != 1024 && val < low_cut)
         || (high_cut != 1024 && val > high_cut)
         || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
-        cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in " << solo
-             << " in run: " << fIvs[i] << endl;
+        cout << ALERT << "bad datapoint in " << solo
+             << " in run: " << fIvs[i] << ENDL;
         if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
           fSoloPlots.push_back(solo);
         fSoloBadIvs[solo].insert(fIvs[i]);
@@ -518,8 +518,8 @@ void TRunWise::CheckValues() {
 
       if ( (low_cut  != 1024 && diff < low_cut)
         || (high_cut != 1024 && diff > high_cut)) {
-        cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Comp: " << var1 << " vs " << var2 
-             << " in run: " << fIvs[i] << endl;
+        cout << ALERT << "bad datapoint in Comp: " << var1 << " vs " << var2 
+             << " in run: " << fIvs[i] << ENDL;
         if (find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
           fCompPlots.push_back(comp);
         fCompBadIvs[comp].insert(fIvs[i]);
@@ -539,8 +539,8 @@ void TRunWise::CheckValues() {
 
 			/*
       if () {
-        cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Cor: " << yvar << " vs " << xvar 
-             << " in run: " << fIvs[i] << endl;
+        cout << ALERT << "bad datapoint in Cor: " << yvar << " vs " << xvar 
+             << " in run: " << fIvs[i] << ENDL;
         if (find(fCorPlots.cbegin(), fCorPlots.cend(), *it) == fCorPlots.cend())
           fCorPlots.push_back(*it);
         fCorBadIvs[*it].insert(fIvs[i]);
@@ -548,7 +548,7 @@ void TRunWise::CheckValues() {
 			*/
     }
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t done with checking values\n";
+  cout << INFO << "done with checking values" << ENDL;
 }
 
 void TRunWise::Draw() {
@@ -570,7 +570,7 @@ void TRunWise::Draw() {
   if (format == pdf)
     c->Print(Form("%s.pdf]", out_name));
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t done with drawing plots\n";
+  cout << INFO << "done with drawing plots" << ENDL;
 }
 
 void TRunWise::DrawSolos() {
@@ -629,7 +629,7 @@ void TRunWise::DrawSolos() {
 
     c->Clear();
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Solos.\n";
+  cout << INFO << "Done with drawing Solos." << ENDL;
 }
 
 void TRunWise::DrawComps() {
@@ -773,7 +773,7 @@ void TRunWise::DrawComps() {
     h_diff->Delete();
     h_diff = NULL;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Comparisons.\n";
+  cout << INFO << "Done with drawing Comparisons." << ENDL;
 }
 
 void TRunWise::DrawCors() {
@@ -827,7 +827,7 @@ void TRunWise::DrawCors() {
       c->Print(Form("%s_%s_vs_%s.png", out_name, xvar.c_str(), yvar.c_str()));
     c->Clear();
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Correlations.\n";
+  cout << INFO << "Done with drawing Correlations." << ENDL;
 }
 
 const char * TRunWise::GetUnit (string var) {

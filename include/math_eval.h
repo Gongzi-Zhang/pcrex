@@ -80,7 +80,7 @@ void DeleteTokenTree(Node *node);
 
 Node * ParseExpression(const char *line) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t NULL input" << endl;
+    cerr << ERROR << "NULL input" << ENDL;
     return NULL;
   }
 
@@ -131,7 +131,7 @@ Node * ParseExpression(const char *line) {
       // numbers
       case '.': // dot can only be part of a number
         if (pi != -1 && pt.type != number) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t dot can't be part of anything except number" << endl;
+          cerr << ERROR << "dot can't be part of anything except number" << ENDL;
           return NULL;
         }
       case '0' ... '9':   // case range of value, this is an extension of gcc, not portable
@@ -153,7 +153,7 @@ Node * ParseExpression(const char *line) {
         break;
       // other undefined chars
       default:
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknown char in math expression: " << line[i] << endl;
+        cerr << ERROR << "unknown char in math expression: " << line[i] << ENDL;
         return NULL;
     }
     i++;
@@ -203,8 +203,8 @@ Node * ParseExpression(const char *line) {
 
     if (t.type == opt) {
       if (nt.type == null) {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t exp. can't ended with operator: " << t.value 
-             << "\n\t" << line << endl;
+        cerr << ERROR << "exp. can't ended with operator: " << t.value 
+             << "\n\t" << line << ENDL;
         return NULL;
       }
 
@@ -212,8 +212,8 @@ Node * ParseExpression(const char *line) {
            || nt.type == separator  // operator followed by separator
            || nt.type == close_prt )  // operator followed by closing parenthesis
       {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following single operator: " << t.value << " " << nt.value 
-             << "\n\t" << line << endl;
+        cerr << ERROR << "invalid type following single operator: " << t.value << " " << nt.value 
+             << "\n\t" << line << ENDL;
         return NULL;
       }
       
@@ -221,8 +221,8 @@ Node * ParseExpression(const char *line) {
       if (pt.type == null || pt.type == open_prt || pt.type == separator) {
         if ( (strcmp(t.value, "+") != 0 && strcmp(t.value, "-") != 0) )
         {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t single operator can only be +/- and must be followed by numbers: " << t.value << " " << nt.value
-               << "\n\t" << line << endl;
+          cerr << ERROR << "single operator can only be +/- and must be followed by numbers: " << t.value << " " << nt.value
+               << "\n\t" << line << ENDL;
           return NULL;
         }
 
@@ -232,8 +232,8 @@ Node * ParseExpression(const char *line) {
       }
     } else if (t.type == number) {
       if (!IsNumber(t.value)) {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid number expr: " << t.value
-             << "\n\t" << line << endl;
+        cerr << ERROR << "invalid number expr: " << t.value
+             << "\n\t" << line << ENDL;
         return NULL;
       }
 
@@ -241,16 +241,16 @@ Node * ParseExpression(const char *line) {
            || nt.type == number
            || (nt.type == separator && nfunc == 0) ) // followed by a separator, but not in a function
       {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following number in: " << t.value << " " << nt.value
-             << "\n\t" << line << endl;
+        cerr << ERROR << "invalid type following number in: " << t.value << " " << nt.value
+             << "\n\t" << line << ENDL;
         return NULL;
       }
     } else if (t.type == name) {
       if ( nt.type == name
            || nt.type == number )
       {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t name can't be followed by another name or number " << t.value << " " << nt.value
-             << "\n\t" << line << endl;
+        cerr << ERROR << "name can't be followed by another name or number " << t.value << " " << nt.value
+             << "\n\t" << line << ENDL;
         return NULL;
       }
 
@@ -262,24 +262,24 @@ Node * ParseExpression(const char *line) {
         nfunc++;
       } else {  // variable
         if (nt.type == separator && nfunc == 0) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t variable can't be followed by separator outside a funciton: " << t.value << " " << nt.value
-               << "\n\t" << line << endl;
+          cerr << ERROR << "variable can't be followed by separator outside a funciton: " << t.value << " " << nt.value
+               << "\n\t" << line << ENDL;
           return NULL;
         }
         it->type = variable;
       }
     } else if (t.type == separator) {
       if (nfunc == 0) {        // separator outside of a function
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t separator must be within a function "
-             << "\n\t" << line << endl;
+        cerr << ERROR << "separator must be within a function "
+             << "\n\t" << line << ENDL;
         return NULL;
       }
       if ( nt.type == separator  // two consecutive separator
            || nt.type == close_prt
            || (nt.type == opt && strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) ) // non +/- operator
       {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following separator : " << t.value << " " << nt.value
-             << "\n\t" << line << endl;
+        cerr << ERROR << "invalid type following separator : " << t.value << " " << nt.value
+             << "\n\t" << line << ENDL;
         return NULL;
       }
       param[param_buf.back()]++;
@@ -287,8 +287,8 @@ Node * ParseExpression(const char *line) {
       if ( (nt.type == opt && (strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) )
            || nt.type == separator )
       {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following ( : " << t.value << " " << nt.value
-             << "\n\t" << line << endl;
+        cerr << ERROR << "invalid type following ( : " << t.value << " " << nt.value
+             << "\n\t" << line << ENDL;
         return NULL;
       }
       if (pt.type == func) {
@@ -299,16 +299,16 @@ Node * ParseExpression(const char *line) {
       nprt++;
     } else if (t.type == close_prt) {
       if (prt_type.size() == 0) {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t more close prt. ) than opening prt. ( : "
-             << "\n\t" << line << endl;
+        cerr << ERROR << "more close prt. ) than opening prt. ( : "
+             << "\n\t" << line << ENDL;
         return NULL;
       }
 
       if ( nt.type == name
            || nt.type == open_prt )
       {
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid type following ( : " << t.value << " " << nt.value
-             << "\n\t" << line << endl;
+        cerr << ERROR << "invalid type following ( : " << t.value << " " << nt.value
+             << "\n\t" << line << ENDL;
         return NULL;
       }
 
@@ -320,8 +320,8 @@ Node * ParseExpression(const char *line) {
       prt_type.pop_back();
       nprt--;
     } else {
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t unknown token type: " << t.type << " of value: " << t.value 
-           << "\n\t" << line << endl;
+      cerr << ERROR << "unknown token type: " << t.type << " of value: " << t.value 
+           << "\n\t" << line << ENDL;
       return NULL;
     }
 
@@ -329,14 +329,14 @@ Node * ParseExpression(const char *line) {
   }
 
   if (nprt > 0) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t unmatched parentheses in expression:"
-         << "\n\t" << line << endl;
+    cerr << ERROR << "unmatched parentheses in expression:"
+         << "\n\t" << line << ENDL;
     return NULL;
   }
 
   if (param.size() != it_f.size()) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t something went wrong when parsing functions"
-         << "\n\t" << line << endl;
+    cerr << ERROR << "something went wrong when parsing functions"
+         << "\n\t" << line << ENDL;
     cerr << "\tFunctions: " << endl;
     for (vector<vector<Token>::iterator>::iterator it = it_f.begin(); it != it_f.end(); it++) {
       cerr << "\t\t" << (*it)->value << endl;
@@ -368,8 +368,8 @@ Node * ParseExpression(const char *line) {
           break;
         }
       default:
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t Incorrected # of parameters (" << param[i] << ") for function: " << (*(it_f[i])).value 
-             << "\n\t" << line << endl;
+        cerr << ERROR << "Incorrected # of parameters (" << param[i] << ") for function: " << (*(it_f[i])).value 
+             << "\n\t" << line << ENDL;
         return NULL;
     }
   }
@@ -485,8 +485,8 @@ Node * SortToken (vector<Token> &vt) {
           return pnode;
         }
       default:
-        cerr << __PRETTY_FUNCTION__ << ":ERROR\t fail to create syntax tree at: " << TypeName[t.type] << "\t" << t.value
-             << " from expression: " << endl;
+        cerr << ERROR << "fail to create syntax tree at: " << TypeName[t.type] << "\t" << t.value
+             << " from expression: " << ENDL;
         for (int i=0; i<vt.size(); i++)
           printf("%d\t%-10s\t%s\n", i+1, TypeName[vt[i].type], vt[i].value);
 
@@ -526,8 +526,8 @@ void PrintTokenTree(Node * node) {
       cout << (node->token).value;
       break;
     default:
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid node in token tree: " << TypeName[(node->token).type] << "\t" << (node->token).value
-           << " from expression: " << endl;
+      cerr << ERROR << "Invalid node in token tree: " << TypeName[(node->token).type] << "\t" << (node->token).value
+           << " from expression: " << ENDL;
       return;
   }
 }

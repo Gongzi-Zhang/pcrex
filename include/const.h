@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 
+// run infos
 #define START_RUN   3000
 #define END_RUN     7430
 #define START_SLUG  0
@@ -18,6 +19,7 @@
 // #define ROWS      69	// number of dv in slopes
 // #define COLS      5	// number of iv in slopes
 
+// units
 const double ppb = 1e-9;
 const double ppm = 1e-6;
 const double mm = 1e-3;

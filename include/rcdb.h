@@ -78,21 +78,21 @@ void    RunTests();
 void StartConnection() {
   con = mysql_init(NULL);
   if (!con) {
-    cerr << "MySQL Initialization failed!\n";
+    cerr << FATAL << "MySQL Initialization failed!" << ENDL;
     exit(10);
   }
   con = mysql_real_connect(con, "hallcdb.jlab.org", "rcdb", "", "a-rcdb", 3306, NULL, 0);
   if (con)
-    cerr << __PRETTY_FUNCTION__ << ":INFO\t Connection to database succeeded\n";
+    cerr << INFO << "Connection to database succeeded" << ENDL;
   else {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t Connection to database failed\n";
+    cerr << FATAL << "Connection to database failed" << ENDL;
     exit(11);
   }
 }
 
 char * GetExperiment(const int run) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=26", run);
@@ -100,7 +100,7 @@ char * GetExperiment(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run type for run " << run << endl;
+    cerr << WARNING << "can't fetch run type for run " << run << ENDL;
     return NULL;
   }
   StripSpaces(row[0]);
@@ -109,7 +109,7 @@ char * GetExperiment(const int run) {
 
 char * GetRunType(const int run) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=3", run);
@@ -117,7 +117,7 @@ char * GetRunType(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run type for run " << run << endl;
+    cerr << WARNING << "can't fetch run type for run " << run << ENDL;
     return NULL;
   }
   StripSpaces(row[0]);
@@ -127,7 +127,7 @@ char * GetRunType(const int run) {
 /*
 float GetRunCurrent(const int run) {  // this is inaccurate
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return -1;
   }
   sprintf(query, "SELECT float_value FROM conditions WHERE run_number=%d AND condition_type_id=16", run);
@@ -135,7 +135,7 @@ float GetRunCurrent(const int run) {  // this is inaccurate
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run current for run " << run << endl;
+    cerr << WARNING << "can't fetch run current for run " << run << ENDL;
     return -1;
   }
   return atof(row[0]);
@@ -144,7 +144,7 @@ float GetRunCurrent(const int run) {  // this is inaccurate
 
 char * GetRunFlag(const int run) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=28", run);
@@ -152,7 +152,7 @@ char * GetRunFlag(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch run flag for run " << run << endl;
+    cerr << WARNING << "can't fetch run flag for run " << run << ENDL;
     return NULL;
   }
   StripSpaces(row[0]);
@@ -161,7 +161,7 @@ char * GetRunFlag(const int run) {
 
 char * GetTarget(const int run) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=18", run);
@@ -169,7 +169,7 @@ char * GetTarget(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch target type for run " << run << endl;
+    cerr << WARNING << "can't fetch target type for run " << run << ENDL;
     return NULL;
   }
   StripSpaces(row[0]);
@@ -178,7 +178,7 @@ char * GetTarget(const int run) {
 
 int GetSlugNumber(const int run) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return -1;
   }
   sprintf(query, "SELECT int_value FROM conditions WHERE run_number=%d AND condition_type_id=34", run);
@@ -186,7 +186,7 @@ int GetSlugNumber(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch slug number for run " << run << endl;
+    cerr << WARNING << "can't fetch slug number for run " << run << ENDL;
     return -1;
   }
   return atoi(row[0]);
@@ -197,7 +197,7 @@ int GetArmFlag(const int run) {
   // 1: right
   // 2: left
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return -1;
   }
   sprintf(query, "SELECT int_value FROM conditions WHERE run_number=%d AND condition_type_id=39", run);
@@ -205,7 +205,7 @@ int GetArmFlag(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch arm flag for run " << run << endl;
+    cerr << WARNING << "can't fetch arm flag for run " << run << ENDL;
     return -1;
   }
   return atoi(row[0]);
@@ -213,7 +213,7 @@ int GetArmFlag(const int run) {
 
 char * GetIHWP(const int run) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=20", run);
@@ -221,7 +221,7 @@ char * GetIHWP(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch ihwp for run " << run << endl;
+    cerr << WARNING << "can't fetch ihwp for run " << run << ENDL;
     return NULL;
   }
   StripSpaces(row[0]);
@@ -230,7 +230,7 @@ char * GetIHWP(const int run) {
 
 char * GetWienFlip(const int run) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=38", run);
@@ -238,7 +238,7 @@ char * GetWienFlip(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch slug number for run " << run << endl;
+    cerr << WARNING << "can't fetch slug number for run " << run << ENDL;
     return NULL;
   }
   StripSpaces(row[0]);
@@ -247,7 +247,7 @@ char * GetWienFlip(const int run) {
 
 void GetValidRuns(set<int> &runs) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else" << ENDL;
     return;
   }
 
@@ -257,7 +257,7 @@ void GetValidRuns(set<int> &runs) {
     char * type = GetRunType(run);
     char * flag = GetRunFlag(run);
     if (!type || strcmp(type, t) != 0 || !flag || strcmp(flag, "Good") != 0) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t run " << run << " is not a good production run, ignore it.\n";
+      cerr << WARNING << "run " << run << " is not a good production run, ignore it." << ENDL;
       it = runs.erase(it);
     } else
       it++;
@@ -266,7 +266,7 @@ void GetValidRuns(set<int> &runs) {
 
 set<int> GetRunsFromSlug(const int slug) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return {};
   }
 
@@ -284,7 +284,7 @@ set<int> GetRunsFromSlug(const int slug) {
 
 map<int, int> GetSign(set<int> runs) {
   if (!con) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t please StartConnection before anything else.\n";
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return map<int, int>();
   }
 
@@ -300,7 +300,7 @@ map<int, int> GetSign(set<int> runs) {
     res = mysql_store_result(con);
     row = mysql_fetch_row(res);
     if (row == NULL) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch wien flip for run " << run << endl;
+      cerr << WARNING << "can't fetch wien flip for run " << run << ENDL;
       signs[run] = 0;
       continue;
     }
@@ -310,7 +310,7 @@ map<int, int> GetSign(set<int> runs) {
     res = mysql_store_result(con);
     row = mysql_fetch_row(res);
     if (row == NULL) {
-      cerr << __PRETTY_FUNCTION__ << ":WARNING\t can't fetch ihwp for run " << run << endl;
+      cerr << WARNING << "can't fetch ihwp for run " << run << ENDL;
       signs[run] = 0;
       continue;
     }
@@ -341,7 +341,7 @@ map<int, int> GetSign(set<int> runs) {
 
 void EndConnection() {
   if (con) {
-    cerr << __PRETTY_FUNCTION__ << ":INFO\t Close Connection to database.\n";
+    cerr << INFO << "Close Connection to database." << ENDL;
     mysql_close(con);
   }
   con = NULL;
@@ -359,7 +359,7 @@ void RunTests() {
   assert(strcmp(GetIHWP(run), "OUT") == 0);
   assert(strcmp(GetWienFlip(run), "FLIP-LEFT") == 0);
   EndConnection();
-  cerr << __PRETTY_FUNCTION__ << ":INFO\t Pass all tests.\n";
+  cerr << INFO << "Pass all tests." << ENDL;
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

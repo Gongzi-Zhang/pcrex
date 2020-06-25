@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     }
 
   if (dconf) 
-    cout << __PRETTY_FUNCTION__ << "INFO:\t use default config file: " << config_file << endl;
+    cout << INFO << "use default config file: " << config_file << ENDL;
 
   TRunWise fRunWise(config_file);
   if (out_format)
@@ -82,7 +82,7 @@ void usage() {
 
 set<int> parseSlugs(const char * input) {
   if (!input) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input for -s" << endl;
+    cerr << ERROR << "empty input for -s" << ENDL;
     return {};
   }
   set<int> vals;
@@ -92,13 +92,13 @@ set<int> parseSlugs(const char * input) {
     if (Contain(val, "-")) {
       vector<char*> range = Split(val, '-');
       if (!IsInteger(range[0]) || !IsInteger(range[1])) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t invalid range input" << endl;
+        cerr << FATAL << "invalid range input" << ENDL;
         exit(3);
       }
       const int start = atoi(range[0]);
       const int end   = atoi(range[1]);
       if (start > end) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t for range input: start must less than end" << endl;
+        cerr << FATAL << "for range input: start must less than end" << ENDL;
         exit(4);
       }
       for (int j=start; j<=end; j++) {
@@ -106,7 +106,7 @@ set<int> parseSlugs(const char * input) {
       }
     } else {
       if (!IsInteger(val)) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t run/slug must be an integer number" << endl;
+        cerr << FATAL << "run/slug must be an integer number" << ENDL;
         exit(4);
       }
       vals.insert(atoi(val));

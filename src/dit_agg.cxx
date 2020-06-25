@@ -27,7 +27,7 @@ bool dit_agg(int run) {
   glob_t globbuf;
   glob(pattern, 0, NULL, &globbuf);
   if (globbuf.gl_pathc == 0) {
-    cerr << "FATAL:\t no japan root file for run: " << run << endl;
+    cerr << "FATAL:\t no japan root file for run: " << run << ENDL;
     return false;
   }
   const int sessions = globbuf.gl_pathc;
@@ -35,37 +35,37 @@ bool dit_agg(int run) {
     const char * file_name = globbuf.gl_pathv[s];
     TFile fin(file_name, "read");
     if (!fin.IsOpen()) {
-      cerr << "WARNING:\t can't open japan root file: " << file_name << endl;
+      cerr << "WARNING:\t can't open japan root file: " << file_name << ENDL;
       continue;
     }
     TTree * tin = (TTree *)fin.Get("mul");  // mul tree
     if (!tin) {
-      cerr << "WARNING:\t can't read mul tree from root file: " << file_name << endl;
+      cerr << "WARNING:\t can't read mul tree from root file: " << file_name << ENDL;
       continue;
     }
     const int n = tin->Draw(">>elist", "ErrorFlag == 0", "entrylist");
     TEntryList * elist = (TEntryList *) gDirectory->Get("elist");
     if (!elist) {
-      cerr << "FATAL:\t find 0 valid pattern in mul tree in root file: " << file_name << endl;
+      cerr << "FATAL:\t find 0 valid pattern in mul tree in root file: " << file_name << ENDL;
       return false;
     }
     TLeaf * l = tin->GetLeaf("BurstCounter");
     if (!l) {
-      cerr << "WARNING:\t can't receive BurstCounter leaf from mul tree in root file: " << file_name << endl;
+      cerr << "WARNING:\t can't receive BurstCounter leaf from mul tree in root file: " << file_name << ENDL;
       continue;
     }
     l->GetBranch()->GetEntry(elist->GetEntry(n-1));
     miniruns += (l->GetValue() + 1); // number of miniruns
-    cout << "INFO:\t find " << (l->GetValue() + 1) << " miniruns for session " << s << " of run: " << run << endl;
+    cout << "INFO:\t find " << (l->GetValue() + 1) << " miniruns for session " << s << " of run: " << run << ENDL;
 
     delete tin;
     fin.Close();
   }
   if (miniruns == 0) {
-    cerr << "FATAL:\t find no miniruns for run: " << run << endl;
+    cerr << "FATAL:\t find no miniruns for run: " << run << ENDL;
     return false;
   } else {
-    cout << "INFO:\t find " << miniruns << " miniruns for run: " << run << endl;
+    cout << "INFO:\t find " << miniruns << " miniruns for run: " << run << ENDL;
   }
 
   const char * dir = "/chafs2/work1/apar/aggRootfiles/dithering_1X";
@@ -127,12 +127,12 @@ bool dit_agg(int run) {
     const char *file_name = Form("%s/minirun_aggregator_%d_%d.root", dir, run, m);
     TFile fin(file_name, "read");
     if (!fin.IsOpen()) {
-      cerr << "WARNING:\t can't open minirun agg. root file: " << file_name << endl;
+      cerr << "WARNING:\t can't open minirun agg. root file: " << file_name << ENDL;
       continue;
     }
     TTree * tin = (TTree *)fin.Get("agg");  // agg tree
     if (!tin) {
-      cerr << "WARNING:\t can't read agg tree from root file: " << file_name << endl;
+      cerr << "WARNING:\t can't read agg tree from root file: " << file_name << ENDL;
       continue;
     }
 
@@ -194,11 +194,11 @@ int main(int argc, char ** argv) {
   GetValidRuns(runs);
   EndConnection();
   if (runs.size() == 0) {
-    cerr << "FATAL:\t no valid runs specified." << endl;
+    cerr << "FATAL:\t no valid runs specified." << ENDL;
     usage();
     exit(4);
   }
-  cout << "INFO:\t you specify " << runs.size() << " runs:" << endl;
+  cout << "INFO:\t you specify " << runs.size() << " runs:" << ENDL;
   for (int run : runs)
     cout << "\t" << run << endl;
 
@@ -220,7 +220,7 @@ void usage() {
 
 set<int> parseRS(const char * input) {
   if (!input) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input for -r or -s" << endl;
+    cerr << ERROR << "empty input for -r or -s" << ENDL;
     return {};
   }
   set<int> vals;
@@ -230,13 +230,13 @@ set<int> parseRS(const char * input) {
     if (Contain(val, "-")) {
       vector<char*> range = Split(val, '-');
       if (!IsInteger(range[0]) || !IsInteger(range[1])) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t invalid range input" << endl;
+        cerr << FATAL << "invalid range input" << ENDL;
         exit(3);
       }
       const int start = atoi(range[0]);
       const int end   = atoi(range[1]);
       if (start > end) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t for range input: start must less than end" << endl;
+        cerr << FATAL << "for range input: start must less than end" << ENDL;
         exit(4);
       }
       for (int j=start; j<=end; j++) {
@@ -244,7 +244,7 @@ set<int> parseRS(const char * input) {
       }
     } else {
       if (!IsInteger(val)) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t run/slug must be an integer number" << endl;
+        cerr << FATAL << "run/slug must be an integer number" << ENDL;
         exit(4);
       }
       vals.insert(atoi(val));

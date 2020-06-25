@@ -236,12 +236,12 @@ map<string, pair<double, double>> GetRegValues (const int run, vector<char *> va
     const char * root_file = Form("%s/prexPrompt_%d_%03d_regress_postpan.root", reg_dir, run, i);
     TFile fin(root_file, "read");
     if (!fin.IsOpen()) {
-      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't open root file: " << root_file << endl;
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't open root file: " << root_file << ENDL;
       return res;
     }
     TTree * tin = (TTree*) fin.Get("reg");
     if (! tin) {
-      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't receive reg tree from root file: " << root_file << endl;
+      cerr << __PRETTY_FUNCTION__ << "ERROR:\t Can't receive reg tree from root file: " << root_file << ENDL;
       return res;
     }
 

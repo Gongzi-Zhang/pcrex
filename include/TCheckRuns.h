@@ -167,16 +167,16 @@ TCheckRuns::TCheckRuns(const char* config_file) :
 }
 
 TCheckRuns::~TCheckRuns() {
-  cerr << __PRETTY_FUNCTION__ << ":INFO\t Release TCheckRuns\n";
+  cerr << INFO << "Release TCheckRuns" << ENDL;
 }
 
 void TCheckRuns::SetDir(const char * d) {
   struct stat info;
   if (stat( d, &info) != 0) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t can't access specified dir: " << dir << endl;
+    cerr << FATAL << "can't access specified dir: " << dir << ENDL;
     exit(30);
   } else if ( !(info.st_mode & S_IFDIR)) {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t not a dir: " << dir << endl;
+    cerr << FATAL << "not a dir: " << dir << ENDL;
     exit(31);
   }
   dir = d;
@@ -188,7 +188,7 @@ void TCheckRuns::SetOutFormat(const char * f) {
   } else if (strcmp(f, "png") == 0) {
     format = png;
   } else {
-    cerr << __PRETTY_FUNCTION__ << ":FATAL\t Unknow output format: " << f << endl;
+    cerr << FATAL << "Unknow output format: " << f << ENDL;
     exit(40);
   }
 }
@@ -196,7 +196,7 @@ void TCheckRuns::SetOutFormat(const char * f) {
 void TCheckRuns::SetRuns(set<int> runs) {
   for(int run : runs) {
     if (run < START_RUN || run > END_RUN) {
-      cerr << __PRETTY_FUNCTION__ << ":ERROR\t Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << endl;
+      cerr << ERROR << "Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << ENDL;
       continue;
     }
     fRuns.insert(run);
@@ -215,7 +215,7 @@ void TCheckRuns::CheckRuns() {
     glob_t globbuf;
     glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
-      cout << __PRETTY_FUNCTION__ << ":ERROR\t no root file for run: " << run << endl;
+      cout << ERROR << "no root file for run: " << run << ENDL;
       it = fRuns.erase(it);
       continue;
     }
@@ -228,11 +228,11 @@ void TCheckRuns::CheckRuns() {
 
   nRuns = fRuns.size();
   if (nRuns == 0) {
-    cout << __PRETTY_FUNCTION__ << "FATAL\t no valid run specified" << endl;
+    cout << __PRETTY_FUNCTION__ << "FATAL\t no valid run specified" << ENDL;
     exit(4);
   }
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nRuns << " valid runs specified:\n";
+  cout << INFO << "" << nRuns << " valid runs specified:" << ENDL;
   for(int run : fRuns) {
     cout << "\t" << run << endl;
   }
@@ -251,12 +251,12 @@ void TCheckRuns::CheckVars() {
     TFile * f_rootfile = new TFile(file_name, "read");
     if (f_rootfile->IsOpen()) {
       if (!f_rootfile->GetListOfKeys()->Contains(tree)) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t no tree: " << tree << " in root file: " << file_name;
+        cerr << FATAL << "no tree: " << tree << " in root file: " << file_name;
         exit(22);
       }
       TTree * tin = (TTree*) f_rootfile->Get(tree);
       if (tin != NULL) {
-        cout << __PRETTY_FUNCTION__ << ":INFO\t use file to check vars: " << file_name << endl;
+        cout << INFO << "use file to check vars: " << file_name << ENDL;
 
         TObjArray * l_var = tin->GetListOfBranches();
         for (string var : fVars) {
@@ -266,8 +266,8 @@ void TCheckRuns::CheckVars() {
 
           TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
           if (!bbuf) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such branch: " << branch << " in var: " << var << endl;
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid branches:\n";
+            cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
+            cout << DEBUG << "List of valid branches:" << ENDL;
             TIter next(l_var);
             TBranch *br;
             while (br = (TBranch*) next()) {
@@ -283,8 +283,8 @@ void TCheckRuns::CheckVars() {
           }
           TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
           if (!lbuf) {
-            cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such leaf: " << leaf << " in var: " << var << endl;
-            cout << __PRETTY_FUNCTION__ << ":DEBUG\t List of valid leaves:" << endl;
+            cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
+            cout << DEBUG << "List of valid leaves:" << ENDL;
             TIter next(l_leaf);
             TLeaf *l;
             while (l = (TLeaf*) next()) {
@@ -301,7 +301,7 @@ void TCheckRuns::CheckVars() {
         break;
       }
 		}
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t root file of run: " << run << " is broken, ignore it.\n";
+    cerr << WARNING << "root file of run: " << run << " is broken, ignore it." << ENDL;
     it_r = fRuns.erase(it_r);
 
     if (it_r == fRuns.cend())
@@ -319,7 +319,7 @@ void TCheckRuns::CheckVars() {
 			if (it_c != fSoloCuts.cend())
 				fSoloCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid solo variable: " << *it << endl;
+			cerr << WARNING << "Invalid solo variable: " << *it << ENDL;
       it = fSolos.erase(it);
 		} else
       it++;
@@ -335,7 +335,7 @@ void TCheckRuns::CheckVars() {
 			if (it_c != fCompCuts.cend())
 				fCompCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid Comp variable: " << it->first << "\t" << it->second << endl;
+			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
       it = fComps.erase(it);
 		} else 
 			it++;
@@ -351,7 +351,7 @@ void TCheckRuns::CheckVars() {
 			if (it_c != fCorCuts.cend())
 				fCorCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid Cor variable: " << it->first << "\t" << it->second << endl;
+			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
       it = fCors.erase(it);
 		} else
       it++;
@@ -367,7 +367,7 @@ void TCheckRuns::CheckVars() {
 			if (it_c != fCustomCuts.cend())
 				fCustomCuts.erase(it_c);
 
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Invalid custom variable: " << *it << endl;
+			cerr << WARNING << "Invalid custom variable: " << *it << ENDL;
       it = fCustoms.erase(it);
 		} else
       it++;
@@ -390,19 +390,19 @@ void TCheckRuns::CheckVars() {
 		fVarValues[custom] = vector<double>();
 	}
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nSolos << " valid solo variables specified:\n";
+  cout << INFO << "" << nSolos << " valid solo variables specified:" << ENDL;
   for(string solo : fSolos) {
     cout << "\t" << solo << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nComps << " valid comparisons specified:\n";
+  cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
   for(pair<string, string> comp : fComps) {
     cout << "\t" << comp.first << " , " << comp.second << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCors << " valid correlations specified:\n";
+  cout << INFO << "" << nCors << " valid correlations specified:" << ENDL;
   for(pair<string, string> cor : fCors) {
     cout << "\t" << cor.first << " : " << cor.second << endl;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t " << nCustoms << " valid customs specified:\n";
+  cout << INFO << "" << nCustoms << " valid customs specified:" << ENDL;
   for(string custom : fCustoms) {
     cout << "\t" << custom << endl;
   }
@@ -410,7 +410,7 @@ void TCheckRuns::CheckVars() {
 
 bool TCheckRuns::CheckVar(string var) {
   if (fVars.find(var) == fVars.cend()) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknown variable: " << var << endl;
+    cerr << WARNING << "Unknown variable: " << var << ENDL;
     return false;
   }
   return true;
@@ -421,7 +421,7 @@ bool TCheckRuns::CheckCustomVar(Node * node) {
 		if (	 node->token.type == variable 
 				&& fCustoms.find(node->token.value) == fCustoms.cend()
 				&& fVars.find(node->token.value) == fVars.cend() ) {
-			cerr << __PRETTY_FUNCTION__ << ":WARNING\t Unknown variable: " << node->token.value << endl;
+			cerr << WARNING << "Unknown variable: " << node->token.value << ENDL;
 			return false;
 		}
 
@@ -440,16 +440,16 @@ void TCheckRuns::GetValues() {
       const char * file_name = fRootFiles[run][session].c_str();
       TFile * f_rootfile = new TFile(file_name, "read");
       if (!f_rootfile->IsOpen()) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t Can't open root file: " << file_name << endl;
+        cerr << WARNING << "Can't open root file: " << file_name << ENDL;
         f_rootfile->Close();
         continue;
       }
 
-      cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d\t", run, session)
-           << file_name << endl;
+      cout << INFO << Form("Read run: %d, session: %03d\t", run, session)
+           << file_name << ENDL;
       TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
       if (! tin) {
-        cerr << __PRETTY_FUNCTION__ << ":WARNING\t No such tree: " << tree << " in root file: " << file_name << endl;
+        cerr << WARNING << "No such tree: " << tree << " in root file: " << file_name << ENDL;
         f_rootfile->Close();
         continue;
       }
@@ -460,15 +460,15 @@ void TCheckRuns::GetValues() {
         string leaf   = fVarNames[var].second;
         TBranch * br = tin->GetBranch(branch.c_str());
         if (!br) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no branch: " << branch << " in tree: " << tree
-            << " of file: " << file_name << endl;
+          cerr << ERROR << "no branch: " << branch << " in tree: " << tree
+            << " of file: " << file_name << ENDL;
           error = true;
           break;
         }
         TLeaf * l = br->GetLeaf(leaf.c_str());
         if (!l) {
-          cerr << __PRETTY_FUNCTION__ << ":ERROR\t no leaf: " << leaf << " in branch: " << branch 
-            << " in tree: " << tree << " of file: " << file_name << endl;
+          cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch 
+            << " in tree: " << tree << " of file: " << file_name << ENDL;
           error = true;
           break;
         }
@@ -481,8 +481,8 @@ void TCheckRuns::GetValues() {
       const int N = tin->Draw(">>elist", cut, "entrylist");
       TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
       for(int n=0; n<N; n++) { // loop through the events
-        if (n % 20000 == 0)
-          cout << __PRETTY_FUNCTION__ << ":INFO\t processing " << n << " evnets!" << endl;
+        if (n % 50000 == 0)
+          cout << INFO << "read " << n << " evnets!" << ENDL;
 
         const int en = elist->GetEntry(n);
         if (CheckEntryCut(nTotal+en))
@@ -520,12 +520,16 @@ void TCheckRuns::GetValues() {
       f_rootfile->Close();
     }
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t read " << nOk << "/" << nTotal << " ok events." << endl;
+  cout << INFO << "read " << nOk << "/" << nTotal << " ok events." << ENDL;
+  if (fEntryNumber.size() == 0) {
+    cerr << FATAL << "No valid entries" << ENDL;
+    exit(44);
+  }
 }
 
 double TCheckRuns::get_custom_value(Node *node) {
 	if (!node) {
-		cerr << __PRETTY_FUNCTION__ << ":ERROR\t Null node\n";
+		cerr << ERROR << "Null node" << ENDL;
 		return -999999;
 	}
 
@@ -561,7 +565,7 @@ double TCheckRuns::get_custom_value(Node *node) {
 					|| fCustoms.find(val) != fCustoms.cend())
 				return vars_buf[val];
 		default:
-			cerr << __PRETTY_FUNCTION__ << ":ERROR\t unkonw token type: " << TypeName[node->token.type] << endl;
+			cerr << ERROR << "unkonw token type: " << TypeName[node->token.type] << ENDL;
 			return -999999;
 	}
 	return -999999;
@@ -584,8 +588,8 @@ bool TCheckRuns::CheckEntryCut(const long entry) {
 }
 
 void TCheckRuns::CheckValues() {
+  const int n = fEntryNumber.size();
   for (string solo : fSolos) {
-    const int n = fEntryNumber.size();
     double sum = 0, sum2 = 0;
     double mean = 0, sigma = 0;
     long discontinuity = 120;
@@ -604,7 +608,7 @@ void TCheckRuns::CheckValues() {
 
       if (entry - pre_entry > discontinuity || (sigma != 0 && abs(val - mean) > 10*sigma)) {  // end previous segment, start a new segment  
         if (pre_entry - start_entry > length) {
-          length = pre_entry - start_entry;
+          length = pre_entry - start_entry + 1;
           mean = sum/length;  // length initial value can't be 0
           sigma = sqrt(sum2/length - mean*mean);
         }
@@ -618,13 +622,13 @@ void TCheckRuns::CheckValues() {
       pre_entry = entry;
     }
     if (pre_entry - start_entry > length) {
-      length = pre_entry - start_entry;
+      length = pre_entry - start_entry + 1;
       mean = sum/length;  // length initial value can't be 0
       sigma = sqrt(sum2/length - mean*mean);
     }
-    cout << __PRETTY_FUNCTION__ << ":INFO\t start entry: " << start_entry 
+    cout << INFO << "variable: " << solo << "\t start entry: " << start_entry 
          << "\t end_enry: " << pre_entry << "\t length: " << length 
-         << "\tmean: " << mean << "\tsigma: " << sigma << endl;
+         << "\tmean: " << mean << "\tsigma: " << sigma << ENDL;
 
     double low_cut  = fSoloCuts[solo].low;
     double high_cut = fSoloCuts[solo].high;
@@ -669,7 +673,7 @@ void TCheckRuns::CheckValues() {
         outlier = true;
       } else {
         if (outlier)
-          cerr << __PRETTY_FUNCTION__ << ":OUTLIER\t in variable " << solo << " from entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << endl;
+          cerr << OUTLIER << "in variable " << solo << " from entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << ENDL;
           
         outlier = false;
       }
@@ -681,7 +685,7 @@ void TCheckRuns::CheckValues() {
       }
 
       if (abs(val - mean) > burp_cut) {
-        cerr << __PRETTY_FUNCTION__ << ":GLITCH\t glitch in variable: " << solo << " in entry " << entry << "mean: " << mean << "\tvalue: " << val << endl;
+        cerr << GLITCH << "glitch in variable: " << solo << " in entry " << entry << "mean: " << mean << "\tvalue: " << val << ENDL;
       }
 
       burp_ring[burp_index] = val;
@@ -716,7 +720,7 @@ void TCheckRuns::CheckValues() {
             || (high != 1024 && diff > high) 
         // || (stat != 1024 && abs(diff-mean) > stat*sigma
 				) {
-        // cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Comp: " << var1 << " vs " << var2 << endl;
+        // cout << ALERT << "bad datapoint in Comp: " << var1 << " vs " << var2 << ENDL;
         if (find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
           fCompPlots.push_back(comp);
         fCompBadPoints[comp].insert(i);
@@ -739,7 +743,7 @@ void TCheckRuns::CheckValues() {
 			yval = fVarValues[yvar][i];
 
       if ( 1 ) {	// FIXME
-        cout << __PRETTY_FUNCTION__ << ":ALERT\t bad datapoint in Cor: " << yvar << " vs " << xvar << endl;
+        cout << ALERT << "bad datapoint in Cor: " << yvar << " vs " << xvar << ENDL;
         if (find(fCorPlots.cbegin(), fCorPlots.cend(), *it) == fCorPlots.cend())
           fCorPlots.push_back(*it);
         fCorBadPoints[*it].insert(i);
@@ -748,7 +752,7 @@ void TCheckRuns::CheckValues() {
 	}
   */
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t done with checking values\n";
+  cout << INFO << "done with checking values" << ENDL;
 }
 
 void TCheckRuns::Draw() {
@@ -772,7 +776,7 @@ void TCheckRuns::Draw() {
   if (format == pdf)
     c->Print(Form("%s.pdf]", out_name));
 
-  cout << __PRETTY_FUNCTION__ << ":INFO\t done with drawing plots\n";
+  cout << INFO << "done with drawing plots" << ENDL;
 }
 
 void TCheckRuns::DrawSolos() {
@@ -834,7 +838,7 @@ void TCheckRuns::DrawSolos() {
 
     c->Clear();
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Solos.\n";
+  cout << INFO << "Done with drawing Solos." << ENDL;
 }
 
 // it looks like not a good idea to draw diff plots with a few hundred thousands points
@@ -948,7 +952,7 @@ void TCheckRuns::DrawComps() {
     h_diff->Delete();
     h_diff = NULL;
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Comparisons.\n";
+  cout << INFO << "Done with drawing Comparisons." << ENDL;
 }
 
 void TCheckRuns::DrawCors() {
@@ -1013,7 +1017,7 @@ void TCheckRuns::DrawCors() {
       c->Print(Form("%s_%s_vs_%s.png", out_name, xvar.c_str(), yvar.c_str()));
     c->Clear();
   }
-  cout << __PRETTY_FUNCTION__ << ":INFO\t Done with drawing Correlations.\n";
+  cout << INFO << "Done with drawing Correlations." << ENDL;
 }
 
 double TCheckRuns::GetUnit (string var) {

@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
   for (int i=0; i<nopt; i++) {
     if (rcdb_width.find(rcdb_options[i]) == rcdb_width.end()) {
       cerr << "Warning:\t No width specified for option " << rcdb_options[i]
-           << ". Use default value: 8" << endl;
+           << ". Use default value: 8" << ENDL;
       rcdb_width[rcdb_options[i]] = 8;
     }
     if (fd.find(rcdb_options[i]) != fd.end())
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
       ftype[rcdb_options[i]] = s;
     else {
       cerr << "FATAL:\t Unsupported option " << rcdb_options[i] << endl
-           << "\tIf it is an evt branch, please add it in evt.option" << endl;
+           << "\tIf it is an evt branch, please add it in evt.option" << ENDL;
       exit(4);
     }
   }
@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (runs.size() == 0) {
-    cerr << "FATAL:\t no run specified" << endl;
+    cerr << "FATAL:\t no run specified" << ENDL;
     usage();
     exit(4);
   }
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
 
     ifstream fin("evt.branches");
     if (!fin.is_open()) {
-      cerr << "ERROR:\t can't read the config file: evt.branches. Skip reading evt." << endl;
+      cerr << "ERROR:\t can't read the config file: evt.branches. Skip reading evt." << ENDL;
       do_it["evt"] = false;
       goto ENDEVT;
     }
@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
       if (find(branches.begin(), branches.end(), *it) == branches.end()) {
         if ((*it)[0] != '\0')
           cerr << "WARNING:\t Unknown branch: " << *it << ". Ignore it." << endl
-               << "Please refer to reg.branches for correct variable name" << endl;
+               << "Please refer to reg.branches for correct variable name" << ENDL;
 
         it = evt_vars.erase(it);  
         if (it == evt_vars.end())
@@ -190,12 +190,12 @@ int main(int argc, char* argv[]) {
     }
 
     if (evt_vars.size() == 0) {
-      cerr << "ERROR:\t no valid evt variables specified" << endl;
+      cerr << "ERROR:\t no valid evt variables specified" << ENDL;
       do_it["evt"] = false;
       goto ENDEVT;
     }
 
-    cout << "INFO:\t " << evt_vars.size() << " valid evt variables specified: " << endl;
+    cout << "INFO:\t " << evt_vars.size() << " valid evt variables specified: " << ENDL;
     for (char * var : evt_vars) {
       cout << "\t" << var << endl;
     }
@@ -210,7 +210,7 @@ ENDEVT:
 
     ifstream fin("slow.branches");
     if (!fin.is_open()) {
-      cerr << "ERROR:\t can't read the config file: slow.branches. Skip reading slow" << endl;
+      cerr << "ERROR:\t can't read the config file: slow.branches. Skip reading slow" << ENDL;
       do_it["slow"] = false;
       goto ENDSLOW;
     }
@@ -225,7 +225,7 @@ ENDEVT:
       if (find(branches.begin(), branches.end(), *it) == branches.end()) {
         if ((*it)[0] != '\0')
           cout << "WARNING:\t Unknown branch: " << *it << ". Ignore it." << endl
-               << "Please refer to reg.branches for correct variable name" << endl;
+               << "Please refer to reg.branches for correct variable name" << ENDL;
         it = slow_vars.erase(it);  
         if (it == slow_vars.end())
           break;
@@ -233,12 +233,12 @@ ENDEVT:
     }
 
     if (slow_vars.size() == 0) {
-      cerr << "ERROR:\t no valid slow variables specified" << endl;
+      cerr << "ERROR:\t no valid slow variables specified" << ENDL;
       do_it["slow"] = false;
       goto ENDSLOW;
     }
 
-    cout << "INFO:\t " << slow_vars.size() << " valid slow variables specified: " << endl;
+    cout << "INFO:\t " << slow_vars.size() << " valid slow variables specified: " << ENDL;
     for (char * var : slow_vars) {
       cout << "\t" << var << endl;
     }
@@ -253,7 +253,7 @@ ENDSLOW:
 
     ifstream fin("reg.branches");
     if (!fin.is_open()) {
-      cerr << "ERROR:\t can't read the config file: reg.branches. Skip reading reg" << endl;
+      cerr << "ERROR:\t can't read the config file: reg.branches. Skip reading reg" << ENDL;
       do_it["reg"] = false;
       goto ENDREG;
     }
@@ -268,7 +268,7 @@ ENDSLOW:
       if (find(branches.begin(), branches.end(), *it) == branches.end()) {
         if ((*it)[0] != '\0')
           cout << "WARNING:\t Unknown branch: " << *it << ". Ignore it." << endl
-               << "Please refer to reg.branches for correct variable name" << endl;
+               << "Please refer to reg.branches for correct variable name" << ENDL;
         it = reg_vars.erase(it);  
         if (it == reg_vars.end())
           break;
@@ -276,12 +276,12 @@ ENDSLOW:
     }
 
     if (reg_vars.size() == 0) {
-      cerr << "ERROR:\t no valid reg variables specified" << endl;
+      cerr << "ERROR:\t no valid reg variables specified" << ENDL;
       do_it["reg"] = false;
       goto ENDREG;
     }
 
-    cout << "INFO:\t " << reg_vars.size() << " valid reg variables specified: " << endl;
+    cout << "INFO:\t " << reg_vars.size() << " valid reg variables specified: " << ENDL;
     for (char * var : reg_vars) {
       cout << "\t" << var << endl;
     }
@@ -486,7 +486,7 @@ void usage() {
 
 set<int> parseRS(const char * input) {
   if (!input) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t empty input for -r or -s" << endl;
+    cerr << ERROR << "empty input for -r or -s" << ENDL;
     return {};
   }
   set<int> vals;
@@ -496,13 +496,13 @@ set<int> parseRS(const char * input) {
     if (Contain(val, "-")) {
       vector<char*> range = Split(val, '-');
       if (!IsInteger(range[0]) || !IsInteger(range[1])) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t invalid range input" << endl;
+        cerr << FATAL << "invalid range input" << ENDL;
         exit(3);
       }
       const int start = atoi(range[0]);
       const int end   = atoi(range[1]);
       if (start > end) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t for range input: start must less than end" << endl;
+        cerr << FATAL << "for range input: start must less than end" << ENDL;
         exit(4);
       }
       for (int j=start; j<=end; j++) {
@@ -510,7 +510,7 @@ set<int> parseRS(const char * input) {
       }
     } else {
       if (!IsInteger(val)) {
-        cerr << __PRETTY_FUNCTION__ << ":FATAL\t run/slug must be an integer number" << endl;
+        cerr << FATAL << "run/slug must be an integer number" << ENDL;
         exit(4);
       }
       vals.insert(atoi(val));

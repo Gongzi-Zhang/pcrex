@@ -8,11 +8,13 @@
 #include <vector>
 #include <locale>
 
+#include "io.h"
+
 #define MAX 256	  // max line chars
 
 using namespace std;
 /****************** LINE PROCESSING FUNCTIONS ******************
- * all the following text processing functions that have a start position
+ * all the following text read functions that have a start position
  * argument support negative value, meaning counts from the end of a 
  * string
  *
@@ -42,7 +44,7 @@ void StringTests();
 
 bool StripComment(char* line) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t uninitialized line";
+    cerr << ERROR << "uninitialized line";
     return false;
   }
 
@@ -63,7 +65,7 @@ bool StripComment(char* line) {
     continue;
   }
   if (single_quote || double_quote) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t unmatched quote!" << endl;
+    cerr << WARNING << "unmatched quote!" << ENDL;
     return false;
   }
   return true;
@@ -71,7 +73,7 @@ bool StripComment(char* line) {
 
 void StripSpaces(char *line) { // remove space at the beginning and end of a line
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return;
   }
 
@@ -95,7 +97,7 @@ void StripSpaces(char *line) { // remove space at the beginning and end of a lin
 
 bool IsEmpty(const char *line) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t uninitialized line";
+    cerr << ERROR << "uninitialized line";
     return false;
   }
 
@@ -107,7 +109,7 @@ bool IsEmpty(const char *line) {
 
 bool IsInteger(const char *line) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t uninitialized line";
+    cerr << ERROR << "uninitialized line";
     return false;
   }
 
@@ -135,7 +137,7 @@ bool IsInteger(const char *line) {
 
 bool IsNumber(const char *line) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t uninitialized line";
+    cerr << ERROR << "uninitialized line";
     return false;
   }
 
@@ -195,7 +197,7 @@ bool IsNumber(const char *line) {
 
 int Size(const char *line) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t uninitialized line";
+    cerr << ERROR << "uninitialized line";
     return -1;
   }
 
@@ -208,13 +210,13 @@ int Size(const char *line) {
 
 int Index(const char *line, const char c, const int start) { // first index of char in line since start position
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return -2;
   }
   
   const int n = Size(line);
   if (abs(start) >= n) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid start position: " << start << " in line: " << line << endl;
+    cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
     return -3;
   }
 
@@ -230,7 +232,7 @@ int Index(const char *line, const char c, const int start) { // first index of c
 
 pair<int, int> Index(const char *line, const char *sub, const int start) {  // index of a sub string 
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return {-2, -2};
   }
 
@@ -241,7 +243,7 @@ pair<int, int> Index(const char *line, const char *sub, const int start) {  // i
   const int m = Size(sub);
 
   if (abs(start) >= n) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid start position: " << start << " in line: " << line << endl;
+    cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
     return {-3, -3};
   }
 
@@ -270,7 +272,7 @@ pair<int, int> Index(const char *line, const char *sub, const int start) {  // i
 
 int Count(const char *line, const char c) {  // count the occurrance of char c in line
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return -1;
   }
   
@@ -287,14 +289,14 @@ bool Contain(const char *line, const char *sub, const int start) {
     return true;
 
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return false;
   }
   
   const int n = Size(line);
   const int m = Size(sub);
   if (abs(start) >= n) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid start position: " << start << " in line: " << line << endl;
+    cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
     return false;
   }
 
@@ -327,13 +329,13 @@ bool Contain(const char *line, const char *sub, const int start) {
 
 char * Sub(const char *line, const int start) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return NULL;
   }
 
   const int n = Size(line);
   if (abs(start) >= n) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid position: " << start << " in line: " << line << endl;
+    cerr << ERROR << "invalid position: " << start << " in line: " << line << ENDL;
     return NULL;
   }
 
@@ -349,18 +351,18 @@ char * Sub(const char *line, const int start) {
 
 char * Sub(const char *line, const int start, const int length) {
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return NULL;
   }
 
   if (length < 0) { // length can be 0
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t negative length: " << length << endl;
+    cerr << ERROR << "negative length: " << length << ENDL;
     return NULL;
   }
 
   const int n = Size(line);
   if (abs(start) >= n) {
-    cerr << __PRETTY_FUNCTION__ << ":ERROR\t invalid start position: " << start << " in line: " << line << endl;
+    cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
     return NULL;
   }
 
@@ -379,7 +381,7 @@ vector<char*> Split(const char *line) {
   vector<char*> fields;
 
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return fields; // FIXME: what should be return?
   }
 
@@ -409,7 +411,7 @@ vector<char*> Split(const char *line, const char del) {
   vector<char*> fields;
 
   if (line == NULL) {
-    cerr << __PRETTY_FUNCTION__ << ":WARNING\t uninitialized line";
+    cerr << WARNING << "uninitialized line";
     return fields; // FIXME: what should be return?
   }
   int n=0;
@@ -459,7 +461,7 @@ void StringTests() {
   assert(Split(line, ',').size() == 2);
   assert(strcmp(Split(line, ',')[0], "hello") == 0);
   assert(strcmp(Split("abc    xyz")[1], "xyz") == 0);
-  cout << __PRETTY_FUNCTION__ << ":INFO\t pass all tests.\n";
+  cout << INFO << "pass all tests." << ENDL;
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */
