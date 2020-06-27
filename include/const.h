@@ -7,6 +7,8 @@
 
 // run infos
 #define START_RUN   3000
+// #define PREX_END_RUN   4980
+// #define CREX_START_RUN   5000
 #define END_RUN     7430
 #define START_SLUG  0
 #define END_SLUG    185
@@ -33,6 +35,7 @@ const double uV = 1e-6;
 const double nV = 1e-9;
 
 std::map<std::string, const double> UNITS = {
+	{"",		1},
   {"ppb", ppb},
   {"ppm", ppm},
   {"mm",  mm},
@@ -44,21 +47,6 @@ std::map<std::string, const double> UNITS = {
   {"mV",  mV},
   {"uV",  uV},
   {"nV",  nV},
-};
-
-std::map<const double, std::string> UNITNAMES = {
-  {1,   ""},
-  {ppb, "ppb"},
-  {ppm, "ppm"},
-  {mm,  "mm"},
-  {um,  "um"},
-  {nm,  "nm"},
-  {mA,  "mA"},
-  {uA,  "uA"},
-  {nA,  "nA"},
-  {mV,  "mV"},
-  {uV,  "uV"},
-  {nV,  "nV"},
 };
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

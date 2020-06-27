@@ -143,7 +143,7 @@ class TCheckStat {
      void DrawCors();
 
      // auxiliary funcitons
-     double GetUnit(string var);
+     const char * GetUnit(string var);
 };
 
 // ClassImp(TCheckStat);
@@ -719,7 +719,7 @@ void TCheckStat::CheckValues() {
     double low_cut  = fSoloCuts[solo].low;
     double high_cut = fSoloCuts[solo].high;
     double burp_cut = fSoloCuts[solo].burplevel;
-    double unit = GetUnit(solo);
+    double unit = UNITS[GetUnit(solo)];
     if (low_cut != 1024)
       low_cut /= unit;
     if (high_cut != 1024)
@@ -760,7 +760,7 @@ void TCheckStat::CheckValues() {
     string var2 = comp.second;
     double low_cut  = fCompCuts[comp].low;
     double high_cut = fCompCuts[comp].high;
-    double unit = GetUnit(var1);
+    double unit = UNITS[GetUnit(var1)];
     if (low_cut != 1024)
       low_cut /= unit;
     if (high_cut != 1024)
@@ -789,8 +789,8 @@ void TCheckStat::CheckValues() {
     double high_cut = fSlopeCuts[slope].high;
     double burp_cut = fSlopeCuts[slope].burplevel;
 
-    double dunit = GetUnit(dv);
-    double iunit = GetUnit(iv);
+    double dunit = UNITS[GetUnit(dv)];
+    double iunit = UNITS[GetUnit(iv)];
     if (low_cut != 1024)
       low_cut /= (dunit/iunit);
     if (high_cut != 1024)
@@ -826,8 +826,8 @@ void TCheckStat::CheckValues() {
     string xvar = cor.second;
     double low_cut   = fCorCuts[cor].low;
     double high_cut  = fCorCuts[cor].high;
-    double xunit = GetUnit(xvar);
-    double yunit = GetUnit(yvar);
+    double xunit = UNITS[GetUnit(xvar)];
+    double yunit = UNITS[GetUnit(yvar)];
     if (low_cut != 1024)
       low_cut /= (yunit/xunit);
     if (high_cut != 1024)
@@ -876,7 +876,7 @@ void TCheckStat::Draw() {
 
 void TCheckStat::DrawSolos() {
   for (string solo : fSoloPlots) {
-    string unit = UNITNAMES[GetUnit(solo)];
+    string unit = GetUnit(solo);
     string err_var;
     bool mean = (fVarNames[solo].second == "mean");
     if (mean)
@@ -1211,7 +1211,7 @@ void TCheckStat::DrawComps() {
     const char * err_var2 = Form("%s.err", branch2.c_str());
     bool mean = (fVarNames[var1].second == "mean");
 
-    string unit = UNITNAMES[GetUnit(var1)];
+    string unit = GetUnit(var1);
 
     TGraphErrors * g1 = new TGraphErrors();
     TGraphErrors * g2 = new TGraphErrors();
@@ -1425,8 +1425,8 @@ void TCheckStat::DrawCors() {
     string yvar = cor.first;
     string xbranch = fVarNames[xvar].first;
     string ybranch = fVarNames[yvar].first;
-    string xunit = UNITNAMES[GetUnit(xvar)];
-    string yunit = UNITNAMES[GetUnit(yvar)];
+    string xunit = GetUnit(xvar);
+    string yunit = GetUnit(yvar);
 
     bool xmean = (fVarNames[xvar].second == "mean");
     bool ymean = (fVarNames[yvar].second == "mean");
@@ -1544,23 +1544,23 @@ void TCheckStat::DrawCors() {
   cout << INFO << "Done with drawing Correlations." << ENDL;
 }
 
-double TCheckStat::GetUnit (string var) {
+const char * TCheckStat::GetUnit (string var) {
   string branch = fVarNames[var].first;
   string leaf   = fVarNames[var].second;
   if (branch.find("asym") != string::npos) {
     if (leaf == "mean")
-      return ppb;
+      return "ppb";
     else if (leaf == "rms")
-      return ppm;
+      return "ppm";
   } else if (branch.find("diff") != string::npos) {
     if (leaf == "mean")
-      return nm;
+      return "nm";
     else if (leaf == "rms")
-      return um;
+      return "um";
   } else {
-    return 1;
+    return "";
   }
-	return 1;
+	return "";
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

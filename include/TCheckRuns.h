@@ -32,6 +32,7 @@
 #include "TText.h"
 #include "TLine.h"
 
+// #include "rcdb.h"
 #include "const.h"
 #include "line.h"
 #include "TConfig.h"
@@ -121,7 +122,7 @@ class TCheckRuns {
      void DrawCors();
 
      // auxiliary funcitons
-     double GetUnit(string var);
+     const char * GetUnit(string var);
 };
 
 // ClassImp(TCheckRuns);
@@ -226,6 +227,7 @@ void TCheckRuns::CheckRuns() {
     it++;
   }
 
+	// GetValidRuns(fRuns);
   nRuns = fRuns.size();
   if (nRuns == 0) {
     cout << __PRETTY_FUNCTION__ << "FATAL\t no valid run specified" << ENDL;
@@ -326,7 +328,8 @@ void TCheckRuns::CheckVars() {
   }
 
   for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
-    if (!CheckVar(it->first) || !CheckVar(it->second)) {
+    if (!CheckVar(it->first) || !CheckVar(it->second) 
+				|| strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) {
 			vector<pair<string, string>>::iterator it_p = find(fCompPlots.begin(), fCompPlots.end(), *it);
 			if (it_p != fCompPlots.cend())
 				fCompPlots.erase(it_p);
@@ -644,7 +647,7 @@ void TCheckRuns::CheckValues() {
     // else if (high_cut == 1024 && low_cut != 1024)
     //   high_cut = low_cut;
 
-    double unit = GetUnit(solo);
+    double unit = UNITS[GetUnit(solo)];
     if (low_cut != 1024) {
       low_cut /= unit;
       low_cut = mean - low_cut;
@@ -667,22 +670,26 @@ void TCheckRuns::CheckValues() {
     sum = 0;
     bool outlier = false;
     long start_outlier;
+		bool has_outlier = false;
+		bool has_glitch = false;
     for (int i=0; i<n; i++) {
       entry = fEntryNumber[i];
       val = fVarValues[solo][i];
 
       if (   (low_cut  != 1024 && val < low_cut)
           || (high_cut != 1024 && val > high_cut) ) {  // outlier
-        if (!outlier)
+        if (!outlier) {
           start_outlier = entry;
-
-        outlier = true;
+					outlier = true;
+					has_outlier = true;
+				}
+				fSoloBadPoints[solo].insert(fEntryNumber[i]);
       } else {
-        if (outlier)
+        if (outlier) {
           cerr << OUTLIER << "in variable: " << solo << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << ENDL;
           // FIXME should I add run info in the OUTLIER output?
-          
-        outlier = false;
+					outlier = false;
+				}
       }
 
       if (entry - pre_entry > discontinuity) {  // start a new count
@@ -693,6 +700,8 @@ void TCheckRuns::CheckValues() {
 
       if (abs(val - mean) > burp_cut) {
         cerr << GLITCH << "glitch in variable: " << solo << " in entry " << entry << "\tmean: " << mean << "\tvalue: " << val << ENDL;
+				has_glitch = true;
+				fSoloBadPoints[solo].insert(fEntryNumber[i]);
       }
 
       burp_ring[burp_index] = val;
@@ -707,16 +716,28 @@ void TCheckRuns::CheckValues() {
       mean = sum/burp_events;
       pre_entry = entry;
     }
+		if (outlier)
+			cerr << OUTLIER << "in variable: " << solo << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber[n-1] << ENDL;
+
+		if (	(has_outlier || has_glitch) 
+				&& find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
+			fSoloPlots.push_back(solo);
   }
 
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    const double low_cut  = fCompCuts[comp].low;
-    const double high_cut = fCompCuts[comp].high;
-    const double burp_cut = fCompCuts[comp].burplevel;
+    double low_cut  = fCompCuts[comp].low;
+    double high_cut = fCompCuts[comp].high;
+    double burp_cut = fCompCuts[comp].burplevel;
+    double unit = UNITS[GetUnit(var1)];
+    if (low_cut != 1024)	low_cut /= unit;
+    if (high_cut != 1024) high_cut /= unit;
+    if (burp_cut != 1024) burp_cut /= unit;
+
     bool outlier = false;
     long start_outlier;
+		bool has_outlier = false;
 		for (int i=0; i<n; i++) {
       double val1, val2;
 			val1 = fVarValues[var1][i];
@@ -726,18 +747,25 @@ void TCheckRuns::CheckValues() {
       if (  (low_cut  != 1024 && diff < low_cut)
          || (high_cut != 1024 && diff > high_cut) ) {
         // || (stat != 1024 && abs(diff-mean) > stat*sigma
-        if (!outlier)
+        if (!outlier) {
           start_outlier = fEntryNumber[i];
-
-        outlier = true;
+					outlier = true;
+					has_outlier = true;
+				}
+				fCompBadPoints[comp].insert(fEntryNumber[i]);
       } else {
-        if (outlier)
+        if (outlier) {
           cerr << OUTLIER << "in variable: " << var1 << " vs " << var2 << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << ENDL;
           // FIXME should I add run info in the OUTLIER output?
-          
-        outlier = false;
+					outlier = false;
+				}
       }
     }
+		if (outlier)
+			cerr << OUTLIER << "in variable: " << var1 << " vs " << var2 << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber[n-1] << ENDL;
+
+		if (has_outlier && find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
+			fCompPlots.push_back(comp);
 	}
 
   /*
@@ -795,7 +823,7 @@ void TCheckRuns::DrawSolos() {
   for (string var : fCustomPlots)
     vars.push_back(var); // assumes (and should be) no same name between solos and customs
   for (string var : vars) {
-    string unit = UNITNAMES[GetUnit(var)];
+    string unit = GetUnit(var);
 
     TGraphErrors * g = new TGraphErrors();      // all data points
     // TGraphErrors * g_err = new TGraphErrors();  // ErrorFlag != 0
@@ -820,6 +848,7 @@ void TCheckRuns::DrawSolos() {
     // g_err->SetMarkerStyle(1.2);
     // g_err->SetMarkerColor(kBlue);
     g_bad->SetMarkerStyle(1.2);
+    g_bad->SetMarkerSize(1.5);
     g_bad->SetMarkerColor(kRed);
 
     c->cd();
@@ -862,7 +891,7 @@ void TCheckRuns::DrawComps() {
     string var1 = var.first;
     string var2 = var.second;
 
-    string unit = UNITNAMES[GetUnit(var1)];
+    string unit = GetUnit(var1);
 
     TGraphErrors *g1 = new TGraphErrors();
     TGraphErrors *g2 = new TGraphErrors();
@@ -904,13 +933,17 @@ void TCheckRuns::DrawComps() {
     ymax += margin;
 
 		g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), unit.c_str()));
+		g1->SetMarkerColor(8);
+		g2->SetMarkerColor(9);
     g_err1->SetMarkerStyle(1.2);
     g_err1->SetMarkerColor(kBlue);
     g_err2->SetMarkerStyle(1.2);
     g_err2->SetMarkerColor(kBlue);
     g_bad1->SetMarkerStyle(1.2);
+    g_bad1->SetMarkerSize(1.5);
     g_bad1->SetMarkerColor(kRed);
     g_bad2->SetMarkerStyle(1.2);
+    g_bad2->SetMarkerSize(1.5);
     g_bad2->SetMarkerColor(kRed);
 
     c->cd();
@@ -973,8 +1006,8 @@ void TCheckRuns::DrawCors() {
   for (pair<string, string> var : fCorPlots) {
     string xvar = var.second;
     string yvar = var.first;
-    string xunit = UNITNAMES[GetUnit(xvar)];
-    string yunit = UNITNAMES[GetUnit(yvar)];
+    string xunit = GetUnit(xvar);
+    string yunit = GetUnit(yvar);
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
@@ -1034,23 +1067,23 @@ void TCheckRuns::DrawCors() {
   cout << INFO << "Done with drawing Correlations." << ENDL;
 }
 
-double TCheckRuns::GetUnit (string var) {
+const char * TCheckRuns::GetUnit (string var) {	// must return const char * to distinguish between same value units (e.g. ppm, um)
   if (strcmp(tree, "evt") == 0) {  // event tree
     if (var.find("bpm") != string::npos)
-      return mm;
+      return "mm";
     else if (var.find("bcm") != string::npos)
-      return uA;
+      return "uA";
     else if (var.find("us") != string::npos || var.find("ds") != string::npos)
-      return mV;  // FIXME
+      return "mV";  // FIXME
     else 
-      return 1;
+      return "";
   } else if (strcmp(tree, "mul") == 0  || strcmp(tree, "dit") == 0) {
     if (var.find("asym") != string::npos)
-      return ppm;
+      return "ppm";
     else if (var.find("diff") != string::npos)
-      return um;
+      return "um";
     else
-      return 1;
+      return "";
   }
 }
 #endif
