@@ -589,7 +589,13 @@ bool TCheckRuns::CheckEntryCut(const long entry) {
 
 void TCheckRuns::CheckValues() {
   const int n = fEntryNumber.size();
-  for (string solo : fSolos) {
+
+  set<string> vars;
+  for (string var : fSolos)
+    vars.insert(var);
+  for (string var : fCustoms)
+    vars.insert(var); // assumes (and should be) no same name between solos and customs
+  for (string solo : vars) {
     double sum = 0, sum2 = 0;
     double mean = 0, sigma = 0;
     long discontinuity = 120;
@@ -602,9 +608,9 @@ void TCheckRuns::CheckValues() {
     long start_entry = fEntryNumber[0];
     pre_entry = start_entry;
     double length = 1;  // length of consecutive segments
-		for (int i=0; i<n; i++) {
+    for (int i=0; i<n; i++) {
       entry = fEntryNumber[i];
-			val = fVarValues[solo][i];
+      val = fVarValues[solo][i];
 
       if (entry - pre_entry > discontinuity || (sigma != 0 && abs(val - mean) > 10*sigma)) {  // end previous segment, start a new segment  
         if (pre_entry - start_entry > length) {
@@ -673,7 +679,8 @@ void TCheckRuns::CheckValues() {
         outlier = true;
       } else {
         if (outlier)
-          cerr << OUTLIER << "in variable " << solo << " from entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << ENDL;
+          cerr << OUTLIER << "in variable: " << solo << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << ENDL;
+          // FIXME should I add run info in the OUTLIER output?
           
         outlier = false;
       }
@@ -685,7 +692,7 @@ void TCheckRuns::CheckValues() {
       }
 
       if (abs(val - mean) > burp_cut) {
-        cerr << GLITCH << "glitch in variable: " << solo << " in entry " << entry << "mean: " << mean << "\tvalue: " << val << ENDL;
+        cerr << GLITCH << "glitch in variable: " << solo << " in entry " << entry << "\tmean: " << mean << "\tvalue: " << val << ENDL;
       }
 
       burp_ring[burp_index] = val;
@@ -700,34 +707,38 @@ void TCheckRuns::CheckValues() {
       mean = sum/burp_events;
       pre_entry = entry;
     }
-	}
+  }
 
-  /*
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
     const double low_cut  = fCompCuts[comp].low;
     const double high_cut = fCompCuts[comp].high;
     const double burp_cut = fCompCuts[comp].burplevel;
-    const int n = fEntryNumber.size();
+    bool outlier = false;
+    long start_outlier;
 		for (int i=0; i<n; i++) {
       double val1, val2;
 			val1 = fVarValues[var1][i];
 			val2 = fVarValues[var2][i];
 			double diff = abs(val1 - val2);
 
-      if (  (low  != 1024 && diff < low)
-            || (high != 1024 && diff > high) 
+      if (  (low_cut  != 1024 && diff < low_cut)
+         || (high_cut != 1024 && diff > high_cut) ) {
         // || (stat != 1024 && abs(diff-mean) > stat*sigma
-				) {
-        // cout << ALERT << "bad datapoint in Comp: " << var1 << " vs " << var2 << ENDL;
-        if (find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
-          fCompPlots.push_back(comp);
-        fCompBadPoints[comp].insert(i);
+        if (!outlier)
+          start_outlier = fEntryNumber[i];
+
+        outlier = true;
+      } else {
+        if (outlier)
+          cerr << OUTLIER << "in variable: " << var1 << " vs " << var2 << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber[i-1] << ENDL;
+          // FIXME should I add run info in the OUTLIER output?
+          
+        outlier = false;
       }
     }
 	}
-  */
 
   /*
   for (pair<string, string> cor : fCors) {
@@ -767,8 +778,6 @@ void TCheckRuns::Draw() {
   if (format == pdf)
     c->Print(Form("%s.pdf[", out_name));
 
-  for (string var : fCustomPlots)
-    fSoloPlots.push_back(var);
   DrawSolos();
   DrawComps();
   // DrawCors();
@@ -780,7 +789,12 @@ void TCheckRuns::Draw() {
 }
 
 void TCheckRuns::DrawSolos() {
-  for (string var : fSoloPlots) {
+  vector<string> vars;
+  for (string var : fSoloPlots)
+    vars.push_back(var);
+  for (string var : fCustomPlots)
+    vars.push_back(var); // assumes (and should be) no same name between solos and customs
+  for (string var : vars) {
     string unit = UNITNAMES[GetUnit(var)];
 
     TGraphErrors * g = new TGraphErrors();      // all data points
@@ -789,7 +803,7 @@ void TCheckRuns::DrawSolos() {
 
     for(int i=0, ibad=0; i<nOk; i++) {
       double val;
-			val = fVarValues[var][i];
+      val = fVarValues[var][i];
 
       // g->SetPoint(i, i+1, val);
 
@@ -802,7 +816,7 @@ void TCheckRuns::DrawSolos() {
         ibad++;
       }
     }
-		g->SetTitle((var + ";;" + unit).c_str());
+    g->SetTitle((var + ";;" + unit).c_str());
     // g_err->SetMarkerStyle(1.2);
     // g_err->SetMarkerColor(kBlue);
     g_bad->SetMarkerStyle(1.2);
@@ -838,7 +852,7 @@ void TCheckRuns::DrawSolos() {
 
     c->Clear();
   }
-  cout << INFO << "Done with drawing Solos." << ENDL;
+  cout << INFO << "Done with drawing Solos and customized variables." << ENDL;
 }
 
 // it looks like not a good idea to draw diff plots with a few hundred thousands points
