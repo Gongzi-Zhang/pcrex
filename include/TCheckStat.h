@@ -634,12 +634,14 @@ void TCheckStat::GetValues() {
         if (b_minirun) 
           break;
       }
+      TLeaf *l_minirun;
       if (!b_minirun) {
         cerr << ERROR << "no minirun branch in tree: " << tree 
           << " of file: " << file_name << ENDL;
-        continue;
+        // continue;
+      } else {
+        l_minirun = (TLeaf *)b_minirun->GetListOfLeaves()->At(0);
       }
-      TLeaf *l_minirun = (TLeaf *)b_minirun->GetListOfLeaves()->At(0);
 
       for (string var : fVars) {
         string branch = fVarNames[var].first;
@@ -673,8 +675,12 @@ void TCheckStat::GetValues() {
       for(int n=0; n<nentries; n++) { // loop through the miniruns
         tin->GetEntry(n);
 
-        l_minirun->GetBranch()->GetEntry(n);
-        fMiniruns.push_back(make_pair(run, l_minirun->GetValue()));
+        if (l_minirun) {
+          l_minirun->GetBranch()->GetEntry(n);
+          fMiniruns.push_back(make_pair(run, l_minirun->GetValue()));
+        } else {
+          fMiniruns.push_back(make_pair(run, n));
+        }
         for (string var : fVars) {
           double value;
           double unit = 1;
