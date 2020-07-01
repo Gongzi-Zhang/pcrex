@@ -109,7 +109,7 @@ class TCheckRuns {
      void SetDir(const char * d);
      void CheckRuns();
      void CheckVars();
-     bool CheckVar(string exp);
+     bool CheckVar(string var);
 		 bool CheckCustomVar(Node * node);
      void GetValues();
      bool CheckEntryCut(const long entry);
@@ -327,6 +327,22 @@ void TCheckRuns::CheckVars() {
       it++;
   }
 
+	for (set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); ) { // this must come before check of comparison and correlation, which may use some variable defined here
+		if (!CheckCustomVar(fCustomDefs[*it])) {
+			vector<string>::iterator it_p = find(fCustomPlots.begin(), fCustomPlots.end(), *it);
+			if (it_p != fCustomPlots.cend())
+				fCustomPlots.erase(it_p);
+
+			map<string, VarCut>::const_iterator it_c = fCustomCuts.find(*it);
+			if (it_c != fCustomCuts.cend())
+				fCustomCuts.erase(it_c);
+
+			cerr << WARNING << "Invalid custom variable: " << *it << ENDL;
+      it = fCustoms.erase(it);
+		} else
+      it++;
+	}
+
   for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second) 
 				|| strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) {
@@ -359,22 +375,6 @@ void TCheckRuns::CheckVars() {
 		} else
       it++;
   }
-
-	for (set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); ) {
-		if (!CheckCustomVar(fCustomDefs[*it])) {
-			vector<string>::iterator it_p = find(fCustomPlots.begin(), fCustomPlots.end(), *it);
-			if (it_p != fCustomPlots.cend())
-				fCustomPlots.erase(it_p);
-
-			map<string, VarCut>::const_iterator it_c = fCustomCuts.find(*it);
-			if (it_c != fCustomCuts.cend())
-				fCustomCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid custom variable: " << *it << ENDL;
-      it = fCustoms.erase(it);
-		} else
-      it++;
-	}
 
   nSolos = fSolos.size();
   nComps = fComps.size();
@@ -412,7 +412,7 @@ void TCheckRuns::CheckVars() {
 }
 
 bool TCheckRuns::CheckVar(string var) {
-  if (fVars.find(var) == fVars.cend()) {
+  if (fVars.find(var) == fVars.cend() && fCustoms.find(var) == fCustoms.cend()) {
     cerr << WARNING << "Unknown variable: " << var << ENDL;
     return false;
   }
@@ -422,7 +422,7 @@ bool TCheckRuns::CheckVar(string var) {
 bool TCheckRuns::CheckCustomVar(Node * node) {
   if (node) {
 		if (	 node->token.type == variable 
-				&& fCustoms.find(node->token.value) == fCustoms.cend()
+				&& fCustoms.find(node->token.value) == fCustoms.cend()  // FIXME can't solve loop now
 				&& fVars.find(node->token.value) == fVars.cend() ) {
 			cerr << WARNING << "Unknown variable: " << node->token.value << ENDL;
 			return false;

@@ -117,6 +117,7 @@ class TMulPlot {
      void SetRuns(set<int> runs);
      void CheckRuns();
      void CheckVars();
+     bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
      void GetValues();
      bool CheckEntryCut(const long entry);
@@ -424,30 +425,6 @@ void TMulPlot::CheckVars() {
       it++;
   }
 
-  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
-    if (fVars.find(it->first) == fVars.cend() || fVars.find(it->second) == fVars.cend()) {
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
-			if (it_c != fCompCuts.cend())
-				fCompCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
-      it = fComps.erase(it);
-		} else 
-			it++;
-  }
-
-  for (set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); ) {
-    if (fVars.find(it->first) == fVars.cend() || fVars.find(it->second) == fVars.cend()) {
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
-			if (it_c != fCorCuts.cend())
-				fCorCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
-      it = fCors.erase(it);
-		} else
-      it++;
-  }
-
 	for (set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); ) {
 		if (!CheckCustomVar(fCustomDefs[*it])) {
 			map<string, VarCut>::const_iterator it_c = fCustomCuts.find(*it);
@@ -459,6 +436,31 @@ void TMulPlot::CheckVars() {
 		} else
       it++;
 	}
+
+  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
+    if (!CheckVar(it->first) || !CheckVar(it->second)) {
+				// || strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) {
+			map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
+			if (it_c != fCompCuts.cend())
+				fCompCuts.erase(it_c);
+
+			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
+      it = fComps.erase(it);
+		} else 
+			it++;
+  }
+
+  for (set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); ) {
+    if (!CheckVar(it->first) || !CheckVar(it->second)) {
+			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
+			if (it_c != fCorCuts.cend())
+				fCorCuts.erase(it_c);
+
+			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
+      it = fCors.erase(it);
+		} else
+      it++;
+  }
 
   nSolos = fSolos.size();
   nComps = fComps.size();
@@ -487,6 +489,14 @@ void TMulPlot::CheckVars() {
   }
 }
 
+bool TMulPlot::CheckVar(string var) {
+  if (fVars.find(var) == fVars.cend() && fCustoms.find(var) == fCustoms.cend()) {
+    cerr << WARNING << "Unknown variable: " << var << ENDL;
+    return false;
+  }
+  return true;
+}
+
 bool TMulPlot::CheckCustomVar(Node * node) {
   if (node) {
 		if (	 node->token.type == variable 
@@ -505,83 +515,24 @@ bool TMulPlot::CheckCustomVar(Node * node) {
 }
 
 void TMulPlot::GetValues() {
-  // initialize histogram
-  for (string solo : fSolos) {
-    double min = -100;
-    double max = 100;
-    const char * unit = "";
-    if (solo.find("asym") != string::npos) {
-      unit = "ppm";
-      min  = -3000;
-      max  = 3000;
-    }
-    else if (solo.find("diff") != string::npos) {
-      unit = "um";
-      min  = -50;
-      max  = 50;
-    } 
-
-    if (fSoloCuts[solo].low != 1024)
-      min = fSoloCuts[solo].low;
-    if (fSoloCuts[solo].high != 1024)
-      max = fSoloCuts[solo].high;
-    
-    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), unit), 100, min, max);
-  }
-
-  for (string custom : fCustoms) {
-    double min = -100;
-    double max = 100;
-    const char * unit = "";
-    if (custom.find("asym") != string::npos) {
-      unit = "ppm";
-      min  = -3000;
-      max  = 3000;
-    }
-    else if (custom.find("diff") != string::npos) {
-      unit = "um";
-      min  = -50;
-      max  = 50;
-    } 
-
-    if (fCustomCuts[custom].low != 1024)
-      min = fCustomCuts[custom].low;
-    if (fCustomCuts[custom].high != 1024)
-      max = fCustomCuts[custom].high;
-    
-    // !!! add it to solo histogram
-    fSoloHists[custom] = new TH1F(custom.c_str(), Form("%s;%s", custom.c_str(), unit), 100, min, max);
-  }
-
-  for (pair<string, string> comp : fComps) {
-    string var1 = comp.first;
-    string var2 = comp.second;
-    double min = -100;
-    double max = 100;
-    const char * unit = "";
-    if (var1.find("asym") != string::npos) {
-      unit = "ppm";
-      min  = -3000;
-      max  = 3000;
-    }
-    else if (var1.find("diff") != string::npos) {
-      unit = "um";
-      min  = -50;
-      max  = 50;
-    } 
-
-    if (fCompCuts[comp].low != 1024)
-      min = fCompCuts[comp].low;
-    if (fCompCuts[comp].high != 1024)
-      max = fCompCuts[comp].high;
-
-    size_t h = hash<string>{}(var1+var2);
-    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), unit), 100, min, max);
-    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), unit), 100, min, max);
-  }
-
   long total = 0;
   long ok = 0;
+  map<string, vector<double>> vals_buf;
+  map<string, double> maxes;
+  double unit = 1;
+  map<string, double> var_units;
+
+  for (string var : fVars) {
+    if (var.find("asym") != string::npos)
+      var_units[var] = ppm;
+    else if (var.find("diff") != string::npos)
+      var_units[var] = um/mm; // japan output has a unit of mm
+
+    maxes[var] = 0;
+  }
+  for (string custom : fCustoms)
+      maxes[custom] = 0;
+
   for (int run : fRuns) {
     size_t sessions = fRootFiles[run].size();
     for (size_t session=0; session < sessions; session++) {
@@ -645,27 +596,19 @@ void TMulPlot::GetValues() {
           fVarLeaves[var]->GetBranch()->GetEntry(en);
           double val = fVarLeaves[var]->GetValue();
 
-          double unit = 1;
-          if (var.find("asym") != string::npos)
-            unit = ppm;
-          else if (var.find("diff") != string::npos)
-            unit = um/mm; // japan output has a unit of mm
-
-          val *= fSigns[run];
-          val /= unit;
+          val *= (fSigns[run] > 0 ? 1 : -1); 
+          val /= var_units[var];
           vars_buf[var] = val;
+          vals_buf[var].push_back(val);
+          if (abs(val) > maxes[var])
+            maxes[var] = abs(val);
         }
         for (string custom : fCustoms) {
           double val = get_custom_value(fCustomDefs[custom]);
-          fSoloHists[custom]->Fill(val);
           vars_buf[custom] = val;
-        }
-        for (string solo : fSolos) {
-          fSoloHists[solo]->Fill(vars_buf[solo]);
-        }
-        for (pair<string, string> comp : fComps) {
-          fCompHists[comp].first->Fill(vars_buf[comp.first]);
-          fCompHists[comp].second->Fill(vars_buf[comp.second]);
+          vals_buf[custom].push_back(val);
+          if (abs(val) > maxes[custom]) 
+            maxes[custom] = abs(val);
         }
 
         // for (pair<string, string> slope : fSlopes) {
@@ -679,6 +622,86 @@ void TMulPlot::GetValues() {
   }
 
   cout << INFO << "read " << ok << "/" << total << " ok events." << ENDL;
+
+  // initialize histogram
+  for (string solo : fSolos) {
+    long max = ceil(maxes[solo] * 1.05);
+    long power = floor(log(max)/log(10));
+    int  a = max*10 / pow(10, power);
+    max = a * pow(10, power) / 10.;
+
+    long min = -max;
+    const char * unit = "";
+    if (solo.find("asym") != string::npos)
+      unit = "ppm";
+    else if (solo.find("diff") != string::npos)
+      unit = "um";
+
+    if (fSoloCuts[solo].low != 1024)
+      min = fSoloCuts[solo].low/UNITS[unit];
+    if (fSoloCuts[solo].high != 1024)
+      max = fSoloCuts[solo].high/UNITS[unit];
+    
+    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), unit), 100, min, max);
+    for (int i=0; i<ok; i++)
+      fSoloHists[solo]->Fill(vals_buf[solo][i]);
+  }
+
+  for (string custom : fCustoms) {
+    long max = ceil(maxes[custom] * 1.05);
+    long power = floor(log(max)/log(10));
+    int  a = max*10 / pow(10, power);
+    max = a * pow(10, power) / 10.;
+
+    long min = -max;
+    const char * unit = "";
+    if (custom.find("asym") != string::npos)
+      unit = "ppm";
+    else if (custom.find("diff") != string::npos)
+      unit = "um";
+
+    if (fCustomCuts[custom].low != 1024)
+      min = fCustomCuts[custom].low/UNITS[unit];
+    if (fCustomCuts[custom].high != 1024)
+      max = fCustomCuts[custom].high/UNITS[unit];
+    
+    // !!! add it to solo histogram
+    fSoloHists[custom] = new TH1F(custom.c_str(), Form("%s;%s", custom.c_str(), unit), 100, min, max);
+    for (int i=0; i<ok; i++)
+      fSoloHists[custom]->Fill(vals_buf[custom][i]);
+  }
+
+  for (pair<string, string> comp : fComps) {
+    string var1 = comp.first;
+    string var2 = comp.second;
+    double max1 = maxes[var1] * 1.2;
+    double max2 = maxes[var2] * 1.2;
+    long max  = ceil((max1 > max2 ? max1 : max2) * 1.05);
+    long power = floor(log(max)/log(10));
+    int  a = max*10 / pow(10, power);
+    max = a * pow(10, power) / 10.;
+
+    long min  = -max;
+    const char * unit = "";
+    if (var1.find("asym") != string::npos)
+      unit = "ppm";
+    else if (var1.find("diff") != string::npos)
+      unit = "um";
+
+    if (fCompCuts[comp].low != 1024)
+      min = fCompCuts[comp].low/UNITS[unit];
+    if (fCompCuts[comp].high != 1024)
+      min = fCompCuts[comp].high/UNITS[unit];
+
+    size_t h = hash<string>{}(var1+var2);
+    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), unit), 100, min, max);
+    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), unit), 100, min, max);
+
+    for (int i=0; i<ok; i++) {
+      fCompHists[comp].first->Fill(vals_buf[var1][i]);
+      fCompHists[comp].second->Fill(vals_buf[var2][i]);
+    }
+  }
 }
 
 double TMulPlot::get_custom_value(Node *node) {
