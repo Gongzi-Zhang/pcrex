@@ -51,6 +51,9 @@ map<int, const char *> legends = {
   {-4,  "down in"},
   {4,   "down out"},
 };
+vector<string> mean_leaves = { "mean", "hw_sum" };
+vector<string> err_leaves  = { "err",  "hw_sum_err"};
+vector<string> rms_leaves  = { "rms",  "hw_sum_m2" };
 
 using namespace std;
 
@@ -424,21 +427,23 @@ void TCheckStat::CheckVars() {
 
           fVarNames[var] = make_pair(branch, leaf);
 
-          if (leaf == "mean" || leaf == "hw_sum") {
+          vector<string>::const_iterator it = find(mean_leaves.cbegin(), mean_leaves.cend(), leaf);
+          if (it != mean_leaves.cend()) {
             string err_leaf;
-            if (leaf == "mean") {
-              err_leaf = "err";
-            } else if (leaf == "hw_sum") {
-              err_leaf = "hw_sum_err";
+            it = err_leaves.cbegin() + (it - mean_leaves.cbegin());
+            if (it == err_leaves.cend()) {
+              cerr << ERROR << "no corresponding error leaf for mean leaf: " << leaf << ENDL;
+              continue;
             }
+            err_leaf = *it;
             lbuf = (TLeaf *) l_leaf->FindObject(err_leaf.c_str());
-            if (lbuf) {
-              string err_var = branch + "." + err_leaf;
-              fVars.insert(err_var);
-              fVarNames[err_var] = make_pair(branch, err_leaf);
-            } else {
+            if (! lbuf) {
               cerr << WARNING << "No err leaf for mean var: " << var << ENDL;
+              continue;
             }
+            string err_var = branch + "." + err_leaf;
+            fVars.insert(err_var);
+            fVarNames[err_var] = make_pair(branch, err_leaf);
           }
         }
 
@@ -636,8 +641,9 @@ void TCheckStat::GetValues() {
       }
       TLeaf *l_minirun;
       if (!b_minirun) {
-        cerr << ERROR << "no minirun branch in tree: " << tree 
-          << " of file: " << file_name << ENDL;
+        cerr << WARNING << "no minirun branch in tree: " << tree 
+          << " of file: " << file_name << endl
+          << "\t will use entry number as minrun number" << ENDL;
         // continue;
       } else {
         l_minirun = (TLeaf *)b_minirun->GetListOfLeaves()->At(0);
@@ -686,22 +692,24 @@ void TCheckStat::GetValues() {
           double unit = 1;
           string leaf = fVarNames[var].second;
           if (var.find("asym") != string::npos) {
-            if (leaf == "mean" || leaf == "err" || leaf == "hw_sum" || leaf == "hw_sum_err")
+            if (  find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend()
+               || find(err_leaves.cbegin(), err_leaves.cend(), leaf) != err_leaves.cend())
               unit = ppb;
-            else if (leaf == "rms" || leaf == "hw_sum_m2")
+            else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
               unit = ppm;
           }
           else if (var.find("diff")) {
-            if (leaf == "mean" || leaf == "err" || leaf == "hw_sum" || leaf == "hw_sum_err")
+            if (  find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend()
+               || find(err_leaves.cbegin(), err_leaves.cend(), leaf) != err_leaves.cend())
               unit = um/mm;
-            else if (leaf == "rms" || leaf == "hw_sum_m2")
+            else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
               unit = mm/mm;
           }
 
           fVarLeaves[var]->GetBranch()->GetEntry(n);
           value = fVarLeaves[var]->GetValue() / unit;
           if (sign) {
-            if (fVarNames[var].second == "mean" || fVarNames[var].second == "hw_sum") {
+            if (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[var].second) != mean_leaves.cend()) {
               if (fSigns[run] == 0)
                 value = 0;
               else 
@@ -1221,7 +1229,7 @@ void TCheckStat::DrawComps() {
 
     const char * err_var1 = Form("%s.err", branch1.c_str());
     const char * err_var2 = Form("%s.err", branch2.c_str());
-    bool mean = (fVarNames[var1].second == "mean" || fVarNames[var1].second == "hw_sum");
+    bool mean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[var1].second) != mean_leaves.cend());
 
     string unit = GetUnit(var1);
 
@@ -1440,8 +1448,8 @@ void TCheckStat::DrawCors() {
     string xunit = GetUnit(xvar);
     string yunit = GetUnit(yvar);
 
-    bool xmean = (fVarNames[xvar].second == "mean" || fVarNames[xvar].second == "hw_sum");
-    bool ymean = (fVarNames[yvar].second == "mean" || fVarNames[yvar].second == "hw_sum");
+    bool xmean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[xvar].second) != mean_leaves.cend());
+    bool ymean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[yvar].second) != mean_leaves.cend());
     const char * xerr_var = Form("%s.err", xbranch.c_str());
     const char * yerr_var = Form("%s.err", ybranch.c_str());
 
@@ -1560,14 +1568,14 @@ const char * TCheckStat::GetUnit (string var) {
   string branch = fVarNames[var].first;
   string leaf   = fVarNames[var].second;
   if (branch.find("asym") != string::npos) {
-    if (leaf == "mean" || leaf == "hw_sum")
+    if (find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend())
       return "ppb";
-    else if (leaf == "rms" || leaf == "hw_sum_m2")
+    else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
       return "ppm";
   } else if (branch.find("diff") != string::npos) {
-    if (leaf == "mean" || leaf == "hw_sum")
+    if (find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend())
       return "nm";
-    else if (leaf == "rms" || leaf == "hw_sum_m2")
+    else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
       return "um";
   } else {
     return "";
