@@ -625,10 +625,11 @@ void TMulPlot::GetValues() {
 
   // initialize histogram
   for (string solo : fSolos) {
-    long max = ceil(maxes[solo] * 1.05);
-    long power = floor(log(max)/log(10));
+    // long max = ceil(maxes[solo] * 1.05);
+    long max = ceil(maxes[solo]);
+    int power = floor(log(max)/log(10));
     int  a = max*10 / pow(10, power);
-    max = a * pow(10, power) / 10.;
+    max = (a+1) * pow(10, power) / 10.;
 
     long min = -max;
     const char * unit = "";
