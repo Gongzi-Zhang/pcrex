@@ -78,16 +78,15 @@ void usage() {
        << "  Options:" << endl
        << "\t -h: print this help message" << endl
        << "\t -c: specify config file (default: mul_plot.conf)" << endl
-       << "\t -r: specify runs (seperate by comma, no space between them. ran range is supportted: 5678,6666-6670,6688)" << endl
+       << "\t -r: specify runs (seperate by comma, no space between them. ran range is supported: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-       << "\t -t: specify root file type: japan or postpan (default: postpan)" << endl
        << "\t -l: set log scale" << endl
        << "\t -n: prefix of name of output" << endl
        << "\t -f: output file format (pdf or png: default pdf)" << endl
        << endl
        << "  Example:" << endl
-       << "\t ./mulplot -c myconf.conf -R slug123.lsit -t japan -n slug123" << endl
+       << "\t ./mulplot -c myconf.conf -R slug123.list -n slug123" << endl
        << "\t ./mulplot -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -l -n test -f png" << endl;
 }
 

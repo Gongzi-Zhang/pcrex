@@ -2,6 +2,7 @@
 #define TRUN_H
 
 #include <iostream>
+#include <unistd.h>
 #include <glob.h>
 #include <string>
 #include <vector>
@@ -17,6 +18,9 @@
 
 #include "line.h"
 
+char hostname[32];
+int  discarded = gethostname(hostname, 32);
+
 vector<const char *>  GetCutFiles  (const int run);
 vector<const char *>  GetPedestals (const int run);
 int     GetJapanSessions  (const int run);
@@ -26,9 +30,25 @@ map<string, pair<double, double>> GetRegValues    (const int run, vector<char *>
 map<string, pair<double, double>> GetSlowValues   (const int run, vector<char *> vars, TCut cut);
 char *  FindCutFile(glob_t, const int run);
 
-const char * cut_dir = "/adaqfs/home/apar/PREX/japan/Parity/prminput";
-const char * japan_dir = "/chafs2/work1/apar/japanOutput";
-const char * reg_dir = "/chafs2/work1/apar/postpan-outputs";
+const char * cut_dir =
+  (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
+    "/adaqfs/home/apar/PREX/japan/Parity/prminput" : 
+    ".";
+const char * japan_dir = 
+  (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
+    "/chafs2/work1/apar/japanOutput" : 
+    (Contain(hostname, "ifarm") ? 
+      "/lustre/expphy/volatile/halla/parity/prex-respin2/japanOutput" :
+      "."
+    );
+const char * reg_dir = 
+  (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
+    "/chafs2/work1/apar/postpan-outputs" :
+    (Contain(hostname, "ifarm") ? 
+      "/lustre/expphy/volatile/halla/parity/prex-respin2/postpan_respin" :
+      "."
+    );
+      
 
 vector<const char *> GetCutFiles (const int run) {
   vector<const char *> cut_files;
@@ -58,6 +78,9 @@ vector<const char *> GetCutFiles (const int run) {
     cut_files.push_back(basename(globbuf.gl_pathv[0]));
 
   globfree(&globbuf);
+  if (cut_files.size() == 0) 
+    cut_files.push_back(Form("No cut files for run: %d founded in specified dir: %s/", run, cut_dir));
+
   return cut_files;
 }
 
@@ -79,6 +102,9 @@ vector<const char *> GetPedestals (const int run) {
   }
 
   globfree(&globbuf);
+  if (pedestals.size() == 0) 
+    pedestals.push_back(Form("No pedestal files for run: %d founded in specified dir: %s/", run, cut_dir));
+
   return pedestals;
 }
 

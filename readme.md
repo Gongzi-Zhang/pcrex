@@ -1,3 +1,5 @@
+github: https://github.com/Gongzi-Zhang/pcrex.git
+
 # usage
 ## check: used for checking statistics of each minirun of specified runs
  * it support 4 kinds of variables:
@@ -44,11 +46,15 @@
 
 
 # todo
+* run 6366: how much good data there? should we recover it?
 * single arm slug
 * how to cut on slow tree? e.g.  IGL1I00OD16_16 (row 83) in /chafs2/work1/apar/japanOutput/prexPrompt_pass2_6400.000.root is wrong
 * TCheckStat: how to deal with slope in reg result and dit result?
 * TCheckRuns: bold point cut
 * TCheckRuns: should be able to fetch glitch
+* TCheckRuns: sudden change in a run? (glitch, gain change, trip, ...)
+* TCheckRuns: check the diff between bcms and bpms, maybe one see something while others not
+* TCheckRuns: cor? how to use it?
 
 # problem
 * munmap_chunk(): invalid pointer

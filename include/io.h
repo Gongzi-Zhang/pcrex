@@ -35,6 +35,12 @@
 #define FATAL   __PRETTY_FUNCTION__ << BOLDRED << "--FATAL\t"
 #define ENDL    RESET << std::endl
 
+/*
+extern void CERR(const char *format, ...) __attribute__((format(printf, 1, 2)));
+extern void CERR(const char *format, ...) {
+    printf(format, ...);
+}
+*/
 
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
       StripSpaces(var);
     }
 
-    ifstream fin("evt.branches");
+    ifstream fin("conf/evt.branches");
     if (!fin.is_open()) {
       cerr << "ERROR:\t can't read the config file: evt.branches. Skip reading evt." << ENDL;
       do_it["evt"] = false;
@@ -208,7 +208,7 @@ ENDEVT:
       StripSpaces(var);
     }
 
-    ifstream fin("slow.branches");
+    ifstream fin("conf/slow.branches");
     if (!fin.is_open()) {
       cerr << "ERROR:\t can't read the config file: slow.branches. Skip reading slow" << ENDL;
       do_it["slow"] = false;
@@ -251,7 +251,7 @@ ENDSLOW:
       StripSpaces(var);
     }
 
-    ifstream fin("reg.branches");
+    ifstream fin("conf/reg.branches");
     if (!fin.is_open()) {
       cerr << "ERROR:\t can't read the config file: reg.branches. Skip reading reg" << ENDL;
       do_it["reg"] = false;

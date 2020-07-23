@@ -771,7 +771,7 @@ void TMulPlot::DrawHistogram() {
   if (logy)
     c.SetLogy();
   gStyle->SetOptFit(111);
-  gStyle->SetOptStat(111110);
+  gStyle->SetOptStat(112210);
   gStyle->SetTitleX(0.5);
   gStyle->SetTitleAlign(23);
   if (format == pdf)
