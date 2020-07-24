@@ -335,7 +335,7 @@ void TCheckStat::CheckRuns() {
     glob_t globbuf;
     glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
-      cout << WARNING << "no root file for run " << run << ". Ignore it." << ENDL;
+      cerr << WARNING << "no root file for run " << run << ". Ignore it." << ENDL;
       it = fRuns.erase(it);
       continue;
     }
@@ -378,127 +378,177 @@ void TCheckStat::CheckVars() {
     int run = *it_r;
     const char * file_name = fRootFiles[run][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
-    if (f_rootfile->IsOpen()) {
-      TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
-      vector<TString> * l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
-      vector<TString> * l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
-      bool sflag = true;
-      if (nSlopes > 0)
-        sflag = (l_iv != NULL && l_dv != NULL);
+    if (!f_rootfile->IsOpen()) {
+      cerr << WARNING << "run-" << run << " ^^^^ can't read root file: " << file_name 
+           << ", skip this run." << ENDL;
+      goto next_run;
+    }
 
-      if (tin != NULL && sflag) {
-        cout << INFO << "use file to check vars: " << file_name << ENDL;
+    vector<TString> * l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
+    vector<TString> * l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
+    if (nSlopes > 0 && (l_iv == NULL || l_dv == NULL)){
+      cerr << WARNING << "run-" << run << " ^^^^ can't read IVNames or DVNames in root file: " 
+           << file_name << ", skip this run." << ENDL;
+      goto next_run;
+    }
 
-        TObjArray * l_var = tin->GetListOfBranches();
-        for (string var : fVars) {
-          size_t dot_pos = var.find_first_of('.');
-          string branch = (dot_pos == string::npos) ? var : var.substr(0, dot_pos);
-          string leaf = (dot_pos == string::npos) ? "" : var.substr(dot_pos+1);
+    TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
+    if (tin == NULL) {
+      cerr << WARNING << "run-" << run << " ^^^^ can't read tree: " << tree << " in root file: "
+           << file_name << ", skip this run." << ENDL;
+      goto next_run;
+    }
 
-          TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
-          if (!bbuf) {
-            cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
-            cout << DEBUG << "List of valid branches:" << ENDL;
-            TIter next(l_var);
-            TBranch *br;
-            while (br = (TBranch*) next()) {
-              cout << "\t" << br->GetName() << endl;
-            }
-            // FIXME: clear up before exit
-            exit(24);
-          }
-
-          TObjArray * l_leaf = bbuf->GetListOfLeaves();
-          if (leaf.size() == 0) {
-            leaf = l_leaf->At(0)->GetName();  // use the first leaf
-          }
-          TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
-          if (!lbuf) {
-            cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
-            cout << DEBUG << "List of valid leaves:" << ENDL;
-            TIter next(l_leaf);
-            TLeaf *l;
-            while (l = (TLeaf*) next()) {
-              cout << "\t" << l->GetName() << endl;
-            }
-            // FIXME: clear up before exit
-            exit(24);
-          }
-
-          fVarNames[var] = make_pair(branch, leaf);
-
-          vector<string>::const_iterator it = find(mean_leaves.cbegin(), mean_leaves.cend(), leaf);
-          if (it != mean_leaves.cend()) {
-            string err_leaf;
-            it = err_leaves.cbegin() + (it - mean_leaves.cbegin());
-            if (it == err_leaves.cend()) {
-              cerr << ERROR << "no corresponding error leaf for mean leaf: " << leaf << ENDL;
-              continue;
-            }
-            err_leaf = *it;
-            lbuf = (TLeaf *) l_leaf->FindObject(err_leaf.c_str());
-            if (! lbuf) {
-              cerr << WARNING << "No err leaf for mean var: " << var << ENDL;
-              continue;
-            }
-            string err_var = branch + "." + err_leaf;
-            fVars.insert(err_var);
-            fVarNames[err_var] = make_pair(branch, err_leaf);
-          }
-        }
-
-        if (nSlopes>0) {
-          rows = l_dv->size();
-          cols = l_iv->size();
-          slopes_buf = new double[rows*cols];
-          slopes_err_buf = new double[rows*cols];
-          // if (rows != ROWS || cols != COLS) {
-          //   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
-          //   exit(20);
-          // }
-          bool error_dv_flag = false;
-          bool error_iv_flag = false;
-          for (pair<string, string> slope : fSlopes) {
-            string dv = slope.first;
-            string iv = slope.second;
-            vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
-            vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
-
-            if (it_dv == l_dv->cend()) {
-              cerr << FATAL << "Invalid dv name for slope: " << dv << ENDL;
-              error_dv_flag = true;
-              break;
-            } 
-            if (it_iv == l_iv->cend()) {
-              cerr << FATAL << "Invalid iv name for slope: " << iv << ENDL;
-              error_iv_flag = true;
-              break;
-            }
-
-            fSlopeIndexes[slope] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
-          }
-          if (error_dv_flag) {
-            cout << DEBUG << "List of valid dv names:" << ENDL;
-            for (TString dv : (*l_dv)) 
-              cout << "\t" << dv.Data() << endl;
-
-            exit(24);
-          }
-          if (error_iv_flag) {
-            cout << DEBUG << "List of valid dv names:" << ENDL;
-            for (TString iv : (*l_iv)) 
-              cout << "\t" << iv.Data() << endl;
-
-            exit(24);
-          }
-        }
-        tin->Delete();
-        f_rootfile->Close();
-        break;
+    for (auto const ftree : ftrees) {
+      const char *texp = ftree.first.c_str();
+      string file_name = ftree.second;
+      file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+      if (file_name.size()) {
+        glob_t globbuf;
+        glob(file_name.c_str(), 0, NULL, &globbuf);
+        if (globbuf.gl_pathc == 0) {
+          cerr << WARNING << "
       }
-    } 
+      tin->AddFriend(texp, ftree.second);
+      int pos = Index(texp, '=');
+      string alias = pos > 0 ? StripSpaces(Sub(texp, 0, pos)) : texp;
+      const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
+      real_tree_name[alias] = old_name;
+      // it is user's responsibility to make sure each tree has an unique name
+    }
+
+    cout << INFO << "use file to check vars: " << file_name << ENDL;
+    for (string var : fVars) {
+      size_t n = count(var.begin(), var.end(), '.');
+      const char *branch, *leaf;
+      if (n==0) {
+        branch = var.c_str();
+        leaf = NULL;
+      } else if (n==1) {
+        size_t pos = var.find_first_of('.');
+        if (find(real_tree_name, var.substr(0, pos)) != real_tree_name.end()) {
+          branch = var.c_str();
+          leaf = NULL;
+        } else {
+          branch = var.substr(0, pos).c_str();
+          leaf = var.substr(pos+1).c_str();
+        }
+      } else if (n==2) {
+        size_t pos = var.find_last_of('.');
+        branch = var.substr(0, pos).c_str();
+        leaf = var.substr(pos+1).c_str();
+      } else {
+        cerr << WARNING << "Invalid variable expression: " << var << endl;
+        exit(24);
+      }
+
+      TBranch * bbuf = tin->GetBranch(branch);
+      if (!bbuf) {
+        cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
+        cout << DEBUG << "List of valid branches:" << ENDL;
+        // FIXME: how to find out possible candidate, there should be a function to measure
+        // the closeness between them.
+        // TObjArray * l_var = tin->GetListOfBranches();
+        // TIter next(l_var);
+        // TBranch *br;
+        // while (br = (TBranch*) next()) {
+        //   cout << "\t" << br->GetName() << endl;
+        // }
+        // FIXME: clear up before exit
+        exit(24);
+      }
+
+      TObjArray * l_leaf = bbuf->GetListOfLeaves();
+      if (!leaf) {
+        leaf = l_leaf->At(0)->GetName();  // use the first leaf
+      }
+      TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf);
+      if (!lbuf) {
+        cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
+        cout << DEBUG << "List of valid leaves:" << ENDL;
+        TIter next(l_leaf);
+        TLeaf *l;
+        while (l = (TLeaf*) next()) {
+          cout << "\t" << l->GetName() << endl;
+        }
+        // FIXME: clear up before exit
+        exit(24);
+      }
+
+      fVarNames[var] = make_pair(branch, leaf);
+      const char *tname = bbuf->GetTree()->GetName();
+
+      vector<string>::const_iterator it = find(mean_leaves.cbegin(), mean_leaves.cend(), leaf);
+      if (it != mean_leaves.cend()) {
+        string err_leaf;
+        it = err_leaves.cbegin() + (it - mean_leaves.cbegin());
+        if (it == err_leaves.cend()) {
+          cerr << ERROR << "no corresponding error leaf for mean leaf: " << leaf << ENDL;
+          continue;
+        }
+        err_leaf = *it;
+        lbuf = (TLeaf *) l_leaf->FindObject(err_leaf.c_str());
+        if (! lbuf) {
+          cerr << WARNING << "No err leaf for mean var: " << var << ENDL;
+          continue;
+        }
+        string err_var = branch + "." + err_leaf;
+        fVars.insert(err_var);
+        fVarNames[err_var] = make_pair(branch, err_leaf);
+      }
+    }
+
+    if (nSlopes>0) {
+      rows = l_dv->size();
+      cols = l_iv->size();
+      slopes_buf = new double[rows*cols];
+      slopes_err_buf = new double[rows*cols];
+      // if (rows != ROWS || cols != COLS) {
+      //   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
+      //   exit(20);
+      // }
+      bool error_dv_flag = false;
+      bool error_iv_flag = false;
+      for (pair<string, string> slope : fSlopes) {
+        string dv = slope.first;
+        string iv = slope.second;
+        vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
+        vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
+
+        if (it_dv == l_dv->cend()) {
+          cerr << FATAL << "Invalid dv name for slope: " << dv << ENDL;
+          error_dv_flag = true;
+          break;
+        } 
+        if (it_iv == l_iv->cend()) {
+          cerr << FATAL << "Invalid iv name for slope: " << iv << ENDL;
+          error_iv_flag = true;
+          break;
+        }
+
+        fSlopeIndexes[slope] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
+      }
+      if (error_dv_flag) {
+        cout << DEBUG << "List of valid dv names:" << ENDL;
+        for (TString dv : (*l_dv)) 
+          cout << "\t" << dv.Data() << endl;
+
+        exit(24);
+      }
+      if (error_iv_flag) {
+        cout << DEBUG << "List of valid dv names:" << ENDL;
+        for (TString iv : (*l_iv)) 
+          cout << "\t" << iv.Data() << endl;
+
+        exit(24);
+      }
+    }
+    tin->Delete();
+    f_rootfile->Close();
+    break;
+    }
       
-    cerr << WARNING << "root file of run: " << run << " doesn't exit or is broken, ignore it." << ENDL;
+next_run:
     it_r = fRuns.erase(it_r);
     if (fBoldRuns.find(run) != fBoldRuns.cend())
       fBoldRuns.erase(run);

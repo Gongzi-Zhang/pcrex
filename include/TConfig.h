@@ -83,6 +83,7 @@ private:
   const char *tree    = NULL;
   const char *tcut    = NULL; // tree cut
   vector<pair<long, long>> ecuts;  // cut on entry number
+  map<string, const char *> ftrees;   // friend trees
   
   bool logy = false;
   set<int> fRuns;	      // all runs that are going to be checked
@@ -775,6 +776,16 @@ bool TConfig::ParseOtherCommands(char *line) {
   } else if (strcmp(command, "@logy") == 0) {
     if (strcmp(value, "true") == 0) 
       logy = true;
+  } else if (strcmp(command, "@friendtree") == 0) {
+    int ind = Index(value, ';');
+    const char * t = StripSpaces(Sub(value, 0, ind));
+    const char * f = ind >= 0 ? StripSpaces(Sub(value, ind+1)) : "";
+    if (t[0] == '=') {
+      cerr << WARNING << "Incorrect friend tree expression: " << t 
+           << "Do you miss the alias before =" << ENDL;
+      return false;
+    }
+    ftrees[t] = f;
   } else {
     cerr << WARNING << "Unknow commands: " << command << ENDL;
     return false;
