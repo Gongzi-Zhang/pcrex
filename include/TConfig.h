@@ -37,6 +37,7 @@ public:
   set<int>	  GetRuns()	      {return fRuns;}			// for ChectStat
   set<int>	  GetBoldRuns()	  {return fBoldRuns;}	// for ChectStat
   set<string> GetVars()	      {return fVars;}
+	map<string, const char*> GetFriendTrees()	{return ftrees;}
   vector<pair<long, long>> GetEntryCuts() {return ecuts;}
 
   set<string>									GetSolos()	    {return fSolos;}

@@ -68,6 +68,8 @@ class TCheckStat {
     const char *dir	      = "/chafs2/work1/apar/postpan-outputs/";
     string pattern        = "prexPrompt_xxxx_???_regress_postpan.root"; 
     const char *tree      = "mini";
+		map<string, const char*> ftrees;
+		map<string, const char*> real_trees;
     bool  check_latest_run = false;
     bool  sign = false;
     vector<int> flips;
@@ -178,6 +180,7 @@ TCheckStat::TCheckStat(const char* config_file) :
   if (fConf.GetDir())       SetDir(fConf.GetDir());
   if (fConf.GetPattern())   pattern = fConf.GetPattern();
   if (fConf.GetTreeName())  tree  = fConf.GetTreeName();
+	ftrees = fConf.GetFriendTrees();
 
   gROOT->SetBatch(1);
 }
@@ -375,6 +378,7 @@ void TCheckStat::CheckVars() {
     it_r++;
 
   while (it_r != fRuns.cend()) {
+		set<const char*> used_ftrees;
     int run = *it_r;
     const char * file_name = fRootFiles[run][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
@@ -384,15 +388,17 @@ void TCheckStat::CheckVars() {
       goto next_run;
     }
 
-    vector<TString> * l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
-    vector<TString> * l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
+    vector<TString> *l_iv, *l_dv;
+		l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
+		l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
     if (nSlopes > 0 && (l_iv == NULL || l_dv == NULL)){
       cerr << WARNING << "run-" << run << " ^^^^ can't read IVNames or DVNames in root file: " 
            << file_name << ", skip this run." << ENDL;
       goto next_run;
     }
 
-    TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
+    TTree * tin;
+		tin = (TTree*) f_rootfile->Get(tree); // receive minitree
     if (tin == NULL) {
       cerr << WARNING << "run-" << run << " ^^^^ can't read tree: " << tree << " in root file: "
            << file_name << ", skip this run." << ENDL;
@@ -407,17 +413,29 @@ void TCheckStat::CheckVars() {
         glob_t globbuf;
         glob(file_name.c_str(), 0, NULL, &globbuf);
         if (globbuf.gl_pathc == 0) {
-          cerr << WARNING << "
+          cerr << WARNING << "run-" << run << " ^^^^ can't read friend tree: " << texp
+							 << " in root file: " << file_name << ", skip this run." << ENDL; 
+					goto next_run;
+				}
+				file_name = globbuf.gl_pathv[0];
+				globfree(&globbuf);
       }
-      tin->AddFriend(texp, ftree.second);
+      tin->AddFriend(texp, file_name.c_str());	// FIXME: what if the friend tree doesn't exist
       int pos = Index(texp, '=');
       string alias = pos > 0 ? StripSpaces(Sub(texp, 0, pos)) : texp;
-      const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
-      real_tree_name[alias] = old_name;
+      // const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
+      real_trees[alias] = texp;
       // it is user's responsibility to make sure each tree has an unique name
     }
 
-    cout << INFO << "use file to check vars: " << file_name << ENDL;
+    cout << INFO << "use the following root files to check vars: \n";
+		cout << "\t" << file_name;
+		for (auto const ftree : ftrees) {
+			if (ftree.second[0])
+				cout << "\n\t" << ftree.second;
+		}
+		cout << ENDL;
+
     for (string var : fVars) {
       size_t n = count(var.begin(), var.end(), '.');
       const char *branch, *leaf;
@@ -426,7 +444,7 @@ void TCheckStat::CheckVars() {
         leaf = NULL;
       } else if (n==1) {
         size_t pos = var.find_first_of('.');
-        if (find(real_tree_name, var.substr(0, pos)) != real_tree_name.end()) {
+        if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
           branch = var.c_str();
           leaf = NULL;
         } else {
@@ -438,23 +456,24 @@ void TCheckStat::CheckVars() {
         branch = var.substr(0, pos).c_str();
         leaf = var.substr(pos+1).c_str();
       } else {
-        cerr << WARNING << "Invalid variable expression: " << var << endl;
+        cerr << ERROR << "Invalid variable expression: " << var << endl;
         exit(24);
       }
 
       TBranch * bbuf = tin->GetBranch(branch);
       if (!bbuf) {
         cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
-        cout << DEBUG << "List of valid branches:" << ENDL;
         // FIXME: how to find out possible candidate, there should be a function to measure
         // the closeness between them.
+        // cout << DEBUG << "List of valid branches:" << ENDL;
         // TObjArray * l_var = tin->GetListOfBranches();
         // TIter next(l_var);
         // TBranch *br;
         // while (br = (TBranch*) next()) {
         //   cout << "\t" << br->GetName() << endl;
         // }
-        // FIXME: clear up before exit
+				tin->Delete();
+				f_rootfile->Close();
         exit(24);
       }
 
@@ -471,12 +490,18 @@ void TCheckStat::CheckVars() {
         while (l = (TLeaf*) next()) {
           cout << "\t" << l->GetName() << endl;
         }
-        // FIXME: clear up before exit
+
+				tin->Delete();
+				f_rootfile->Close();
         exit(24);
       }
 
       fVarNames[var] = make_pair(branch, leaf);
-      const char *tname = bbuf->GetTree()->GetName();
+			if (Contain(branch, ".")) {
+				used_ftrees.insert(StripSpaces(Sub(branch, 0, Index(branch, '.'))));
+			} else {
+				used_ftrees.insert(bbuf->GetTree()->GetName());
+			}
 
       vector<string>::const_iterator it = find(mean_leaves.cbegin(), mean_leaves.cend(), leaf);
       if (it != mean_leaves.cend()) {
@@ -492,11 +517,26 @@ void TCheckStat::CheckVars() {
           cerr << WARNING << "No err leaf for mean var: " << var << ENDL;
           continue;
         }
-        string err_var = branch + "." + err_leaf;
+        string err_var = branch + ("." + err_leaf);
         fVars.insert(err_var);
         fVarNames[err_var] = make_pair(branch, err_leaf);
       }
     }
+		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend();) {
+			bool used = false;
+			for (auto const uftree : used_ftrees) {
+				if (real_trees[uftree] == it->first) {
+					used = true;
+					break;
+				}
+			}
+			if (used)
+				it++;
+			else {
+				cerr << WARNING << "used friend tree: " << it->first << ". remove it." << ENDL;
+				it = ftrees.erase(it);
+			}
+		}
 
     if (nSlopes>0) {
       rows = l_dv->size();
@@ -546,9 +586,13 @@ void TCheckStat::CheckVars() {
     tin->Delete();
     f_rootfile->Close();
     break;
-    }
       
 next_run:
+		f_rootfile->Close();
+		if (tin) {
+			tin->Delete();
+			tin = NULL;
+		}
     it_r = fRuns.erase(it_r);
     if (fBoldRuns.find(run) != fBoldRuns.cend())
       fBoldRuns.erase(run);
@@ -667,17 +711,34 @@ void TCheckStat::GetValues() {
       const char * file_name = fRootFiles[run][session].c_str();
       TFile f_rootfile(file_name, "read");
       if (!f_rootfile.IsOpen()) {
-        cerr << WARNING << "Can't open root file: " << file_name << ENDL;
+        cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
         continue;
       }
 
-      cout << INFO << Form("Read run: %d, session: %03d\t", run, session)
+      cout << INFO << Form("Read run: %d, session: %03ld\t", run, session)
            << file_name << ENDL;
       TTree * tin = (TTree*) f_rootfile.Get(tree); // receive minitree
       if (! tin) {
-        cerr << WARNING << "No such tree: " << tree << " in root file: " << file_name << ENDL;
+        cerr << ERROR << "No such tree: " << tree << " in root file: " << file_name << ENDL;
         continue;
       }
+			for (auto const ftree : ftrees) {
+				string file_name = ftree.second;
+				file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+				if (file_name.size()) {
+					glob_t globbuf;
+					glob(file_name.c_str(), 0, NULL, &globbuf);
+					if (globbuf.gl_pathc != sessions) {
+						cerr << ERROR << "run-" << run << " ^^^^ unmatched friend tree root files: " << endl 
+								 << "\t" << sessions << "main root files vs " 
+								 << globbuf.gl_pathc << " friend tree root files" << ENDL; 
+						continue;
+					}
+					file_name = globbuf.gl_pathv[session];
+					globfree(&globbuf);
+				}
+				tin->AddFriend(ftree.first.c_str(), file_name.c_str());	// FIXME: what if the friend tree doesn't exist
+			}
 
       bool error = false;
       // minirun

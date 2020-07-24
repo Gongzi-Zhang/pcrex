@@ -21,7 +21,7 @@ using namespace std;
  *  -- 2020.03.06
  */
 bool StripComment(char *line);
-void StripSpaces(char *line);
+char* StripSpaces(char *line);
 bool IsEmpty(const char *line);
 bool IsInteger(const char *line);
 bool IsNumber(const char *line);
@@ -71,10 +71,10 @@ bool StripComment(char* line) {
   return true;
 }
 
-void StripSpaces(char *line) { // remove space at the beginning and end of a line
+char * StripSpaces(char *line) { // remove space at the beginning and end of a line
   if (line == NULL) {
     cerr << WARNING << "uninitialized line";
-    return;
+    return NULL;
   }
 
   int ib=0, ie=0;
@@ -93,6 +93,8 @@ void StripSpaces(char *line) { // remove space at the beginning and end of a lin
   
   if (ib>0)
     strcpy(line, line+ib);
+
+	return line;
 }
 
 bool IsEmpty(const char *line) {
