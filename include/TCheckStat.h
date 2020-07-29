@@ -318,7 +318,8 @@ void TCheckStat::CheckRuns() {
     int run = latest_run - 1;
     while (i<10 && run > START_RUN) { // get 10 valid runs before latest_run
       char * type = GetRunType(run);
-      if (type && strcmp(type, "Production") == 0) {
+			char * flag = GetRunFlag(run);
+      if (type && strcmp(type, "Production") == 0 && strcmp(flag, "Good") == 0) {
         fRuns.insert(run);
         i++;
       }
@@ -333,7 +334,8 @@ void TCheckStat::CheckRuns() {
   for (set<int>::const_iterator it = fRuns.cbegin(); it != fRuns.cend(); ) {
     int run = *it;
     string p_buf(pattern);
-    p_buf.replace(p_buf.find("xxxx"), 4, to_string(run));
+		if (p_buf.find("xxxx") != string::npos)
+			p_buf.replace(p_buf.find("xxxx"), 4, to_string(run));
     const char * p = Form("%s/%s", dir, p_buf.c_str());
     glob_t globbuf;
     glob(p, 0, NULL, &globbuf);
@@ -378,7 +380,7 @@ void TCheckStat::CheckVars() {
     it_r++;
 
   while (it_r != fRuns.cend()) {
-		set<const char*> used_ftrees;
+		set<string> used_ftrees;
     int run = *it_r;
     const char * file_name = fRootFiles[run][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
@@ -408,7 +410,8 @@ void TCheckStat::CheckVars() {
     for (auto const ftree : ftrees) {
       const char *texp = ftree.first.c_str();
       string file_name = ftree.second;
-      file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+			if (file_name.find("xxxx") != string::npos)
+				file_name.replace(file_name.find("xxxx"), 4, to_string(run));
       if (file_name.size()) {
         glob_t globbuf;
         glob(file_name.c_str(), 0, NULL, &globbuf);
@@ -438,29 +441,27 @@ void TCheckStat::CheckVars() {
 
     for (string var : fVars) {
       size_t n = count(var.begin(), var.end(), '.');
-      const char *branch, *leaf;
+      string branch, leaf;
       if (n==0) {
-        branch = var.c_str();
-        leaf = NULL;
+        branch = var;
       } else if (n==1) {
         size_t pos = var.find_first_of('.');
         if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
-          branch = var.c_str();
-          leaf = NULL;
+          branch = var;
         } else {
-          branch = var.substr(0, pos).c_str();
-          leaf = var.substr(pos+1).c_str();
+          branch = var.substr(0, pos);
+          leaf = var.substr(pos+1);
         }
       } else if (n==2) {
         size_t pos = var.find_last_of('.');
-        branch = var.substr(0, pos).c_str();
-        leaf = var.substr(pos+1).c_str();
+        branch = var.substr(0, pos);
+        leaf = var.substr(pos+1);
       } else {
         cerr << ERROR << "Invalid variable expression: " << var << endl;
         exit(24);
       }
 
-      TBranch * bbuf = tin->GetBranch(branch);
+      TBranch * bbuf = tin->GetBranch(branch.c_str());
       if (!bbuf) {
         cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
         // FIXME: how to find out possible candidate, there should be a function to measure
@@ -478,10 +479,10 @@ void TCheckStat::CheckVars() {
       }
 
       TObjArray * l_leaf = bbuf->GetListOfLeaves();
-      if (!leaf) {
+      if (leaf.size() == 0) {
         leaf = l_leaf->At(0)->GetName();  // use the first leaf
       }
-      TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf);
+      TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
       if (!lbuf) {
         cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
         cout << DEBUG << "List of valid leaves:" << ENDL;
@@ -497,8 +498,8 @@ void TCheckStat::CheckVars() {
       }
 
       fVarNames[var] = make_pair(branch, leaf);
-			if (Contain(branch, ".")) {
-				used_ftrees.insert(StripSpaces(Sub(branch, 0, Index(branch, '.'))));
+			if (branch.find('.') != string::npos) {
+				used_ftrees.insert(StripSpaces(Sub(branch.c_str(), 0, branch.find('.'))));
 			} else {
 				used_ftrees.insert(bbuf->GetTree()->GetName());
 			}
@@ -522,6 +523,11 @@ void TCheckStat::CheckVars() {
         fVarNames[err_var] = make_pair(branch, err_leaf);
       }
     }
+		if (used_ftrees.find(tree) == used_ftrees.end()) {
+			cerr << WARNING << "unsed main tree: " << tree << ENDL;
+		} else {
+			used_ftrees.erase(used_ftrees.find(tree));
+		}
 		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend();) {
 			bool used = false;
 			for (auto const uftree : used_ftrees) {
@@ -533,7 +539,7 @@ void TCheckStat::CheckVars() {
 			if (used)
 				it++;
 			else {
-				cerr << WARNING << "used friend tree: " << it->first << ". remove it." << ENDL;
+				cerr << WARNING << "unused friend tree: " << it->first << ". remove it." << ENDL;
 				it = ftrees.erase(it);
 			}
 		}
@@ -712,6 +718,7 @@ void TCheckStat::GetValues() {
       TFile f_rootfile(file_name, "read");
       if (!f_rootfile.IsOpen()) {
         cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
+				f_rootfile.Close();
         continue;
       }
 
@@ -720,11 +727,13 @@ void TCheckStat::GetValues() {
       TTree * tin = (TTree*) f_rootfile.Get(tree); // receive minitree
       if (! tin) {
         cerr << ERROR << "No such tree: " << tree << " in root file: " << file_name << ENDL;
+        f_rootfile.Close();
         continue;
       }
 			for (auto const ftree : ftrees) {
 				string file_name = ftree.second;
-				file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+				if (file_name.find("xxxx") != string::npos)
+					file_name.replace(file_name.find("xxxx"), 4, to_string(run));
 				if (file_name.size()) {
 					glob_t globbuf;
 					glob(file_name.c_str(), 0, NULL, &globbuf);

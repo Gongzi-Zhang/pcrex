@@ -53,6 +53,8 @@ class TCheckRuns {
     const char *tree  = "evt";	// evt, mul, pr
     TCut cut          = "ErrorFlag == 0";
     vector<pair<long, long>> ecuts;
+		map<string, const char*> ftrees;
+		map<string, const char*> real_trees;
 
     TConfig fConf;
     int   nRuns;
@@ -163,6 +165,7 @@ TCheckRuns::TCheckRuns(const char* config_file) :
   if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
   if (fConf.GetTreeCut())   cut     = fConf.GetTreeCut();
   ecuts = fConf.GetEntryCuts();
+	ftrees = fConf.GetFriendTrees();
 
   gROOT->SetBatch(1);
 }
@@ -248,67 +251,155 @@ void TCheckRuns::CheckVars() {
     it_r++;
 
   while (it_r != fRuns.cend()) {
+		set<string> used_ftrees;
     int run = *it_r;
-    const char *file_name = fRootFiles[run][0].c_str();
+    const char * file_name = fRootFiles[run][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
-    if (f_rootfile->IsOpen()) {
-      if (!f_rootfile->GetListOfKeys()->Contains(tree)) {
-        cerr << FATAL << "no tree: " << tree << " in root file: " << file_name;
-        exit(22);
+    if (!f_rootfile->IsOpen()) {
+      cerr << WARNING << "run-" << run << " ^^^^ can't read root file: " << file_name 
+           << ", skip this run." << ENDL;
+      goto next_run;
+    }
+
+    TTree * tin;
+		tin = (TTree*) f_rootfile->Get(tree); // receive minitree
+    if (tin == NULL) {
+      cerr << WARNING << "run-" << run << " ^^^^ can't read tree: " << tree << " in root file: "
+           << file_name << ", skip this run." << ENDL;
+      goto next_run;
+    }
+
+    for (auto const ftree : ftrees) {
+      const char *texp = ftree.first.c_str();
+      string file_name = ftree.second;
+			if (file_name.find("xxxx") != string::npos)
+				file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+      if (file_name.size()) {
+        glob_t globbuf;
+        glob(file_name.c_str(), 0, NULL, &globbuf);
+        if (globbuf.gl_pathc == 0) {
+          cerr << WARNING << "run-" << run << " ^^^^ can't read friend tree: " << texp
+							 << " in root file: " << file_name << ", skip this run." << ENDL; 
+					goto next_run;
+				}
+				file_name = globbuf.gl_pathv[0];
+				globfree(&globbuf);
       }
-      TTree * tin = (TTree*) f_rootfile->Get(tree);
-      if (tin != NULL) {
-        cout << INFO << "use file to check vars: " << file_name << ENDL;
+      tin->AddFriend(texp, file_name.c_str());	// FIXME: what if the friend tree doesn't exist
+      int pos = Index(texp, '=');
+      string alias = pos > 0 ? StripSpaces(Sub(texp, 0, pos)) : texp;
+      // const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
+      real_trees[alias] = texp;
+      // it is user's responsibility to make sure each tree has an unique name
+    }
 
-        TObjArray * l_var = tin->GetListOfBranches();
-        for (string var : fVars) {
-          size_t dot_pos = var.find_first_of('.');
-          string branch = (dot_pos == string::npos) ? var : var.substr(0, dot_pos);
-          string leaf = (dot_pos == string::npos) ? "" : var.substr(dot_pos+1);
-
-          TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
-          if (!bbuf) {
-            cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
-            cout << DEBUG << "List of valid branches:" << ENDL;
-            TIter next(l_var);
-            TBranch *br;
-            while (br = (TBranch*) next()) {
-              cout << "\t" << br->GetName() << endl;
-            }
-            // FIXME: clear up before exit
-            exit(24);
-          }
-
-          TObjArray * l_leaf = bbuf->GetListOfLeaves();
-          if (leaf.size() == 0) {
-            leaf = l_leaf->At(0)->GetName();  // use the first leaf
-          }
-          TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
-          if (!lbuf) {
-            cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
-            cout << DEBUG << "List of valid leaves:" << ENDL;
-            TIter next(l_leaf);
-            TLeaf *l;
-            while (l = (TLeaf*) next()) {
-              cout << "\t" << l->GetName() << endl;
-            }
-            // FIXME: clear up before exit
-            exit(24);
-          }
-
-          fVarNames[var] = make_pair(branch, leaf);
-        }
-        tin->Delete();
-        f_rootfile->Close();
-        break;
-      }
+    cout << INFO << "use the following root files to check vars: \n";
+		cout << "\t" << file_name;
+		for (auto const ftree : ftrees) {
+			if (ftree.second[0])
+				cout << "\n\t" << ftree.second;
 		}
-    cerr << WARNING << "root file of run: " << run << " is broken, ignore it." << ENDL;
+		cout << ENDL;
+
+		for (string var : fVars) {
+      size_t n = count(var.begin(), var.end(), '.');
+      string branch, leaf;
+      if (n==0) {
+        branch = var;
+      } else if (n==1) {
+        size_t pos = var.find_first_of('.');
+        if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
+          branch = var;
+        } else {
+          branch = var.substr(0, pos);
+          leaf = var.substr(pos+1);
+        }
+      } else if (n==2) {
+        size_t pos = var.find_last_of('.');
+        branch = var.substr(0, pos);
+        leaf = var.substr(pos+1);
+      } else {
+        cerr << ERROR << "Invalid variable expression: " << var << endl;
+        exit(24);
+      }
+
+			TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
+			if (!bbuf) {
+				cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
+				tin->Delete();
+				f_rootfile->Close();
+				exit(24);
+			}
+
+			TObjArray * l_leaf = bbuf->GetListOfLeaves();
+			if (leaf.size() == 0) {
+				leaf = l_leaf->At(0)->GetName();  // use the first leaf
+			}
+			TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
+			if (!lbuf) {
+				cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
+				cout << DEBUG << "List of valid leaves:" << ENDL;
+				TIter next(l_leaf);
+				TLeaf *l;
+				while (l = (TLeaf*) next()) {
+					cout << "\t" << l->GetName() << endl;
+				}
+				tin->Delete();
+				f_rootfile->Close();
+				exit(24);
+			}
+
+			fVarNames[var] = make_pair(branch, leaf);
+			if (branch.find('.') != string::npos) {
+				used_ftrees.insert(StripSpaces(Sub(branch.c_str(), 0, branch.find('.'))));
+			} else {
+				used_ftrees.insert(bbuf->GetTree()->GetName());
+			}
+		}
+
+		if (used_ftrees.find(tree) == used_ftrees.end()) {
+			cerr << WARNING << "unsed main tree: " << tree << ENDL;
+		} else {
+			used_ftrees.erase(used_ftrees.find(tree));
+		}
+		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend();) {
+			bool used = false;
+			for (auto const uftree : used_ftrees) {
+				if (real_trees[uftree] == it->first) {
+					used = true;
+					break;
+				}
+			}
+			if (used)
+				it++;
+			else {
+				cerr << WARNING << "unused friend tree: " << it->first << ". remove it." << ENDL;
+				it = ftrees.erase(it);
+			}
+		}
+
+		tin->Delete();
+		f_rootfile->Close();
+		break;
+
+next_run:
+		f_rootfile->Close();
+		if (tin) {
+			tin->Delete();
+			tin = NULL;
+		}
     it_r = fRuns.erase(it_r);
 
     if (it_r == fRuns.cend())
       it_r = fRuns.cbegin();
 	} 
+
+  nRuns = fRuns.size();
+  if (nRuns == 0) {
+    cerr << FATAL << "no valid runs, aborting." << ENDL;
+    exit(10);
+  }
+
   nVars = fVars.size();
 
   for (set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend();) {
@@ -443,7 +534,7 @@ void TCheckRuns::GetValues() {
       const char * file_name = fRootFiles[run][session].c_str();
       TFile * f_rootfile = new TFile(file_name, "read");
       if (!f_rootfile->IsOpen()) {
-        cerr << WARNING << "Can't open root file: " << file_name << ENDL;
+        cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
         f_rootfile->Close();
         continue;
       }
@@ -456,6 +547,25 @@ void TCheckRuns::GetValues() {
         f_rootfile->Close();
         continue;
       }
+
+			for (auto const ftree : ftrees) {
+				string file_name = ftree.second;
+				if (file_name.find("xxxx") != string::npos)
+					file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+				if (file_name.size()) {
+					glob_t globbuf;
+					glob(file_name.c_str(), 0, NULL, &globbuf);
+					if (globbuf.gl_pathc != sessions) {
+						cerr << ERROR << "run-" << run << " ^^^^ unmatched friend tree root files: " << endl 
+								 << "\t" << sessions << "main root files vs " 
+								 << globbuf.gl_pathc << " friend tree root files" << ENDL; 
+						continue;
+					}
+					file_name = globbuf.gl_pathv[session];
+					globfree(&globbuf);
+				}
+				tin->AddFriend(ftree.first.c_str(), file_name.c_str());	// FIXME: what if the friend tree doesn't exist
+			}
 
       bool error = false;
       for (string var : fVars) {

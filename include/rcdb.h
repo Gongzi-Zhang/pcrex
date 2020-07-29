@@ -13,6 +13,8 @@
 #include "line.h"
 #include "const.h"
 
+enum ARMFLAG {botharms=0, rightarm=1, leftarm=2};
+
 /* condition_type_id
  * 1    float_value   event_rate  
  * 2      int_value   event_count
@@ -52,12 +54,15 @@
 
 using namespace std;
 
+ARMFLAG armflag = botharms;
+
 MYSQL *con;
 MYSQL_RES  *res;
 MYSQL_ROW   row;
 char query[256];
 
 void    StartConnection();
+void		SetArmFlag(const ARMFLAG f)	{armflag = f;}
 char *  GetExperiment(const int run);
 char *  GetRunType(const int run);
 // float   GetRunCurrent(const int run);
@@ -250,9 +255,29 @@ void GetValidRuns(set<int> &runs) {
     cerr << ERROR << "please StartConnection before anything else" << ENDL;
     return;
   }
+	cout << INFO << "require arm flag = " << armflag << " ("
+		<< (armflag == botharms ? "botharms" : (armflag == leftarm ? "left" : "right"))
+		<< ")" << ENDL;
 
   for(set<int>::const_iterator it=runs.cbegin(); it!=runs.cend(); ) {
     int run = *it;
+		int af = GetArmFlag(run);
+
+		if (af != botharms) {
+			if (af == leftarm) 
+				cerr << ALERT << "run-" << run << " ^^^^ Left arm running." << ENDL;
+			else if (af == rightarm)
+				cerr << ALERT << "run-" << run << " ^^^^ Right arm running." << ENDL;
+			else 
+				cerr << ERROR << "run-" << run << " ^^^^ unknown arm flag: " << af << ENDL;
+
+			if (af != armflag) {
+				cerr << WARNING << "run-" << run << " ^^^^ Unmatched run flag, ignore it." << ENDL;
+				it = runs.erase(it);
+				continue;
+			}
+		}
+			
     const char * t = (PREX_AT_START_RUN <= run && run <= PREX_AT_END_RUN) ? "A_T" : "Production";
     char * type = GetRunType(run);
     char * flag = GetRunFlag(run);

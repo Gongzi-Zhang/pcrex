@@ -760,7 +760,7 @@ bool TConfig::ParseOtherCommands(char *line) {
   while (line[i] != '\0' && (line[i] == ' ' || line[i] == '\t'))
     i++;
 
-  const char * value = Sub(line, i);
+  const char * value = StripSpaces(Sub(line, i));
   if (value[0] == '\0') {
     cerr << WARNING << "no value specified for command: " << command << ENDL;
     return false;
@@ -779,8 +779,8 @@ bool TConfig::ParseOtherCommands(char *line) {
       logy = true;
   } else if (strcmp(command, "@friendtree") == 0) {
     int ind = Index(value, ';');
-    const char * t = StripSpaces(Sub(value, 0, ind));
-    const char * f = ind >= 0 ? StripSpaces(Sub(value, ind+1)) : "";
+    const char * t = ind > 0 ? StripSpaces(Sub(value, 0, ind)) : value;
+    const char * f = ind > 0 ? StripSpaces(Sub(value, ind+1)) : "";
     if (t[0] == '=') {
       cerr << WARNING << "Incorrect friend tree expression: " << t 
            << "Do you miss the alias before =" << ENDL;
