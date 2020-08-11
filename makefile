@@ -4,6 +4,7 @@ root_libs 	 = `root-config --libs --glibs --cflags`
 mysql_libs   = `mysql_config --libs --include`
 
 TConfig			:= include/TConfig.h
+TBase				:= include/TBase.h
 rcdb				:= include/rcdb.h
 line				:= include/line.h
 const				:= include/const.h
@@ -25,6 +26,9 @@ mulplot: src/MulPlot.cxx include/TMulPlot.h $(TConfig) $(rcdb) $(line) $(const) 
 
 runwise: src/RunWise.cxx include/TRunWise.h $(TConfig) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ src/RunWise.cxx $(root_libs)
+
+aggregate: src/Aggregate.cxx include/TAggregate.h $(TBase) $(TConfig) $(line) $(const) $(io)
+	g++ $(CXXFLAGS) -o $@ src/Aggregate.cxx $(root_libs) $(mysql_libs)
 
 runinfo: src/RunInfo.cxx $(rcdb) $(TRun) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ src/RunInfo.cxx $(root_libs) $(mysql_libs)
