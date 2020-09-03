@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:l:R:s:f:n:S")) != -1)
+  while((opt = getopt(argc, argv, "hc:r:l:R:s:a:f:n:S")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -52,6 +52,18 @@ int main(int argc, char* argv[]) {
       case 's':
         slugs = parseRS(optarg);
         break;
+			case 'a':
+				if (strcmp(optarg, "both") == 0)
+					SetArmFlag(botharms);
+				else if (strcmp(optarg, "left") == 0)
+					SetArmFlag(leftarm);
+				else if (strcmp(optarg, "right") == 0)
+					SetArmFlag(rightarm);
+				else {
+					cerr << ERROR << "Unknown arm flag: " << optarg << ENDL;
+					exit(4);
+				}
+				break;
       case 'f':
         out_format = optarg;
         break;
@@ -98,6 +110,7 @@ void usage() {
        << "\t -R: specify run list file" << endl
        << "\t -l: the latest run mode, which will compare it to the before 10 production runs automatically." << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
+			 << "\t -a: indicate arm flag you want (both, left, right: default both): of course, single arm specification will also include both arms running, but not vice versa." << endl
        << "\t -f: set output file format: pdf or png" << endl
        << "\t -n: prefix of output pdf file" << endl
        << "\t -S: make sign correction" << endl

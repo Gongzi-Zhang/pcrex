@@ -25,6 +25,7 @@
 #define BOLDCYAN      "\033[1m\033[36m"
 #define BOLDWHITE     "\033[1m\033[37m"
 
+#define OUTPUT	__PRETTY_FUNCTION__ << BOLDBLUE << "--OUTPUT\t"
 #define DEBUG   __PRETTY_FUNCTION__ << GREEN << "--DEBUG\t"
 #define INFO    __PRETTY_FUNCTION__ << "--INFO\t"
 #define WARNING __PRETTY_FUNCTION__ << YELLOW << "--WARNING\t"

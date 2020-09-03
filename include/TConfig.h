@@ -40,26 +40,26 @@ public:
 	map<string, const char*> GetFriendTrees()	{return ftrees;}
   vector<pair<long, long>> GetEntryCuts() {return ecuts;}
 
-  set<string>									GetSolos()	    {return fSolos;}
+  vector<string>							GetSolos()	    {return fSolos;}
   vector<string>		          GetSoloPlots()  {return fSoloPlots;}
   map<string, VarCut>         GetSoloCuts()   {return fSoloCuts;}
 
 	// custom variables: for CheckRun
-  set<string>									GetCustoms()    {return fCustoms;}	
+  vector<string>							GetCustoms()    {return fCustoms;}	
   vector<string>							GetCustomPlots(){return fCustomPlots;}
   map<string, VarCut>					GetCustomCuts() {return fCustomCuts;}
 	map<string, Node *>					GetCustomDefs()	{return fCustomDefs;}
 
 	// slope: for CheckStat
-  set<pair<string, string>>					GetSlopes()			{return fSlopes;}	
+  vector<pair<string, string>>			GetSlopes()			{return fSlopes;}	
   vector<pair<string, string>>			GetSlopePlots()	{return fSlopePlots;}
   map<pair<string, string>, VarCut> GetSlopeCuts()  {return fSlopeCuts;}
 
-  set<pair<string, string>>						GetComps()			{return fComps;}
+  vector<pair<string, string>>				GetComps()			{return fComps;}
   map<pair<string, string>, VarCut>		GetCompCuts()   {return fCompCuts;}
   vector<pair<string, string>>				GetCompPlots()	{return fCompPlots;}
 
-  set<pair<string, string>>					GetCors()			{return fCors;}
+  vector<pair<string, string>>			GetCors()			{return fCors;}
   vector<pair<string, string>>			GetCorPlots()	{return fCorPlots;}
   map<pair<string, string>, VarCut> GetCorCuts()  {return fCorCuts;}
 
@@ -93,24 +93,24 @@ private:
   set<string> fVars;    // all variables that are going to be checked.
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
-  set<string>         fSolos;
+  vector<string>      fSolos;
   vector<string>      fSoloPlots;	  // solos that needed to be drawn, need to be in order
   map<string, VarCut>	fSoloCuts;
 
-	set<string>					fCustoms;
+	vector<string>			fCustoms;
 	vector<string>			fCustomPlots;
   map<string, VarCut> fCustomCuts;
 	map<string, Node *>	fCustomDefs;	// custom variables' def
 
-  set<pair<string, string>>					fComps;
+  vector<pair<string, string>>			fComps;
   vector<pair<string, string>>			fCompPlots;
   map<pair<string, string>, VarCut>	fCompCuts;
 
-  set<pair<string, string>>					fSlopes;
+  vector<pair<string, string>>			fSlopes;
   vector<pair<string, string>>			fSlopePlots;
   map<pair<string, string>, VarCut>	fSlopeCuts;
 
-  set<pair<string, string>>					fCors;
+  vector<pair<string, string>>			fCors;
   vector<pair<string, string>>			fCorPlots;
   map<pair<string, string>, VarCut>	fCorCuts;
 };
@@ -374,12 +374,12 @@ bool TConfig::ParseSolo(char *line) {
     cerr << ERROR << "Empty variable for solo. " << ENDL;
     return false;
   }
-  if (fSolos.find(var) != fSolos.end()) {
+  if (find(fSolos.cbegin(), fSolos.cend(), var) != fSolos.cend()) {
     cerr << WARNING << "repeated solo variable, ignore it. " << ENDL;
     return false;
   }
 
-  fSolos.insert(var);
+  fSolos.push_back(var);
   if (plot) fSoloPlots.push_back(var);
   fSoloCuts[var] = cut;
   fVars.insert(var);
@@ -449,7 +449,7 @@ bool TConfig::ParseCustom(char *line) {
     cerr << ERROR << "Empty variable for custom. " << ENDL;
     return false;
   }
-  if (fCustoms.find(var) != fCustoms.end()) {
+  if (find(fCustoms.cbegin(), fCustoms.cend(), var) != fCustoms.cend()) {
     cerr << WARNING << "repeated custom variable, ignore it. " << ENDL;
     return false;
   }
@@ -461,7 +461,7 @@ bool TConfig::ParseCustom(char *line) {
 		return false;
 	}
 
-  fCustoms.insert(var);
+  fCustoms.push_back(var);
 	add_variables(node);
   if (plot) fCustomPlots.push_back(var);
   fCustomCuts[var] = cut;
@@ -514,7 +514,7 @@ void TConfig::add_variables(Node * node) {
 		add_variables(node->rchild);
 		add_variables(node->sibling);
 		if (node->token.type == variable) {
-			if (fCustoms.find(node->token.value) == fCustoms.cend())	// not one of previous customs
+			if (find(fCustoms.cbegin(), fCustoms.cend(), node->token.value) == fCustoms.cend())	// not one of previous customs
 				fVars.insert(node->token.value);
 		}
 	}
@@ -581,17 +581,17 @@ bool TConfig::ParseComp(char *line) {
     cerr << ERROR << "empty variable for comparison" << ENDL;
     return false;
   }
-  if (fComps.find(make_pair(vars[0], vars[1])) != fComps.end()) {
+  if (find(fComps.cbegin(), fComps.cend(), make_pair(string(vars[0]), string(vars[1]))) != fComps.cend()) {
     cerr << WARNING << "repeated comparison variables, ignore it. " << ENDL;
     return false;
   }
 
-  fComps.insert(make_pair(vars[0], vars[1]));
+  fComps.push_back(make_pair(vars[0], vars[1]));
   if (plot) fCompPlots.push_back(make_pair(vars[0], vars[1]));
   fCompCuts[make_pair(vars[0], vars[1])] = cut;
-  if (fCustoms.find(vars[0]) == fCustoms.cend())
+  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
     fVars.insert(vars[0]);
-  if (fCustoms.find(vars[1]) == fCustoms.cend())
+  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[1]) == fCustoms.cend())
     fVars.insert(vars[1]);
   return true;
 }
@@ -657,12 +657,12 @@ bool TConfig::ParseSlope(char *line) {
     cerr << ERROR << "empty variable for slope" << ENDL;
     return false;
   }
-  if (fSlopes.find(make_pair(vars[0], vars[1])) != fSlopes.end()) {
+  if (find(fSlopes.cbegin(), fSlopes.cend(), make_pair(string(vars[0]), string(vars[1]))) != fSlopes.cend()) {
     cerr << WARNING << "repeated Slope variables, ignore it. " << ENDL;
     return false;
   }
 
-  fSlopes.insert(make_pair(vars[0], vars[1]));
+  fSlopes.push_back(make_pair(vars[0], vars[1]));
   if (plot) fSlopePlots.push_back(make_pair(vars[0], vars[1]));
   fSlopeCuts[make_pair(vars[0], vars[1])] = cut;
   return true;
@@ -729,17 +729,17 @@ bool TConfig::ParseCor(char *line) {
     cerr << ERROR << "empty variable for correlation" << ENDL;
     return false;
   }
-  if (fCors.find(make_pair(vars[0], vars[1])) != fCors.end()) {
+  if (find(fCors.cbegin(), fCors.cend(), make_pair(string(vars[0]), string(vars[1]))) != fCors.cend()) {
     cerr << WARNING << "repeated correlation variables, ignore it. " << ENDL;
     return false;
   }
 
-  fCors.insert(make_pair(vars[0], vars[1]));
+  fCors.push_back(make_pair(vars[0], vars[1]));
   if (plot) fCorPlots.push_back(make_pair(vars[0], vars[1]));
   fCorCuts[make_pair(vars[0], vars[1])] = cut;
-  if (fCustoms.find(vars[0]) == fCustoms.cend())
+  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
     fVars.insert(vars[0]);
-  if (fCustoms.find(vars[1]) == fCustoms.cend())
+  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[1]) == fCustoms.cend())
     fVars.insert(vars[1]);
   return true;
 }

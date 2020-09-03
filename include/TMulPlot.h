@@ -38,70 +38,18 @@
 #include "line.h"
 #include "rcdb.h"
 #include "TConfig.h"
+#include "TBase.h"
 
 
-enum Format {pdf, png};
 
 using namespace std;
 
-class TMulPlot {
+class TMulPlot : public TBase {
 
     // ClassDe (TMulPlot, 0) // mul plots
 
-  private:
-    Format format     = pdf; // default pdf output
-    const char *out_name = "mulplot";
-    // root file: $dir/$pattern
-    const char *dir   = "/adaqfs/home/apar/PREX/prompt/results/";
-    string pattern    = "prexPrompt_xxxx_???_regress_postpan.root";
-    const char *tree  = "reg";
-    TCut cut          = "ok_cut";
-    bool logy         = false;
-		map<string, const char*> ftrees;
-		map<string, const char*> real_trees;
-    vector<pair<long, long>> ecuts;
-
-    TConfig fConf;
-    int     nSlugs;
-    int	    nRuns;
-    int	    nVars;
-    int	    nSolos;
-		int		  nCustoms;
-    int	    nComps;
-    int	    nSlopes;
-    int	    nCors;
-
-    set<int>    fRuns;
-    set<int>    fSlugs;
-    set<string> fVars;
-
-    set<string>         fSolos;
-    map<string, VarCut> fSoloCuts;	// use the low and high cut as x range
-
-    set<string>					fCustoms;
-    map<string, VarCut>	fCustomCuts;
-		map<string, Node *>	fCustomDefs;
-
-    set<pair<string, string>>         fComps;
-    map<pair<string, string>, VarCut>	fCompCuts;
-
-    set<pair<string, string>>         fSlopes;
-    map<pair<string, string>, VarCut> fSlopeCuts;
-
-    set<pair<string, string>>         fCors;
-    map<pair<string, string>, VarCut> fCorCuts;
-
-    map<int, vector<string>> fRootFiles;
-    map<int, int> fSigns;
-    map<pair<string, string>, pair<int, int>>	  fSlopeIndexes;
-    map<string, pair<string, string>> fVarNames;
-    map<string, TLeaf *> fVarLeaves;
-    map<string, double>  vars_buf;
-    // double slopes_buf[ROWS][COLS];
-    // double slopes_err_buf[ROWS][COLS];
-    int      rows, cols;
-    double * slopes_buf;
-    double * slopes_err_buf;
+  private:	// class specific variables besides those on base class
+		bool logy = false;
 
     map<string, TH1F *>    fSoloHists;
     map<pair<string, string>, pair<TH1F *, TH1F *>>    fCompHists;
@@ -111,19 +59,9 @@ class TMulPlot {
   public:
      TMulPlot(const char* confif_file, const char* run_list = NULL);
      ~TMulPlot();
-     void Draw();
-     void SetOutName(const char * name) {if (name) out_name = name;}
-     void SetOutFormat(const char * f);
-     void SetDir(const char * d);
      void SetLogy(bool log) {logy = log;}
-     void SetSlugs(set<int> slugs);
-     void SetRuns(set<int> runs);
-     void CheckRuns();
-     void CheckVars();
-     bool CheckVar(string var);
-     bool CheckCustomVar(Node * node);
+     void Draw();
      void GetValues();
-     bool CheckEntryCut(const long entry);
 		 double get_custom_value(Node * node);
      void DrawHistograms();
 };
@@ -131,44 +69,14 @@ class TMulPlot {
 // ClassImp(TMulPlot);
 
 TMulPlot::TMulPlot(const char* config_file, const char* run_list) :
-  fConf(config_file, run_list)
+	TBase(config_file, run_list)
 {
-  fConf.ParseConfFile();
-  fRuns = fConf.GetRuns();
-  nRuns = fRuns.size();
-  fVars	= fConf.GetVars();
-  nVars = fVars.size();
-
-  fSolos    = fConf.GetSolos();
-  fSoloCuts = fConf.GetSoloCuts();
-  nSolos    = fSolos.size();
-
-  fCustoms    = fConf.GetCustoms();
-  fCustomDefs = fConf.GetCustomDefs();
-  fCustomCuts = fConf.GetCustomCuts();
-  nCustoms    = fCustoms.size();
-
-  fComps    = fConf.GetComps();
-  fCompCuts = fConf.GetCompCuts();
-  nComps    = fComps.size();
-
-  fSlopes = fConf.GetSlopes();
-  fSlopeCuts  = fConf.GetSlopeCuts();
-  nSlopes = fSlopes.size();
-
-  fCors	    = fConf.GetCors();
-  fCorCuts  = fConf.GetCorCuts();
-	nCors			= fCors.size();
-
-  if (fConf.GetDir())       SetDir(fConf.GetDir());
-  if (fConf.GetPattern())   pattern = fConf.GetPattern();
-  if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
-  if (fConf.GetTreeCut())   cut     = fConf.GetTreeCut();
-	ftrees = fConf.GetFriendTrees();
+	TBase::out_name = "mulplot";
+	// dir = "/adaqfs/home/apar/PREX/prompt/results/";
+	// pattern = "prexPrompt_xxxx_???_regress_postpan.root";
+	// tree = "reg";
+	// cut = "ok_cut";
   logy  = fConf.GetLogy();
-  ecuts = fConf.GetEntryCuts();
-
-  gROOT->SetBatch(1);
 }
 
 TMulPlot::~TMulPlot() {
@@ -185,436 +93,6 @@ void TMulPlot::Draw() {
   CheckVars();
   GetValues();
   DrawHistograms();
-}
-
-void TMulPlot::SetDir(const char * d) {
-  struct stat info;
-  if (stat(d, &info) != 0) {
-    cerr << FATAL << "can't access specified dir: " << dir << ENDL;
-    exit(30);
-  } else if ( !(info.st_mode & S_IFDIR)) {
-    cerr << FATAL << "not a dir: " << dir << ENDL;
-    exit(31);
-  }
-  dir = d;
-}
-
-void TMulPlot::SetOutFormat(const char * f) {
-  if (strcmp(f, "pdf") == 0) {
-    format = pdf;
-  } else if (strcmp(f, "png") == 0) {
-    format = png;
-  } else {
-    cerr << FATAL << "Unknow output format: " << f << ENDL;
-    exit(40);
-  }
-}
-
-void TMulPlot::SetSlugs(set<int> slugs) {
-  for(int slug : slugs) {
-    if (   (CREX_AT_START_SLUG <= slug && slug <= CREX_AT_END_SLUG)
-        || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
-        || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
-      fSlugs.insert(slug);
-    } else {
-      cerr << ERROR << "Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << ENDL;
-      continue;
-    }
-  }
-  nSlugs = fSlugs.size();
-}
-
-void TMulPlot::SetRuns(set<int> runs) {
-  for(int run : runs) {
-    if (run < START_RUN || run > END_RUN) {
-      cerr << ERROR << "Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << ENDL;
-      continue;
-    }
-    fRuns.insert(run);
-  }
-  nRuns = fRuns.size();
-}
-
-void TMulPlot::CheckRuns() {
-  StartConnection();
-
-  if (nSlugs > 0) {
-    set<int> runs;
-    for(int slug : fSlugs) {
-      runs = GetRunsFromSlug(slug);
-      for (int run : runs) {
-        fRuns.insert(run);
-      }
-    }
-  }
-  nRuns = fRuns.size();
-
-  // check runs against database
-  GetValidRuns(fRuns);
-  nRuns = fRuns.size();
-
-  for (set<int>::const_iterator it = fRuns.cbegin(); it != fRuns.cend(); ) {
-    int run = *it;
-    string p_buf(pattern);
-    p_buf.replace(p_buf.find("xxxx"), 4, to_string(run));
-    const char * p = Form("%s/%s", dir, p_buf.c_str());
-
-    glob_t globbuf;
-    glob(p, 0, NULL, &globbuf);
-    if (globbuf.gl_pathc == 0) {
-      cout << ALERT << "no root file for run " << run << ". Ignore it." << ENDL;
-      it = fRuns.erase(it);
-      continue;
-    }
-    for (int i=0; i<globbuf.gl_pathc; i++)
-      fRootFiles[run].push_back(globbuf.gl_pathv[i]);
-
-    globfree(&globbuf);
-    it++;
-  }
-
-  nRuns = fRuns.size();
-  if (nRuns == 0) {
-    cerr << FATAL << "No valid runs specified!" << ENDL;
-    EndConnection();
-    exit(10);
-  }
-
-  cout << INFO << "" << nRuns << " valid runs specified:" << ENDL;
-  for(int run : fRuns) {
-    cout << "\t" << run << endl;
-  }
-
-  fSigns = GetSign(fRuns); // sign corrected
-  EndConnection();
-}
-
-void TMulPlot::CheckVars() {
-  srand(time(NULL));
-  int s = rand() % nRuns;
-  set<int>::const_iterator it_r=fRuns.cbegin();
-  for(int i=0; i<s; i++)
-    it_r++;
-
-  while (it_r != fRuns.cend()) {
-		set<string> used_ftrees;
-    int run = *it_r;
-    const char * file_name = fRootFiles[run][0].c_str();
-    TFile * f_rootfile = new TFile(file_name, "read");
-    if (!f_rootfile->IsOpen()) {
-      cerr << WARNING << "run-" << run << " ^^^^ can't read root file: " << file_name 
-           << ", skip this run." << ENDL;
-      goto next_run;
-    }
-  
-    TTree * tin;
-		tin = (TTree*) f_rootfile->Get(tree);
-    if (tin == NULL) {
-      cerr << WARNING << "run-" << run << " ^^^^ can't read tree: " << tree << " in root file: "
-           << file_name << ", skip this run." << ENDL;
-      goto next_run;
-    }
-
-    for (auto const ftree : ftrees) {
-      const char *texp = ftree.first.c_str();
-      string file_name = ftree.second;
-			if (file_name.find("xxxx") != string::npos)
-				file_name.replace(file_name.find("xxxx"), 4, to_string(run));
-      if (file_name.size()) {
-        glob_t globbuf;
-        glob(file_name.c_str(), 0, NULL, &globbuf);
-        if (globbuf.gl_pathc == 0) {
-          cerr << WARNING << "run-" << run << " ^^^^ can't read friend tree: " << texp
-							 << " in root file: " << file_name << ", skip this run." << ENDL; 
-					goto next_run;
-				}
-				file_name = globbuf.gl_pathv[0];
-				globfree(&globbuf);
-      }
-      tin->AddFriend(texp, file_name.c_str());	// FIXME: what if the friend tree doesn't exist
-      int pos = Index(texp, '=');
-      string alias = pos > 0 ? StripSpaces(Sub(texp, 0, pos)) : texp;
-      // const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
-      real_trees[alias] = texp;
-      // it is user's responsibility to make sure each tree has an unique name
-    }
-
-    cout << INFO << "use the following root files to check vars: \n";
-		cout << "\t" << file_name;
-		for (auto const ftree : ftrees) {
-			if (ftree.second[0])
-				cout << "\n\t" << ftree.second;
-		}
-		cout << ENDL;
-
-		for (string var : fVars) {
-      size_t n = count(var.begin(), var.end(), '.');
-      string branch, leaf;
-      if (n==0) {
-        branch = var;
-      } else if (n==1) {
-        size_t pos = var.find_first_of('.');
-        if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
-          branch = var;
-        } else {
-          branch = var.substr(0, pos);
-          leaf = var.substr(pos+1);
-        }
-      } else if (n==2) {
-        size_t pos = var.find_last_of('.');
-        branch = var.substr(0, pos);
-        leaf = var.substr(pos+1);
-      } else {
-        cerr << ERROR << "Invalid variable expression: " << var << endl;
-        exit(24);
-      }
-
-      TBranch * bbuf = tin->GetBranch(branch.c_str());
-			if (!bbuf) {
-				// special branches -- stupid
-				if (branch.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
-					// no bpm11X in early runs, replace with bpm12X
-					cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
-					string b = branch;
-					bbuf = tin->GetBranch(b.replace(b.find("bpm11X"), 6, "bpm12X").c_str());
-				} else if (branch.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
-					cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
-					string b = branch;
-					bbuf = tin->GetBranch(b.replace(b.find("bpmE"), 4, "bpm12X").c_str());
-				} 
-				if (!bbuf) {
-					cerr << ERROR << "no branch: " << branch << " in var: " << var << ENDL;
-					tin->Delete();
-					f_rootfile->Close();
-					exit(24);
-				}
-			}
-
-			TObjArray * l_leaf = bbuf->GetListOfLeaves();
-			if (leaf.size() == 0) {
-				leaf = l_leaf->At(0)->GetName();  // use the first leaf
-			}
-			TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
-			if (!lbuf) {
-				cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
-				cout << DEBUG << "List of valid leaves:" << ENDL;
-				TIter next(l_leaf);
-				TLeaf *l;
-				while (l = (TLeaf*) next()) {
-					cout << "\t" << l->GetName() << endl;
-				}
-				tin->Delete();
-				f_rootfile->Close();
-				exit(24);
-			}
-			// special var -- stupid
-			if (branch.find("diff_bpm11X") != string::npos && run < 3390 && leaf.find("diff_bpm12X") != string::npos) {		// lagrange tree
-				leaf = "diff_bpm11X";
-			} else if (branch.find("diff_bpmE") != string::npos && run < 3390	&& leaf.find("diff_bpm12X") != string::npos) {	// reg tree		
-				leaf = "diff_bpmE";
-			} 
-
-			fVarNames[var] = make_pair(branch, leaf);
-			if (branch.find('.') != string::npos) {
-				used_ftrees.insert(StripSpaces(Sub(branch.c_str(), 0, branch.find('.'))));
-			} else {
-				used_ftrees.insert(bbuf->GetTree()->GetName());
-			}
-		}
-
-		if (used_ftrees.find(tree) == used_ftrees.end()) {
-			cerr << WARNING << "unsed main tree: " << tree << ENDL;
-		} else {
-			used_ftrees.erase(used_ftrees.find(tree));
-		}
-		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend();) {
-			bool used = false;
-			for (auto const uftree : used_ftrees) {
-				if (real_trees[uftree] == it->first) {
-					used = true;
-					break;
-				}
-			}
-			if (used)
-				it++;
-			else {
-				cerr << WARNING << "unused friend tree: " << it->first << ". remove it." << ENDL;
-				it = ftrees.erase(it);
-			}
-		}
-
-			/*  FIXME: no slope now
-			if (nSlopes>0) {
-				rows = l_dv->size();
-				cols = l_iv->size();
-				slopes_buf = new double[rows*cols];
-				slopes_err_buf = new double[rows*cols];
-				// if (rows != ROWS || cols != COLS) {
-				//   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
-				//   exit(20);
-				// }
-				bool error_dv_flag = false;
-				bool error_iv_flag = false;
-				for (set<pair<string, string>>::const_iterator it=fSlopes.cbegin(); it != fSlopes.cend(); ) {
-					string dv = it->first;
-					string iv = it->second;
-					vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
-					vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
-					if (it_dv == l_dv->cend()) {
-						cerr << WARNING << "Invalid dv name for slope: " << dv << ENDL;
-						it = fSlopes.erase(it);
-						error_dv_flag = true;
-						continue;
-					}
-					if (it_iv == l_iv->cend()) {
-						cerr << WARNING << "Invalid iv name for slope: " << iv << ENDL;
-						it = fSlopes.erase(it);
-						error_iv_flag = true;
-						continue;
-					}
-					fSlopeIndexes[*it] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
-					it++;
-				}
-				if (error_dv_flag) {
-					cout << DEBUG << "List of valid dv names:" << ENDL;
-					for (vector<TString>::const_iterator it = l_dv->cbegin(); it != l_dv->cend(); it++) 
-						cout << "\t" << (*it).Data() << endl;
-				}
-				if (error_iv_flag) {
-					cout << DEBUG << "List of valid dv names:" << ENDL;
-					for (vector<TString>::const_iterator it = l_iv->cbegin(); it != l_iv->cend(); it++) 
-						cout << "\t" << (*it).Data() << endl;
-				}
-			}
-			*/
-		tin->Delete();
-		f_rootfile->Close();
-		break;
-      
-next_run:
-		f_rootfile->Close();
-		if (tin) {
-			tin->Delete();
-			tin = NULL;
-		}
-    it_r = fRuns.erase(it_r);
-
-    if (it_r == fRuns.cend())
-      it_r = fRuns.cbegin();
-  }
-
-  nRuns = fRuns.size();
-  if (nRuns == 0) {
-    cerr << FATAL << "no valid runs, aborting." << ENDL;
-    exit(10);
-  }
-
-  nVars = fVars.size();
-  nSlopes = fSlopes.size();
-  if (nVars == 0 && nSlopes == 0) {
-    cerr << FATAL << "no valid variables specified, aborting." << ENDL;
-    exit(11);
-  }
-
-  for (set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend();) {
-    if (fVars.find(*it) == fVars.cend()) {
-			map<string, VarCut>::const_iterator it_c = fSoloCuts.find(*it);
-			if (it_c != fSoloCuts.cend())
-				fSoloCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid solo variable: " << *it << ENDL;
-      it = fSolos.erase(it);
-		} else
-      it++;
-  }
-
-	for (set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); ) {
-		if (!CheckCustomVar(fCustomDefs[*it])) {
-			map<string, VarCut>::const_iterator it_c = fCustomCuts.find(*it);
-			if (it_c != fCustomCuts.cend())
-				fCustomCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid custom variable: " << *it << ENDL;
-      it = fCustoms.erase(it);
-		} else
-      it++;
-	}
-
-  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
-    if (!CheckVar(it->first) || !CheckVar(it->second)) {
-				// || strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) {
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
-			if (it_c != fCompCuts.cend())
-				fCompCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
-      it = fComps.erase(it);
-		} else 
-			it++;
-  }
-
-  for (set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); ) {
-    if (!CheckVar(it->first) || !CheckVar(it->second)) {
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
-			if (it_c != fCorCuts.cend())
-				fCorCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
-      it = fCors.erase(it);
-		} else
-      it++;
-  }
-
-  nSolos = fSolos.size();
-  nComps = fComps.size();
-  nCors  = fCors.size();
-  nCustoms = fCustoms.size();
-
-  cout << INFO << "" << nSolos << " valid solo variables specified:" << ENDL;
-  for(string solo : fSolos) {
-    cout << "\t" << solo << endl;
-  }
-  cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
-  for(pair<string, string> comp : fComps) {
-    cout << "\t" << comp.first << " , " << comp.second << endl;
-  }
-  cout << INFO << "" << nSlopes << " valid slopes specified:" << ENDL;
-  for(pair<string, string> slope : fSlopes) {
-    cout << "\t" << slope.first << " : " << slope.second << endl;
-  }
-  cout << INFO << "" << nCors << " valid correlations specified:" << ENDL;
-  for(pair<string, string> cor : fCors) {
-    cout << "\t" << cor.first << " : " << cor.second << endl;
-  }
-  cout << INFO << "" << nCustoms << " valid customs specified:" << ENDL;
-  for(string custom : fCustoms) {
-    cout << "\t" << custom << endl;
-  }
-}
-
-bool TMulPlot::CheckVar(string var) {
-  if (fVars.find(var) == fVars.cend() && fCustoms.find(var) == fCustoms.cend()) {
-    cerr << WARNING << "Unknown variable: " << var << ENDL;
-    return false;
-  }
-  return true;
-}
-
-bool TMulPlot::CheckCustomVar(Node * node) {
-  if (node) {
-		if (	 node->token.type == variable 
-				&& fCustoms.find(node->token.value) == fCustoms.cend()
-				&& fVars.find(node->token.value) == fVars.cend() ) {
-			cerr << WARNING << "Unknown variable: " << node->token.value << ENDL;
-			return false;
-		}
-
-		bool l = CheckCustomVar(node->lchild);
-		bool r = CheckCustomVar(node->rchild);
-		bool s = CheckCustomVar(node->sibling);
-		return l && r && s;
-	}
-	return true;
 }
 
 void TMulPlot::GetValues() {
@@ -720,7 +198,7 @@ void TMulPlot::GetValues() {
       //   tin->SetBranchAddress("err_coeff", slopes_err_buf);
       // }
 
-      const int N = tin->Draw(">>elist", cut, "entrylist");
+      int N = tin->Draw(">>elist", cut, "entrylist");
 			if (N < 4500) {
 				cerr << WARNING << "run-" << run << " ^^^^ too short (< 4500 patterns), ignore it" <<ENDL;
 				continue;
@@ -732,8 +210,8 @@ void TMulPlot::GetValues() {
           cout << INFO << "read " << n << " event" << ENDL;
 
         const int en = elist->GetEntry(n);
-        if (CheckEntryCut(total+en))
-          continue;
+        // if (CheckEntryCut(total+en))
+        //   continue;
 
         ok++;
         for (string var : fVars) {
@@ -926,7 +404,7 @@ double TMulPlot::get_custom_value(Node *node) {
 			return atof(val);
 		case variable:
 			if (	 fVars.find(val) != fVars.cend()
-					|| fCustoms.find(val) != fCustoms.cend())
+					|| find(fCustoms.cbegin(), fCustoms.cend(), val) != fCustoms.cend())
 				return vars_buf[val];
 		default:
 			cerr << ERROR << "unkonw token type: " << TypeName[node->token.type] << ENDL;
@@ -935,21 +413,21 @@ double TMulPlot::get_custom_value(Node *node) {
 	return -999999;
 }
 
-bool TMulPlot::CheckEntryCut(const long entry) {
-  if (ecuts.size() == 0) return false;
-
-  for (pair<long, long> cut : ecuts) {
-    long start = cut.first;
-    long end = cut.second;
-    if (entry >= start) {
-      if (end == -1)
-        return true;
-      else if (entry < end)
-        return true;
-    }
-  }
-  return false;
-}
+// bool TMulPlot::CheckEntryCut(const long entry) {
+//   if (ecuts.size() == 0) return false;
+// 
+//   for (pair<long, long> cut : ecuts) {
+//     long start = cut.first;
+//     long end = cut.second;
+//     if (entry >= start) {
+//       if (end == -1)
+//         return true;
+//       else if (entry < end)
+//         return true;
+//     }
+//   }
+//   return false;
+// }
 
 void TMulPlot::DrawHistograms() {
   TCanvas c("c", "c", 800, 600);
@@ -964,11 +442,13 @@ void TMulPlot::DrawHistograms() {
     c.Print(Form("%s.pdf[", out_name));
 
   for (string custom : fCustoms)
-    fSolos.insert(custom);
+    fSolos.push_back(custom);
   for (string solo : fSolos) {
     c.cd();
     fSoloHists[solo]->Fit("gaus");
     TH1F * hc = (TH1F*) fSoloHists[solo]->DrawClone();
+		cout << OUTPUT << solo << "--mean:\t" << fSoloHists[solo]->GetMean() << " ± " << fSoloHists[solo]->GetMeanError() << ENDL;
+		cout << OUTPUT << solo << "--rms:\t" << fSoloHists[solo]->GetRMS() << " ± " << fSoloHists[solo]->GetRMSError() << ENDL;
 
     gPad->Update();
     TPaveStats * st = (TPaveStats*) gPad->GetPrimitive("stats");

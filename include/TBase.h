@@ -56,7 +56,7 @@ class TBase {
     string pattern    = "prexPrompt_xxxx_???_regress_postpan.root";
     const char *tree  = "reg";
     TCut cut          = "ok_cut";
-    bool logy         = false;
+    // bool logy         = false;
 		map<string, const char*> ftrees;
 		map<string, const char*> real_trees;
     vector<pair<long, long>> ecuts;
@@ -75,20 +75,20 @@ class TBase {
     set<int>    fSlugs;
     set<string> fVars;
 
-    set<string>         fSolos;
+    vector<string>      fSolos;
     map<string, VarCut> fSoloCuts;	// use the low and high cut as x range
 
-    set<string>					fCustoms;
+    vector<string>			fCustoms;
     map<string, VarCut>	fCustomCuts;
 		map<string, Node *>	fCustomDefs;
 
-    set<pair<string, string>>         fComps;
+    vector<pair<string, string>>      fComps;
     map<pair<string, string>, VarCut>	fCompCuts;
 
-    set<pair<string, string>>         fSlopes;
+    vector<pair<string, string>>      fSlopes;
     map<pair<string, string>, VarCut> fSlopeCuts;
 
-    set<pair<string, string>>         fCors;
+    vector<pair<string, string>>      fCors;
     map<pair<string, string>, VarCut> fCorCuts;
 
     map<int, vector<string>> fRootFiles;
@@ -103,10 +103,7 @@ class TBase {
     double * slopes_buf;
     double * slopes_err_buf;
 
-    map<string, TH1F *>    fSoloHists;
-    map<pair<string, string>, pair<TH1F *, TH1F *>>    fCompHists;
-    // map<pair<string, string>, TH1F *>    fSlopeHists;
-    map<pair<string, string>, TH2F *>    fCorHists;
+    TCanvas * c;
 
   public:
      TBase(const char* config_file, const char* run_list = NULL);
@@ -114,15 +111,15 @@ class TBase {
      void SetOutName(const char * name) {if (name) out_name = name;}
      void SetOutFormat(const char * f);
      void SetDir(const char * d);
-     void SetLogy(bool log) {logy = log;}
+     // void SetLogy(bool log) {logy = log;}
      void SetSlugs(set<int> slugs);
      void SetRuns(set<int> runs);
      void CheckRuns();
      void CheckVars();
      bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
-     // void GetValues();
-     bool CheckEntryCut(const long entry);
+     // virtual void GetValues();
+     // bool CheckEntryCut(const long entry);
 		 double get_custom_value(Node * node);
 };
 
@@ -502,7 +499,7 @@ next_run:
     exit(11);
   }
 
-  for (set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend();) {
+  for (vector<string>::iterator it=fSolos.begin(); it!=fSolos.end();) {
     if (fVars.find(*it) == fVars.cend()) {
 			map<string, VarCut>::const_iterator it_c = fSoloCuts.find(*it);
 			if (it_c != fSoloCuts.cend())
@@ -514,7 +511,7 @@ next_run:
       it++;
   }
 
-	for (set<string>::const_iterator it=fCustoms.cbegin(); it!=fCustoms.cend(); ) {
+	for (vector<string>::iterator it=fCustoms.begin(); it!=fCustoms.end(); ) {
 		if (!CheckCustomVar(fCustomDefs[*it])) {
 			map<string, VarCut>::const_iterator it_c = fCustomCuts.find(*it);
 			if (it_c != fCustomCuts.cend())
@@ -526,7 +523,7 @@ next_run:
       it++;
 	}
 
-  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
+  for (vector<pair<string, string>>::iterator it=fComps.begin(); it!=fComps.end(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second)) {
 				// || strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) {
 			map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
@@ -539,7 +536,7 @@ next_run:
 			it++;
   }
 
-  for (set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); ) {
+  for (vector<pair<string, string>>::iterator it=fCors.begin(); it!=fCors.end(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second)) {
 			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
 			if (it_c != fCorCuts.cend())
@@ -579,7 +576,7 @@ next_run:
 }
 
 bool TBase::CheckVar(string var) {
-  if (fVars.find(var) == fVars.cend() && fCustoms.find(var) == fCustoms.cend()) {
+  if (fVars.find(var) == fVars.cend() && find(fCustoms.cbegin(), fCustoms.cend(), var) == fCustoms.cend()) {
     cerr << WARNING << "Unknown variable: " << var << ENDL;
     return false;
   }
@@ -589,7 +586,7 @@ bool TBase::CheckVar(string var) {
 bool TBase::CheckCustomVar(Node * node) {
   if (node) {
 		if (	 node->token.type == variable 
-				&& fCustoms.find(node->token.value) == fCustoms.cend()
+				&& find(fCustoms.cbegin(), fCustoms.cend(), node->token.value) == fCustoms.cend()
 				&& fVars.find(node->token.value) == fVars.cend() ) {
 			cerr << WARNING << "Unknown variable: " << node->token.value << ENDL;
 			return false;
@@ -914,7 +911,7 @@ double TBase::get_custom_value(Node *node) {
 			return atof(val);
 		case variable:
 			if (	 fVars.find(val) != fVars.cend()
-					|| fCustoms.find(val) != fCustoms.cend())
+					|| find(fCustoms.cbegin(), fCustoms.cend(), val) != fCustoms.cend())
 				return vars_buf[val];
 		default:
 			cerr << ERROR << "unkonw token type: " << TypeName[node->token.type] << ENDL;

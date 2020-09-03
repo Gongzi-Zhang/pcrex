@@ -46,4 +46,7 @@ plot:
 	tar czvf plots.tar.gz *.png 
 clean:
 	rm -f check mulplot checkrun
+
+temp: scripts/agg_count.C $(rcdb) $(line) $(const) $(io)
+	g++ $(CXXFLAGS) -o $@ scripts/agg_count.C $(root_libs) $(mysql_libs)
 # vim: set shiftwidth=2 softtabstop=2 tabstop=2:

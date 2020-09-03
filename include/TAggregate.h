@@ -4,10 +4,7 @@
 #include <iostream>
 #include "TBase.h"
 
-struct STAT {
-	double mean, err, rms;
-	long num_samples;
-};
+struct STAT { double mean, err, rms; };
 
 class TAggregate : public TBase 
 {
@@ -18,6 +15,7 @@ class TAggregate : public TBase
 		TAggregate(const char * config_file, const char * run_list = NULL);
 		~TAggregate() { cout << INFO << "end of TAggregate"; };
 		void SetOutDir(const char *dir);
+		void CheckOutDir();
 		void Aggregate();
 };
 
@@ -31,28 +29,32 @@ void TAggregate::SetOutDir(const char *dir)
 		cerr << WARNING << "Null out dir value, use default value: " << out_dir << ENDL;
 		return;
 	}
+	out_dir = dir;
+}
+
+void TAggregate::CheckOutDir() 
+{
 	struct stat info;
-	if (stat(dir, &info) != 0) {
+	if (stat(out_dir, &info) != 0) {
 		cerr << WARNING << "Out dir doesn't exist, create it." << ENDL;
-		int status = mkdir(dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		int status = mkdir(out_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		if (status != 0) {
-			cerr << ERROR << "Can't create specified dir: " << dir << ENDL;
+			cerr << ERROR << "Can't create specified dir: " << out_dir << ENDL;
 			exit(44);
 		}
 	}
-	out_dir = dir;
 }
 
 void TAggregate::Aggregate()
 {
-	long num_samples = 0;
+	unsigned int num_samples = 0;
 	map<string, double> sum;
 	map<string, double> sum2;
 	map<string, STAT> stat;
 	unsigned int mini;
 	unsigned int N;
 
-	for (int run : fRuns) {
+	for (unsigned int run : fRuns) {
 		const size_t sessions = fRootFiles[run].size();
 		for (size_t session=0; session < sessions; session++) {
 			const char *file_name = fRootFiles[run][session].c_str();
@@ -131,23 +133,25 @@ void TAggregate::Aggregate()
       if (error)
         continue;
 
+			TFile fout(Form("%s/agg_minirun_%d_%03ld.root", out_dir, run, session), "update");
 			TTree * tout = new TTree("reg", "reg");
 
 			for (string var : fVars) {
-				tout->Branch(var.c_str(), &vars_buf[var], "mean/D;err/D;rms/D;num_samples/I");
+				tout->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
 			}
 			for (string custom : fCustoms) {
-				tout->Branch(custom.c_str(), &vars_buf[custom], "mean/D;err/D;rms/D;num_samples/I");
+				tout->Branch(custom.c_str(), &stat[custom], "mean/D:err/D:rms/D");
 			}
-			tout->Branch("run", &run, "run/I");
-			tout->Branch("minirun", &mini, "minirun/I");
+			tout->Branch("run", &run, "run/i");
+			tout->Branch("minirun", &mini, "minirun/i");
+			tout->Branch("num_samples", &N, "num_samples/i");
 
 			mini = 0;
-			N	= tin->Draw(">>elist", Form("mini == %d && ok_cut", mini), "entrylist");
-			while (N > 0) {
+			N	= tin->Draw(Form(">>elist%d", mini), Form("mini == %d && ok_cut", mini), "entrylist");
+			while (N >= 9000) {
 				cout << INFO << "minirun: " << mini << " of run: " << run << ENDL;
-				TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
-				for (int n=0; n<N; n++) {
+				TEntryList *elist = (TEntryList*) gDirectory->Get(Form("elist%d", mini));
+				for (int n=0; n<9000; n++) {
 					const int en = elist->GetEntry(n);
 					for (string var : fVars) {
 						if (var.find("bpm11X") != string::npos && run < 3390)
@@ -166,29 +170,26 @@ void TAggregate::Aggregate()
 					}
 				}
 				for (string var : fVars) {
-					stat[var].num_samples = N;
 					stat[var].mean = sum[var]/N;
-					stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var])/(N-1));
+					stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/N)/(N-1));
 					stat[var].err = stat[var].rms / sqrt(N);
 					sum[var] = 0;
 					sum2[var] = 0;
 				}
 				for (string custom : fCustoms) {
-					stat[custom].num_samples = N;
 					stat[custom].mean = sum[custom]/N;
-					stat[custom].rms = sqrt((sum2[custom] - sum[custom]*sum[custom])/(N-1));
+					stat[custom].rms = sqrt((sum2[custom] - sum[custom]*sum[custom]/N)/(N-1));
 					stat[custom].err = stat[custom].rms / sqrt(N);
 					sum[custom] = 0;
 					sum2[custom] = 0;
 				}
 				tout->Fill();
 				mini++;
-				N = tin->Draw(">>elist", Form("mini == %d && ok_cut", mini), "entrylist");
+				N = tin->Draw(Form(">>elist%d", mini), Form("mini == %d && ok_cut", mini), "entrylist");
 			}
 
 			tin->Delete();
 			fin.Close();
-			TFile fout(Form("%s/agg_minirun_%d_%3ld.root", out_dir, run, session), "update");
 			fout.cd();
 			tout->Write();
 			tout->Delete();

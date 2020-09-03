@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
   if (slugs.size() > 0)
     fAgg.SetSlugs(slugs);
 
+	fAgg.CheckOutDir();
 	fAgg.CheckRuns();
 	fAgg.CheckVars();
   fAgg.Aggregate();

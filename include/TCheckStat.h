@@ -87,10 +87,10 @@ class TCheckStat {
     set<int> fSlugs;
     set<int> fBoldRuns;
     set<string>	  fVars;
-    set<string>	  fSolos;
-    set< pair<string, string> >	fComps;
-    set< pair<string, string> >	fSlopes;
-    set< pair<string, string> >	fCors;
+    vector<string>	  fSolos;
+    vector< pair<string, string> >	fComps;
+    vector< pair<string, string> >	fSlopes;
+    vector< pair<string, string> >	fCors;
     vector<string>	                fSoloPlots;
     vector< pair<string, string> >	fCompPlots;
     vector< pair<string, string> >	fSlopePlots;
@@ -107,7 +107,6 @@ class TCheckStat {
     // map<string, StatsType> fStatsTypes;
     // map<string, string> fVarNames;
     map<string, pair<string, string>> fVarNames;
-    map<string, TLeaf *> fVarLeaves;
     // double slopes_buf[ROWS][COLS];
     // double slopes_err_buf[ROWS][COLS];
     int      rows, cols;
@@ -620,7 +619,7 @@ next_run:
     exit(11);
   }
 
-  for (set<string>::const_iterator it=fSolos.cbegin(); it!=fSolos.cend();) {
+  for (vector<string>::iterator it=fSolos.begin(); it!=fSolos.end();) {
     if (!CheckVar(*it)) {
 			vector<string>::iterator it_p = find(fSoloPlots.begin(), fSoloPlots.end(), *it);
 			if (it_p != fSoloPlots.cend())
@@ -636,7 +635,7 @@ next_run:
       it++;
   }
 
-  for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
+  for (vector<pair<string, string>>::iterator it=fComps.begin(); it!=fComps.end(); ) {
 		if (CheckVar(it->first) && CheckVar(it->second)
 				&& fVarNames[it->first].second == fVarNames[it->second].second) {
 			it++;
@@ -659,7 +658,7 @@ next_run:
 		it = fComps.erase(it);
   }
 
-  for (set<pair<string, string>>::const_iterator it=fCors.cbegin(); it!=fCors.cend(); ) {
+  for (vector<pair<string, string>>::iterator it=fCors.begin(); it!=fCors.end(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second)) {
 			vector<pair<string, string>>::iterator it_p = find(fCorPlots.begin(), fCorPlots.end(), *it);
 			if (it_p != fCorPlots.cend())
@@ -711,6 +710,7 @@ bool TCheckStat::CheckVar(string var) {
 }
 
 void TCheckStat::GetValues() {
+	unsigned int npatterns = 0;
   for (int run : fRuns) {
     const size_t sessions = fRootFiles[run].size();
     for (size_t session=0; session<sessions; session++) {
@@ -769,6 +769,8 @@ void TCheckStat::GetValues() {
         l_minirun = (TLeaf *)b_minirun->GetListOfLeaves()->At(0);
       }
 
+      bool num_samples_leaf = false;
+			map<string, TLeaf *> fVarLeaves;
       for (string var : fVars) {
         string branch = fVarNames[var].first;
         string leaf   = fVarNames[var].second;
@@ -787,10 +789,22 @@ void TCheckStat::GetValues() {
           break;
         }
         fVarLeaves[var] = l;
+
+				if (! num_samples_leaf) {
+					l = br->GetLeaf("num_samples");
+					if (l) {
+						fVarLeaves["num_samples"] = l;
+						num_samples_leaf = true;
+					}
+				}
       }
 
       if (error)
         continue;
+
+			if (!num_samples_leaf) {
+				cerr << WARNING << "No num_samples leaf, will not cut on num_samples (<4500)" << ENDL;
+			}
 
       if (nSlopes > 0) {
         tin->SetBranchAddress("coeff", slopes_buf);
@@ -799,7 +813,15 @@ void TCheckStat::GetValues() {
 
       const int nentries = tin->GetEntries();  // number of miniruns
       for(int n=0; n<nentries; n++) { // loop through the miniruns
-        tin->GetEntry(n);
+				if (num_samples_leaf) {
+					fVarLeaves["num_samples"]->GetBranch()->GetEntry(n);
+					const int nsamples = fVarLeaves["num_samples"]->GetValue();
+					if (nsamples < 4500) {
+						cerr << WARNING << "run-" << run << " ^^^^ too short minirun (< 4500 patterns), ignore it" <<ENDL;
+						continue;
+					}
+					npatterns += nsamples;
+				}
 
         if (l_minirun) {
           l_minirun->GetBranch()->GetEntry(n);
@@ -850,8 +872,12 @@ void TCheckStat::GetValues() {
     }
   }
   nMiniruns = fMiniruns.size();
-
-  cout << INFO << "Read " << nMiniruns << " miniruns in total" << ENDL;
+	if (nMiniruns == 0) {
+		cerr << FATAL << "No valid minirun." << ENDL;
+		exit(44);
+	}
+	cout << OUTPUT << "read " << npatterns << " patterns in " << nMiniruns << " miniruns." << ENDL;
+  // cout << INFO << "Read " << nMiniruns << " miniruns in total" << ENDL;
 }
 
 void TCheckStat::CheckValues() {
@@ -1078,6 +1104,7 @@ void TCheckStat::DrawSolos() {
     g->Fit("pol0");
     TF1 * fit= g->GetFunction("pol0");
     double mean_value = fit->GetParameter(0);
+		cout << OUTPUT << solo << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
 
     TGraph * pull = NULL; 
     if (mean) {
