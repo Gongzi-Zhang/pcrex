@@ -323,7 +323,7 @@ void TCheckRuns::CheckVars() {
         exit(24);
       }
 
-			TBranch * bbuf = (TBranch *) l_var->FindObject(branch.c_str());
+			TBranch * bbuf = (TBranch *) tin->FindObject(branch.c_str());
 			if (!bbuf) {
 				cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
 				tin->Delete();

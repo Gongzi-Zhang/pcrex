@@ -1179,9 +1179,18 @@ void TCheckStat::DrawSolos() {
     TAxis * ax = g->GetXaxis();
     TAxis * ay = g->GetYaxis();
 
+    double labelSize = 0.03;
+    double labelY = 0.16 * 0.5;
+    double tickY = 0.16;
     if (mean) {
+      labelSize = 0.05;
+      labelY = 0.17*0.3;
+      tickY = 0.17;
       g->GetXaxis()->SetLabelSize(0);
-      g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
+      if (nMiniruns + 1 < 100)
+        g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
+      else 
+        g->GetXaxis()->SetNdivisions(0);
 
       p2->cd();
       pull->SetFillColor(kGreen);
@@ -1190,12 +1199,33 @@ void TCheckStat::DrawSolos() {
       ax = pull->GetXaxis();
     }
 
-    ax->SetNdivisions(-(nMiniruns+1));
+    ax->SetNdivisions(-0);
     ax->ChangeLabel(1, -1, 0);  // erase first label
     ax->ChangeLabel(-1, -1, 0); // erase last label
-    // ax->SetLabelOffset(0.02);
-    for (int i=0; i<=nMiniruns; i++) {
-      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
+    unsigned int nDivisions = nMiniruns + 1;
+    if (nDivisions < 100) {
+      ax->SetNdivisions(nDivisions);
+      // ax->SetLabelOffset(0.02);
+      for (int i=0; i<=nMiniruns; i++) {
+        ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
+      }
+    } else {
+      ax->SetLabelSize(0);  // remove old labels
+      for (int i=0; i<nMiniruns; i++) {
+        if (fMiniruns[i].second == 0) {
+          TText * label = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), labelY, Form("%d", fMiniruns[i].first));
+          label->SetNDC();
+          label->SetTextAngle(90);
+          label->SetTextSize(labelSize);
+          label->SetTextAlign(12);
+          label->Draw();
+          TText * tick = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), tickY*1.02, "|");
+          tick->SetNDC();
+          tick->SetTextAlign(21);
+          tick->SetTextSize(labelSize*0.8);
+          tick->Draw();
+        }
+      }
     }
 
     double min = ay->GetXmin();
@@ -1304,7 +1334,10 @@ void TCheckStat::DrawSlopes() {
 
     p1->cd();
     g->GetXaxis()->SetLabelSize(0);
-    g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
+    if (nMiniruns + 1 < 100)
+      g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
+    else 
+      g->GetXaxis()->SetNdivisions(-0);
     g->Draw("AP");
     p1->Update();
     st = (TPaveStats *) g->FindObject("stats");
@@ -1344,11 +1377,37 @@ void TCheckStat::DrawSlopes() {
     pull->SetLineColor(kGreen);
     pull->Draw("AB");
     TAxis * ax = pull->GetXaxis();
-    ax->SetNdivisions(-(nMiniruns+1));
+
+    double labelSize = 0.05;
+    double labelY = 0.17*0.3;
+    double tickY = 0.17;
+    ax->SetNdivisions(-0);
     ax->ChangeLabel(1, -1, 0);  // erase first label
     ax->ChangeLabel(-1, -1, 0); // erase last label
-    for (int i=0; i<=nMiniruns; i++) {
-      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
+    unsigned int nDivisions = nMiniruns + 1;
+    if (nDivisions < 100) {
+      ax->SetNdivisions(nDivisions);
+      // ax->SetLabelOffset(0.02);
+      for (int i=0; i<=nMiniruns; i++) {
+        ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
+      }
+    } else {
+      ax->SetLabelSize(0);  // remove old labels
+      for (int i=0; i<nMiniruns; i++) {
+        if (fMiniruns[i].second == 0) {
+          TText * label = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), labelY, Form("%d", fMiniruns[i].first));
+          label->SetNDC();
+          label->SetTextAngle(90);
+          label->SetTextSize(labelSize);
+          label->SetTextAlign(12);
+          label->Draw();
+          TText * tick = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), tickY*1.02, "|");
+          tick->SetNDC();
+          tick->SetTextAlign(21);
+          tick->SetTextSize(labelSize*0.8);
+          tick->Draw();
+        }
+      }
     }
     p2->Update();
 
@@ -1505,7 +1564,10 @@ void TCheckStat::DrawComps() {
 
     p1->cd();
     g1->GetXaxis()->SetLabelSize(0);
-    g1->GetXaxis()->SetNdivisions(-(nMiniruns+1));
+    if (nMiniruns + 1 < 100)
+      g1->GetXaxis()->SetNdivisions(-(nMiniruns+1));
+    else
+      g1->GetXaxis()->SetNdivisions(-0);
     g1->Draw("AP");
     p1->Update();
     st1 = (TPaveStats *) g1->FindObject("stats");
@@ -1565,12 +1627,37 @@ void TCheckStat::DrawComps() {
     h_diff->SetBarWidth(1);
     h_diff->Draw("B");
     TAxis * ax = h_diff->GetXaxis();
-    ax->SetNdivisions(-(nMiniruns+1));
+
+    double labelSize = 0.05;
+    double labelY = 0.17*0.3;
+    double tickY = 0.17;
+    ax->SetNdivisions(-0);
     ax->ChangeLabel(1, -1, 0);  // erase first label
     ax->ChangeLabel(-1, -1, 0); // erase last label
-    // ax->SetLabelOffset(0.02);
-    for (int i=0; i<=nMiniruns; i++) {
-      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
+    unsigned int nDivisions = nMiniruns + 1;
+    if (nDivisions < 100) {
+      ax->SetNdivisions(nDivisions);
+      // ax->SetLabelOffset(0.02);
+      for (int i=0; i<=nMiniruns; i++) {
+        ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
+      }
+    } else {
+      ax->SetLabelSize(0);  // remove old labels
+      for (int i=0; i<nMiniruns; i++) {
+        if (fMiniruns[i].second == 0) {
+          TText * label = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), labelY, Form("%d", fMiniruns[i].first));
+          label->SetNDC();
+          label->SetTextAngle(90);
+          label->SetTextSize(labelSize);
+          label->SetTextAlign(12);
+          label->Draw();
+          TText * tick = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), tickY*1.02, "|");
+          tick->SetNDC();
+          tick->SetTextAlign(21);
+          tick->SetTextSize(labelSize*0.8);
+          tick->Draw();
+        }
+      }
     }
     p2->Update();
 

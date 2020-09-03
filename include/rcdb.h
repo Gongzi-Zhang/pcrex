@@ -281,7 +281,7 @@ void GetValidRuns(set<int> &runs) {
     const char * t = (PREX_AT_START_RUN <= run && run <= PREX_AT_END_RUN) ? "A_T" : "Production";
     char * type = GetRunType(run);
     char * flag = GetRunFlag(run);
-    if (!type || strcmp(type, t) != 0 || !flag || strcmp(flag, "Good") != 0) {
+    if (!type || strcmp(type, t) != 0 || !flag || (strcmp(flag, "Good") != 0 && strcmp(flag, "NeedCut") != 0)) {
       cerr << WARNING << "run " << run << " is not a good production run, ignore it." << ENDL;
       it = runs.erase(it);
     } else

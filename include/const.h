@@ -9,9 +9,9 @@
 #define START_RUN   3000
 // #define PREX_END_RUN   4980
 // #define CREX_START_RUN   5000
-#define END_RUN     7430
+#define END_RUN     8888
 #define START_SLUG  0
-#define END_SLUG    185
+#define END_SLUG    234
 #define PREX_AT_START_RUN 4102
 #define PREX_AT_END_RUN 4135
 #define PREX_AT_START_SLUG 501
