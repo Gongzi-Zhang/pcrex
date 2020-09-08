@@ -81,6 +81,7 @@ int main(int argc, char* argv[]) {
     fMulPlot.SetSlugs(slugs);
 
   fMulPlot.Draw();
+	fMulPlot.GetOutliers();
 
   return 0;
 }

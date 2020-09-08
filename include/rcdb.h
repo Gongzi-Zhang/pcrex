@@ -303,7 +303,7 @@ set<int> GetRunsFromSlug(const int slug) {
   while (row = mysql_fetch_row(res)) {
     runs.insert(atoi(row[0]));
   }
-  GetValidRuns(runs);
+  // GetValidRuns(runs);
   return runs;
 }
 

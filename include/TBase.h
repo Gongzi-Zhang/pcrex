@@ -160,7 +160,7 @@ TBase::TBase(const char* config_file, const char* run_list) :
   if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
   if (fConf.GetTreeCut())   cut     = fConf.GetTreeCut();
 	ftrees = fConf.GetFriendTrees();
-  logy  = fConf.GetLogy();
+  // logy  = fConf.GetLogy();
   ecuts = fConf.GetEntryCuts();
 
   gROOT->SetBatch(1);
@@ -405,6 +405,7 @@ void TBase::CheckVars() {
 			}
 		}
 
+		/*	// how to check variables in cut
 		if (used_ftrees.find(tree) == used_ftrees.end()) {
 			cerr << WARNING << "unsed main tree: " << tree << ENDL;
 		} else {
@@ -425,6 +426,7 @@ void TBase::CheckVars() {
 				it = ftrees.erase(it);
 			}
 		}
+		 */
 
 			/*  FIXME: no slope now
 			if (nSlopes>0) {

@@ -51,6 +51,8 @@ class TMulPlot : public TBase {
   private:	// class specific variables besides those on base class
 		bool logy = false;
 
+		map<int, long> Entries;
+		map<string, vector<double>> vals_buf;
     map<string, TH1F *>    fSoloHists;
     map<pair<string, string>, pair<TH1F *, TH1F *>>    fCompHists;
     // map<pair<string, string>, TH1F *>    fSlopeHists;
@@ -64,6 +66,7 @@ class TMulPlot : public TBase {
      void GetValues();
 		 double get_custom_value(Node * node);
      void DrawHistograms();
+		 void GetOutliers();
 };
 
 // ClassImp(TMulPlot);
@@ -98,12 +101,13 @@ void TMulPlot::Draw() {
 void TMulPlot::GetValues() {
   long total = 0;
   long ok = 0;
-  map<string, vector<double>> vals_buf;
   map<string, double> maxes;
   double unit = 1;
   map<string, double> var_units;
 
   for (string var : fVars) {
+		vals_buf[var].clear();	// Initialization
+
     if (var.find("asym") != string::npos)
       var_units[var] = ppm;
     else if (var.find("diff") != string::npos)
@@ -243,8 +247,13 @@ void TMulPlot::GetValues() {
       tin->Delete();
       f_rootfile.Close();
     }
+		Entries[run] = ok;
   }
 
+	if (ok == 0) {
+		cout << ERROR << "no valid event" << ENDL;
+		exit(44);
+	}
   cout << INFO << "read " << ok << "/" << total << " ok events." << ENDL;
 
   // initialize histogram
@@ -537,6 +546,102 @@ void TMulPlot::DrawHistograms() {
     c.Print(Form("%s.pdf]", out_name));
 
   cout << INFO << "done with drawing histograms" << ENDL;
+}
+
+void TMulPlot::GetOutliers() {
+	map<string, pair<double, double>> fSoloOutliers;
+	double ratio = 4;
+	for (string solo : fSolos) {
+		fSoloOutliers[solo].first = 9999;
+		fSoloOutliers[solo].second = 9999;
+		const int nBins = fSoloHists[solo]->GetNbinsX();
+		TF1 * func = fSoloHists[solo]->GetFunction("gaus");
+		// get fit parameters, define range of outliers
+		for (int i=nBins/2; i>0; i--) {
+			double hVal = fSoloHists[solo]->GetBinContent(i);
+			double fVal = func->Eval(fSoloHists[solo]->GetBinCenter(i));
+			if (abs(hVal/fVal) > ratio || abs(fVal/hVal) > ratio) {	// test next 2 bins
+				double hv1 = fSoloHists[solo]->GetBinContent(i-1);
+				double fv1 = func->Eval(fSoloHists[solo]->GetBinCenter(i-1));
+				double hv2 = fSoloHists[solo]->GetBinContent(i-2);
+				double fv2 = func->Eval(fSoloHists[solo]->GetBinCenter(i-2));
+				if (i > 2) {
+					if ((abs(hv1/fv1) > ratio || abs(fv1/hv1) > ratio) && (abs(hv2/fv2) > ratio || abs(fv2/hv2) > ratio)) {
+						fSoloOutliers[solo].first = fSoloHists[solo]->GetBinLowEdge(i+1);
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i) << "\t" << hVal << "\t" << fVal << ENDL;
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i-1) << "\t" << hv1 << "\t" << fv1 << ENDL;
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i-2) << "\t" << hv2 << "\t" << fv2 << ENDL;
+						break;
+					}
+				} else if (i > 1) {
+					if ((abs(hv1/fv1) > ratio || abs(fv1/hv1) > ratio)) {
+						fSoloOutliers[solo].first = fSoloHists[solo]->GetBinLowEdge(i+1);
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i) << "\t" << hVal << "\t" << fVal << ENDL;
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i-1) << "\t" << hv1 << "\t" << fv1 << ENDL;
+						break;
+					}
+				} else {
+					fSoloOutliers[solo].first = fSoloHists[solo]->GetBinLowEdge(i+1);
+					cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i) << "\t" << hVal << "\t" << fVal << ENDL;
+					break;
+				}
+			}
+		}
+		for (int i=nBins/2; i<=nBins; i++) {
+			double hVal = fSoloHists[solo]->GetBinContent(i);
+			double fVal = func->Eval(fSoloHists[solo]->GetBinCenter(i));
+			if (abs(hVal/fVal) > ratio || abs(fVal/hVal) > ratio) {	// test next 2 bins
+				double hv1 = fSoloHists[solo]->GetBinContent(i+1);
+				double fv1 = func->Eval(fSoloHists[solo]->GetBinCenter(i+1));
+				double hv2 = fSoloHists[solo]->GetBinContent(i+2);
+				double fv2 = func->Eval(fSoloHists[solo]->GetBinCenter(i+2));
+				if (i < nBins-1) {
+					if ((abs(hv1/fv1) > ratio || abs(fv1/hv1) > ratio) && (abs(hv2/fv2) > ratio || abs(fv2/hv2) > ratio)) {
+						fSoloOutliers[solo].second = fSoloHists[solo]->GetBinLowEdge(i);
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i) << "\t" << hVal << "\t" << fVal << ENDL;
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i+1) << "\t" << hv1 << "\t" << fv1 << ENDL;
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i+2) << "\t" << hv2 << "\t" << fv2 << ENDL;
+						break;
+					}
+				} else if (i < nBins) {
+					if ((abs(hv1/fv1) > ratio || abs(fv1/hv1) > ratio)) {
+						fSoloOutliers[solo].second = fSoloHists[solo]->GetBinLowEdge(i);
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i) << "\t" << hVal << "\t" << fVal << ENDL;
+						cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i+1) << "\t" << hv1 << "\t" << fv1 << ENDL;
+						break;
+					}
+				} else {
+					fSoloOutliers[solo].second = fSoloHists[solo]->GetBinLowEdge(i);
+					cout << INFO << "outlier values at: " << fSoloHists[solo]->GetBinCenter(i) << "\t" << hVal << "\t" << fVal << ENDL;
+					break;
+				}
+			}
+		}
+		if (fSoloOutliers[solo].first != 9999 || fSoloOutliers[solo].second != 9999) {
+			cout << INFO << "find outlier in variable: " << solo << " with cut values: " 
+					 << fSoloOutliers[solo].first << "\t" << fSoloOutliers[solo].second << ENDL;
+			bool lout = false, hout = false;
+			double lval, hval;
+			if (fSoloOutliers[solo].first != 9999) {
+				lout = true;
+				lval = fSoloOutliers[solo].first;
+			}
+			if (fSoloOutliers[solo].second != 9999) {
+				hout = true;
+				hval = fSoloOutliers[solo].second;
+			}
+			long iok = 0;
+			for (int run : fRuns) {
+				const long N = Entries[run];
+				for (; iok<N; iok++) {
+					double val = vals_buf[solo][iok];
+					if ((lout && val < lval) || (hout && val > hval)) {
+						cout << ALERT << "Outlier in run: " << run << "\tvariable: " << solo << "\tvalue: " << val << ENDL;
+					}
+				}
+			}
+		}
+	}
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

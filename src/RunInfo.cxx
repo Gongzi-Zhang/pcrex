@@ -95,6 +95,7 @@ int main(int argc, char* argv[]) {
   long_options[o++] = {"regression", required_argument, 0, 4};
   long_options[o++] = {"slow",  required_argument, 0, 5};
   long_options[o++] = {"charge",  no_argument, 0, 6};
+	long_options[o++] = {"entries", no_argument, 0, 7};
   long_options[o++] = {"help",  no_argument, 0, 'h'};
   long_options[o++] = {0, 0, 0, 0}; // end of long option
 
@@ -136,6 +137,9 @@ int main(int argc, char* argv[]) {
       case 6: // charge
         do_it["charge"] = true;
         break;
+			case 7:
+				do_it["entries"] = true;
+				break;
       default:
         usage();
         exit(1);
@@ -454,6 +458,37 @@ ENDREG:
       vars.clear();
     }
   }
+
+  if (do_it["entries"]) {
+    map<string, pair<double, double>> val;
+		long evt_ok = 0, evt_total = 0;
+		long reg_ok = 0, reg_total = 0;
+    for (set<int>::iterator it=runs.cbegin(); it != runs.cend(); it++) {
+      int run = *it;
+
+      vector<char *> vars;	// empty var set
+      printf("%-4d | ", run);
+
+      val = GetEvtValues(run, vars, "");  
+			long total = val["entries"].first;
+      val = GetEvtValues(run, vars);  
+			long ok = val["entries"].first;
+			evt_ok += ok;
+			evt_total += total;
+      printf("%-8ld | %-8ld | %-8ld | %-8ld ||| ", total, ok, evt_total, evt_ok);
+			
+			// reg tree
+      val = GetRegValues(run, vars, "");  
+			total = val["entries"].first;
+      val = GetRegValues(run, vars);  
+			ok = val["entries"].first;
+			reg_ok += ok;
+			reg_total += total;
+      printf("%-8ld | %-8ld | %-8ld | %-8ld |\n", total, ok, reg_total, reg_ok);
+
+      vars.clear();
+    }
+  }
   return 0;
 }
 
@@ -474,6 +509,7 @@ void usage() {
        << "\t --cutfiles: get corresponding cutfiles" << endl
        << "\t --pedestals: get corresponding pedestals" << endl
        << "\t --charge: get charge" << endl
+			 << "\t --entries: get number of entries for both evt and reg trees" << endl
        << "\t --evt: followed by evt branches, separated by comma (case sensitive)" << endl
        << "\t --regression: followed by reg. branches, separated by comma (case sensitive)" << endl
        << "\t --slow: followed by slow variables, separated by comma (case sensitive)" << endl
