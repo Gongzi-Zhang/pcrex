@@ -17,13 +17,11 @@ int main(int argc, char* argv[]) {
   const char * out_format = NULL;
   set<int> runs;
   set<int> slugs;
-  int latest_run;
-  bool check_latest_run = false;
   bool sign = false;
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:l:R:s:a:f:n:S")) != -1)
+  while((opt = getopt(argc, argv, "hc:r:R:s:a:f:n:S")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -41,14 +39,8 @@ int main(int argc, char* argv[]) {
       case 'R':
         run_list = optarg;
         break;
-      case 'l':
-        check_latest_run = true;
-        if (!IsInteger(optarg)) {
-          cerr << FATAL << "the argument to -l option must be an integer." << ENDL;
-          exit(20);
-        }
-        latest_run = atoi(optarg);
-        break;
+      // case 'l':
+      //   break;
       case 's':
         slugs = parseRS(optarg);
         break;
@@ -83,8 +75,6 @@ int main(int argc, char* argv[]) {
     fCheckStat.SetOutFormat(out_format);
   if (out_name)
     fCheckStat.SetOutName(out_name);
-  if (check_latest_run)
-    fCheckStat.SetLatestRun(latest_run);
   if (runs.size() > 0)
     fCheckStat.SetRuns(runs);
   if (slugs.size() > 0)
@@ -108,7 +98,6 @@ void usage() {
        << "\t -c: specify config file (default: check.conf)" << endl
        << "\t -r: specify runs (seperate by comma, no space between them. ran range is supportted: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
-       << "\t -l: the latest run mode, which will compare it to the before 10 production runs automatically." << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
 			 << "\t -a: indicate arm flag you want (both, left, right: default both): of course, single arm specification will also include both arms running, but not vice versa." << endl
        << "\t -f: set output file format: pdf or png" << endl

@@ -70,10 +70,8 @@ class TCheckStat {
     const char *tree      = "mini";
 		map<string, const char*> ftrees;
 		map<string, const char*> real_trees;
-    bool  check_latest_run = false;
     bool  sign = false;
     vector<int> flips;
-    int	  latest_run;
     int	  nRuns;
     int	  nBoldRuns;
     int	  nSlugs;
@@ -91,10 +89,6 @@ class TCheckStat {
     vector< pair<string, string> >	fComps;
     vector< pair<string, string> >	fSlopes;
     vector< pair<string, string> >	fCors;
-    vector<string>	                fSoloPlots;
-    vector< pair<string, string> >	fCompPlots;
-    vector< pair<string, string> >	fSlopePlots;
-    vector< pair<string, string> >	fCorPlots;
     map<string, VarCut>			            fSoloCuts;
     map< pair<string, string>, VarCut>	fCompCuts;
     map< pair<string, string>, VarCut>  fSlopeCuts;
@@ -130,7 +124,6 @@ class TCheckStat {
      void SetOutFormat(const char * f);
      // void SetFileType(const char * f);
      void SetDir(const char * d);
-     void SetLatestRun(int run);
      void SetRuns(set<int> runs);
      void SetBoldRuns(set<int> runs);
      void SetSlugs(set<int> slugs);
@@ -166,10 +159,6 @@ TCheckStat::TCheckStat(const char* config_file) :
   nSlopes = fSlopes.size();
   nRuns   = fRuns.size();
 
-  fSoloPlots  = fConf.GetSoloPlots();
-  fCompPlots  = fConf.GetCompPlots();
-  fSlopePlots = fConf.GetSlopePlots();
-  fCorPlots   = fConf.GetCorPlots();
   fSoloCuts   = fConf.GetSoloCuts();
   fCompCuts   = fConf.GetCompCuts();
   fSlopeCuts  = fConf.GetSlopeCuts();
@@ -241,21 +230,6 @@ void TCheckStat::SetOutFormat(const char * f) {
   }
 }
 
-void TCheckStat::SetLatestRun(int run) {
-  if (run < START_RUN || run > END_RUN) {
-    cerr << FATAL << "latest run is out of range (" 
-	 << START_RUN << "-" << END_RUN << "): " << run << ENDL;
-    exit(41);
-  }
-  char * type = GetRunType(run);
-  if (!type || strcmp(type, "Production") != 0) {
-    cerr << FATAL << "latest run is not a production run: " << run << ENDL;
-    exit(42);
-  }
-  latest_run = run;
-  check_latest_run = true;
-}
-
 void TCheckStat::SetRuns(set<int> runs) {
   for(int run : runs) {
     if (run < START_RUN || run > END_RUN) {
@@ -309,24 +283,7 @@ void TCheckStat::CheckRuns() {
   nRuns = fRuns.size();
 
   // check runs against database
-  if (check_latest_run) {
-    fRuns.clear();
-    fBoldRuns.clear();
-    fBoldRuns.insert(latest_run);
-    int i=0;
-    int run = latest_run - 1;
-    while (i<10 && run > START_RUN) { // get 10 valid runs before latest_run
-      char * type = GetRunType(run);
-			char * flag = GetRunFlag(run);
-      if (type && strcmp(type, "Production") == 0 && strcmp(flag, "Good") == 0) {
-        fRuns.insert(run);
-        i++;
-      }
-      run--;
-    }
-  } else {
-    GetValidRuns(fRuns);
-  }
+	GetValidRuns(fRuns);
   nRuns = fRuns.size();
   nBoldRuns = fBoldRuns.size();
 
@@ -621,10 +578,6 @@ next_run:
 
   for (vector<string>::iterator it=fSolos.begin(); it!=fSolos.end();) {
     if (!CheckVar(*it)) {
-			vector<string>::iterator it_p = find(fSoloPlots.begin(), fSoloPlots.end(), *it);
-			if (it_p != fSoloPlots.cend())
-				fSoloPlots.erase(it_p);
-
 			map<string, VarCut>::const_iterator it_c = fSoloCuts.find(*it);
 			if (it_c != fSoloCuts.cend())
 				fSoloCuts.erase(it_c);
@@ -647,10 +600,6 @@ next_run:
     else 
 			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
 
-		vector<pair<string, string>>::iterator it_p = find(fCompPlots.begin(), fCompPlots.end(), *it);
-		if (it_p != fCompPlots.cend())
-			fCompPlots.erase(it_p);
-
 		map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
 		if (it_c != fCompCuts.cend())
 			fCompCuts.erase(it_c);
@@ -660,10 +609,6 @@ next_run:
 
   for (vector<pair<string, string>>::iterator it=fCors.begin(); it!=fCors.end(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second)) {
-			vector<pair<string, string>>::iterator it_p = find(fCorPlots.begin(), fCorPlots.end(), *it);
-			if (it_p != fCorPlots.cend())
-				fCorPlots.erase(it_p);
-
 			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
 			if (it_c != fCorCuts.cend())
 				fCorCuts.erase(it_c);
@@ -909,8 +854,6 @@ void TCheckStat::CheckValues() {
         || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
         cout << ALERT << "bad datapoint in " << solo
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
-        if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
-          fSoloPlots.push_back(solo);
         fSoloBadMiniruns[solo].insert(fMiniruns[i]);
       }
 
@@ -941,8 +884,6 @@ void TCheckStat::CheckValues() {
         || (high_cut != 1024 && diff > high_cut)) {
         cout << ALERT << "bad datapoint in Comp: " << var1 << " vs " << var2 
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
-        if (find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
-          fCompPlots.push_back(comp);
         fCompBadMiniruns[comp].insert(fMiniruns[i]);
       }
     }
@@ -975,8 +916,6 @@ void TCheckStat::CheckValues() {
         || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
         cout << ALERT << "bad datapoint in slope: " << slope.first << " vs " << slope.second 
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
-        if (find(fSlopePlots.cbegin(), fSlopePlots.cend(), slope) == fSlopePlots.cend())
-          fSlopePlots.push_back(slope);
         fSlopeBadMiniruns[slope].insert(fMiniruns[i]);
       }
 
@@ -1007,8 +946,6 @@ void TCheckStat::CheckValues() {
       if () {
         cout << ALERT << "bad datapoint in Cor: " << yvar << " vs " << xvar 
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
-        if (find(fCorPlots.cbegin(), fCorPlots.cend(), *it) == fCorPlots.cend())
-          fCorPlots.push_back(*it);
         fCorBadMiniruns[*it].insert(fMiniruns[i]);
       }
 			*/
@@ -1041,7 +978,7 @@ void TCheckStat::Draw() {
 }
 
 void TCheckStat::DrawSolos() {
-  for (string solo : fSoloPlots) {
+  for (string solo : fSolos) {
     string unit = GetUnit(solo);
     string err_var;
     bool mean = (fVarNames[solo].second == "mean");
@@ -1248,7 +1185,7 @@ void TCheckStat::DrawSolos() {
 }
 
 void TCheckStat::DrawSlopes() {
-  for (pair<string, string> slope : fSlopePlots) {
+  for (pair<string, string> slope : fSlopes) {
     string unit = "ppb/nm";
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bold = new TGraphErrors();
@@ -1425,7 +1362,7 @@ void TCheckStat::DrawSlopes() {
 
 void TCheckStat::DrawComps() {
   int MarkerStyles[] = {29, 33, 34, 31};
-  for (pair<string, string> comp : fCompPlots) {
+  for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
     string branch1 = fVarNames[var1].first;
@@ -1674,7 +1611,7 @@ void TCheckStat::DrawComps() {
 }
 
 void TCheckStat::DrawCors() {
-  for (pair<string, string> cor : fCorPlots) {
+  for (pair<string, string> cor : fCors) {
     string xvar = cor.second;
     string yvar = cor.first;
     string xbranch = fVarNames[xvar].first;
