@@ -39,28 +39,24 @@ public:
   set<string> GetVars()	      {return fVars;}
 	map<string, const char*> GetFriendTrees()	{return ftrees;}
   vector<pair<long, long>> GetEntryCuts() {return ecuts;}
+	vector<const char *>		 GetHighlightCuts() {return hcuts;}
 
   vector<string>							GetSolos()	    {return fSolos;}
-  vector<string>		          GetSoloPlots()  {return fSoloPlots;}
   map<string, VarCut>         GetSoloCuts()   {return fSoloCuts;}
 
 	// custom variables: for CheckRun
   vector<string>							GetCustoms()    {return fCustoms;}	
-  vector<string>							GetCustomPlots(){return fCustomPlots;}
   map<string, VarCut>					GetCustomCuts() {return fCustomCuts;}
 	map<string, Node *>					GetCustomDefs()	{return fCustomDefs;}
 
 	// slope: for CheckStat
   vector<pair<string, string>>			GetSlopes()			{return fSlopes;}	
-  vector<pair<string, string>>			GetSlopePlots()	{return fSlopePlots;}
   map<pair<string, string>, VarCut> GetSlopeCuts()  {return fSlopeCuts;}
 
   vector<pair<string, string>>				GetComps()			{return fComps;}
   map<pair<string, string>, VarCut>		GetCompCuts()   {return fCompCuts;}
-  vector<pair<string, string>>				GetCompPlots()	{return fCompPlots;}
 
   vector<pair<string, string>>			GetCors()			{return fCors;}
-  vector<pair<string, string>>			GetCorPlots()	{return fCorPlots;}
   map<pair<string, string>, VarCut> GetCorCuts()  {return fCorCuts;}
 
   bool ParseRun(char *line);
@@ -70,7 +66,6 @@ public:
   bool ParseCor(char *line);
   bool ParseCustom(char *line);
   bool ParseEntryCut(char *line);
-	void add_variables(Node * node);	// used only by ParseCustom
   bool ParseOtherCommands(char *line);
   void ParseConfFile();
   void ParseRunFile();
@@ -83,8 +78,9 @@ private:
   const char *pattern = NULL;
   const char *tree    = NULL;
   const char *tcut    = NULL; // tree cut
-  vector<pair<long, long>> ecuts;  // cut on entry number
-  map<string, const char *> ftrees;   // friend trees
+  vector<pair<long, long>> ecuts;		// cut on entry number
+	vector<const char *> hcuts;				// highlighted cuts
+  map<string, const char *> ftrees; // friend trees
   
   bool logy = false;
   set<int> fRuns;	      // all runs that are going to be checked
@@ -94,24 +90,19 @@ private:
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
   vector<string>      fSolos;
-  vector<string>      fSoloPlots;	  // solos that needed to be drawn, need to be in order
   map<string, VarCut>	fSoloCuts;
 
 	vector<string>			fCustoms;
-	vector<string>			fCustomPlots;
   map<string, VarCut> fCustomCuts;
 	map<string, Node *>	fCustomDefs;	// custom variables' def
 
   vector<pair<string, string>>			fComps;
-  vector<pair<string, string>>			fCompPlots;
   map<pair<string, string>, VarCut>	fCompCuts;
 
   vector<pair<string, string>>			fSlopes;
-  vector<pair<string, string>>			fSlopePlots;
   map<pair<string, string>, VarCut>	fSlopeCuts;
 
   vector<pair<string, string>>			fCors;
-  vector<pair<string, string>>			fCorPlots;
   map<pair<string, string>, VarCut>	fCorCuts;
 };
 
@@ -128,16 +119,12 @@ TConfig::~TConfig() {
   fBoldRuns.clear();
   fVars.clear();
   fSolos.clear();
-  fSoloPlots.clear();
   fSoloCuts.clear();
   fComps.clear();
-  fCompPlots.clear();
   fCompCuts.clear();
   fSlopes.clear();
-  fSlopePlots.clear();
   fSlopeCuts.clear();
   fCors.clear();
-  fCorPlots.clear();
   fCorCuts.clear();
   cout << INFO << "End of TConfig" << ENDL;
 }
@@ -243,10 +230,16 @@ void TConfig::ParseConfFile() {
   if (tree)
     cout << "\t" << "read tree: " << tree << endl;
   if (ecuts.size()) {
-    cout << "\t" << "entry cut: (-1 means the end entry)" << endl;
+    cout << "\t" << "entry cuts: (-1 means the end entry)" << endl;
     for (pair<long, long> cut : ecuts)
       cout << "\t\t" << cut.first << "\t" << cut.second << endl;
   }
+	if (hcuts.size() > 0) {
+		cout << "\t" << "highlight cuts:" << endl;
+		for (const char *hcut : hcuts) {
+			cout << "\t\t" << hcut << endl;
+		}
+	}
 }
 
 void TConfig::ParseRunFile() {
@@ -363,13 +356,6 @@ bool TConfig::ParseSolo(char *line) {
       return false;
   }
 
-  bool plot = false;
-  if (Size(var) && var[Size(var)-1] == '+') { // field could be empty
-    plot = true;
-    var[Size(var)-1] = '\0';  // remove '+' 
-    StripSpaces(var);	  // in case space before '+';
-  }
-
   if (IsEmpty(var)) {
     cerr << ERROR << "Empty variable for solo. " << ENDL;
     return false;
@@ -380,7 +366,6 @@ bool TConfig::ParseSolo(char *line) {
   }
 
   fSolos.push_back(var);
-  if (plot) fSoloPlots.push_back(var);
   fSoloCuts[var] = cut;
   fVars.insert(var);
   return true;
@@ -438,13 +423,6 @@ bool TConfig::ParseCustom(char *line) {
       return false;
   }
 
-  bool plot = false;
-  if (Size(var) && var[Size(var)-1] == '+') { // field could be empty
-    plot = true;
-    var[Size(var)-1] = '\0';  // remove '+' 
-    StripSpaces(var);	  // in case space before '+';
-  }
-
   if (IsEmpty(var)) {
     cerr << ERROR << "Empty variable for custom. " << ENDL;
     return false;
@@ -462,8 +440,8 @@ bool TConfig::ParseCustom(char *line) {
 	}
 
   fCustoms.push_back(var);
-	add_variables(node);
-  if (plot) fCustomPlots.push_back(var);
+	for (string v : GetVariables(node)) 
+		fVars.insert(v);
   fCustomCuts[var] = cut;
 	fCustomDefs[var] = node;
   return true;
@@ -508,17 +486,6 @@ bool TConfig::ParseEntryCut(char *line) {
   return true;
 }
 
-void TConfig::add_variables(Node * node) {
-	if (node) {
-		add_variables(node->lchild);
-		add_variables(node->rchild);
-		add_variables(node->sibling);
-		if (node->token.type == variable) {
-			if (find(fCustoms.cbegin(), fCustoms.cend(), node->token.value) == fCustoms.cend())	// not one of previous customs
-				fVars.insert(node->token.value);
-		}
-	}
-}
 
 bool TConfig::ParseComp(char *line) {
   vector<char*> fields = Split(line, ';');
@@ -570,13 +537,6 @@ bool TConfig::ParseComp(char *line) {
 
   StripSpaces(vars[0]);
   StripSpaces(vars[1]);
-  bool plot = false;
-  if (Size(vars[1]) && vars[1][Size(vars[1])-1] == '+') {
-    plot = true;
-    vars[1][Size(vars[1])-1] = '\0';
-    StripSpaces(vars[1]);
-  }
-
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
     cerr << ERROR << "empty variable for comparison" << ENDL;
     return false;
@@ -587,7 +547,6 @@ bool TConfig::ParseComp(char *line) {
   }
 
   fComps.push_back(make_pair(vars[0], vars[1]));
-  if (plot) fCompPlots.push_back(make_pair(vars[0], vars[1]));
   fCompCuts[make_pair(vars[0], vars[1])] = cut;
   if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
     fVars.insert(vars[0]);
@@ -646,13 +605,6 @@ bool TConfig::ParseSlope(char *line) {
 
   StripSpaces(vars[0]);
   StripSpaces(vars[1]);
-  bool plot = false;
-  if (Size(vars[1]) && vars[1][Size(vars[1])-1] == '+') {
-    plot = true;
-    vars[1][Size(vars[1])-1] = '\0';
-    StripSpaces(vars[1]);
-  }
-
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
     cerr << ERROR << "empty variable for slope" << ENDL;
     return false;
@@ -663,7 +615,6 @@ bool TConfig::ParseSlope(char *line) {
   }
 
   fSlopes.push_back(make_pair(vars[0], vars[1]));
-  if (plot) fSlopePlots.push_back(make_pair(vars[0], vars[1]));
   fSlopeCuts[make_pair(vars[0], vars[1])] = cut;
   return true;
 }
@@ -718,13 +669,6 @@ bool TConfig::ParseCor(char *line) {
 
   StripSpaces(vars[0]);
   StripSpaces(vars[1]);
-  bool plot = false;
-  if (Size(vars[1]) && vars[1][Size(vars[1])-1] == '+') {
-    plot = true;
-    vars[1][Size(vars[1])-1] = '\0';
-    StripSpaces(vars[1]);
-  }
-
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
     cerr << ERROR << "empty variable for correlation" << ENDL;
     return false;
@@ -735,7 +679,6 @@ bool TConfig::ParseCor(char *line) {
   }
 
   fCors.push_back(make_pair(vars[0], vars[1]));
-  if (plot) fCorPlots.push_back(make_pair(vars[0], vars[1]));
   fCorCuts[make_pair(vars[0], vars[1])] = cut;
   if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
     fVars.insert(vars[0]);
@@ -787,6 +730,8 @@ bool TConfig::ParseOtherCommands(char *line) {
       return false;
     }
     ftrees[t] = f;
+	} else if (strcmp(command, "@highlightcut")) {
+		hcuts.push_back(value);
   } else {
     cerr << WARNING << "Unknow commands: " << command << ENDL;
     return false;
