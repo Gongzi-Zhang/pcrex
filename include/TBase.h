@@ -41,6 +41,7 @@
 
 
 enum Format {pdf, png};
+enum Program {mulplot, checkstatistics, checkruns};
 
 using namespace std;
 
@@ -49,17 +50,19 @@ class TBase {
     // ClassDe (TBase, 0) // mul plots
 
   protected:
+		Program program		= mulplot;
     Format format     = pdf; // default pdf output
     const char *out_name = "out";
     // root file: $dir/$pattern
     const char *dir   = "/adaqfs/home/apar/PREX/prompt/results/";
     string pattern    = "prexPrompt_xxxx_???_regress_postpan.root";
     const char *tree  = "reg";
-    TCut cut          = "ok_cut";
+		const char *mCut	= "";	// main cut
     // bool logy         = false;
-		map<string, const char*> ftrees;
-		map<string, const char*> real_trees;
+		map<string, const char*> ftrees;	// friend trees: tree, file_name
+		map<string, const char*> real_trees;	// used trees
     vector<pair<long, long>> ecuts;
+    vector<TCut> allCuts;	// including highlight cuts, only for TCheckRuns
 
     TConfig fConf;
     int     nSlugs;
@@ -76,32 +79,48 @@ class TBase {
     set<string> fVars;
 
     vector<string>      fSolos;
-    map<string, VarCut> fSoloCuts;	// use the low and high cut as x range
+    map<string, VarCut> fSoloCut;	// use the low and high cut as x range
 
     vector<string>			fCustoms;
-    map<string, VarCut>	fCustomCuts;
-		map<string, Node *>	fCustomDefs;
+    map<string, VarCut>	fCustomCut;
+		map<string, Node *>	fCustomDef;
 
     vector<pair<string, string>>      fComps;
-    map<pair<string, string>, VarCut>	fCompCuts;
+    map<pair<string, string>, VarCut>	fCompCut;
 
     vector<pair<string, string>>      fSlopes;
-    map<pair<string, string>, VarCut> fSlopeCuts;
+    map<pair<string, string>, VarCut> fSlopeCut;
 
     vector<pair<string, string>>      fCors;
-    map<pair<string, string>, VarCut> fCorCuts;
+    map<pair<string, string>, VarCut> fCorCut;
 
-    map<int, vector<string>> fRootFiles;
-    map<int, int> fSigns;
-    map<pair<string, string>, pair<int, int>>	  fSlopeIndexes;
-    map<string, pair<string, string>> fVarNames;
-    map<string, TLeaf *> fVarLeaves;
-    map<string, double>  vars_buf;
     // double slopes_buf[ROWS][COLS];
     // double slopes_err_buf[ROWS][COLS];
+    map<pair<string, string>, pair<int, int>>	  fSlopeIndex;
     int      rows, cols;
     double * slopes_buf;
     double * slopes_err_buf;
+
+    map<int, vector<string>> fRootFile;
+    map<string, pair<string, string>> fVarName;
+    map<string, TLeaf *> fVarLeaf;
+		long nTotal;
+		map<string, long> nOk;  // total number of ok events for each cut
+		map<string, vector<long>> fEntryNumber;		// for each cut
+		map<int, int> fRunEntries;     // number of entries for each run
+    map<int, int> fRunSign;
+		map<int, int> fRunArm;
+		map<string, const char *> fVarUnit;
+    map<string, double>  vars_buf;	// temp. value storage
+		map<string, map<string, vector<double>>> fVarValue;	// real value storage; for each cut
+    map<string, map<pair<string, string>, vector<double>>> fSlopeValue;
+    map<string, map<pair<string, string>, vector<double>>> fSlopeErr;
+
+		// some statistics: not for every cut, only for the main Cut
+		map<string, double> fVarSum;
+		map<string, double> fVarSum2;
+		map<string, double> fVarMax;
+		map<string, double> fVarMin;
 
     TCanvas * c;
 
@@ -118,9 +137,11 @@ class TBase {
      void CheckVars();
      bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
-     // virtual void GetValues();
-     // bool CheckEntryCut(const long entry);
+     void GetValues();
+     bool CheckEntryCut(const long entry);
+
 		 double get_custom_value(Node * node);
+		 virtual const char * GetUnit(string var);
 };
 
 // ClassImp(TBase);
@@ -135,33 +156,36 @@ TBase::TBase(const char* config_file, const char* run_list) :
   nVars = fVars.size();
 
   fSolos    = fConf.GetSolos();
-  fSoloCuts = fConf.GetSoloCuts();
+  fSoloCut = fConf.GetSoloCut();
   nSolos    = fSolos.size();
 
   fCustoms    = fConf.GetCustoms();
-  fCustomDefs = fConf.GetCustomDefs();
-  fCustomCuts = fConf.GetCustomCuts();
+  fCustomDef = fConf.GetCustomDef();
+  fCustomCut = fConf.GetCustomCut();
   nCustoms    = fCustoms.size();
 
   fComps    = fConf.GetComps();
-  fCompCuts = fConf.GetCompCuts();
+  fCompCut = fConf.GetCompCut();
   nComps    = fComps.size();
 
   fSlopes = fConf.GetSlopes();
-  fSlopeCuts  = fConf.GetSlopeCuts();
+  fSlopeCut  = fConf.GetSlopeCut();
   nSlopes = fSlopes.size();
 
   fCors	    = fConf.GetCors();
-  fCorCuts  = fConf.GetCorCuts();
+  fCorCut  = fConf.GetCorCut();
 	nCors			= fCors.size();
 
   if (fConf.GetDir())       SetDir(fConf.GetDir());
   if (fConf.GetPattern())   pattern = fConf.GetPattern();
   if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
-  if (fConf.GetTreeCut())   cut     = fConf.GetTreeCut();
+  if (fConf.GetTreeCut())   mCut		= fConf.GetTreeCut();
+	allCuts.push_back(mCut);	// mCut should always be the first cut of allCuts
 	ftrees = fConf.GetFriendTrees();
   // logy  = fConf.GetLogy();
-  ecuts = fConf.GetEntryCuts();
+  ecuts = fConf.GetEntryCut();
+	for(const char* c : fConf.GetHighlightCut())
+		allCuts.push_back(c);
 
   gROOT->SetBatch(1);
 }
@@ -250,7 +274,7 @@ void TBase::CheckRuns() {
       continue;
     }
     for (int i=0; i<globbuf.gl_pathc; i++)
-      fRootFiles[run].push_back(globbuf.gl_pathv[i]);
+      fRootFile[run].push_back(globbuf.gl_pathv[i]);
 
     globfree(&globbuf);
     it++;
@@ -268,11 +292,36 @@ void TBase::CheckRuns() {
     cout << "\t" << run << endl;
   }
 
-  fSigns = GetSign(fRuns); // sign corrected
+	for (int run : fRuns) {
+		fRunSign[run] = GetRunSign(run);
+		fRunArm[run]	= GetRunArmFlag(run);
+	}
   EndConnection();
 }
 
 void TBase::CheckVars() {
+	// add necessary variables
+	// for main avg/dd variables, if global armflag is all, there must be corresponding left/right arm data
+	// FIXME: what if us_avg_ds_avg_dd
+	if (garmflag == allarms) {
+		for (string var : fVars) {
+			if ( var.find("us_avg") != string::npos 
+				|| var.find("ds_avg") != string::npos 
+				|| var.find("us_dd") != string::npos 
+			  || var.find("ds_dd")  != string::npos ) {
+				string lvar = var;
+				string rvar = var;
+				if ( var.find("_avg") != string::npos ) {
+					fVars.insert(lvar.replace(lvar.find("_avg"), 4, "l"));
+					fVars.insert(rvar.replace(rvar.find("_avg"), 4, "r"));
+				} else {
+					fVars.insert(lvar.replace(lvar.find("_dd"), 3, "l"));
+					fVars.insert(rvar.replace(rvar.find("_dd"), 3, "r"));
+				}
+			}
+		}
+	}
+
   srand(time(NULL));
   int s = rand() % nRuns;
   set<int>::const_iterator it_r=fRuns.cbegin();
@@ -280,9 +329,11 @@ void TBase::CheckVars() {
     it_r++;
 
   while (it_r != fRuns.cend()) {
+		set<string> tmp_vars;
 		set<string> used_ftrees;
+
     int run = *it_r;
-    const char * file_name = fRootFiles[run][0].c_str();
+    const char * file_name = fRootFile[run][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
     if (!f_rootfile->IsOpen()) {
       cerr << WARNING << "run-" << run << " ^^^^ can't read root file: " << file_name 
@@ -290,6 +341,16 @@ void TBase::CheckVars() {
       goto next_run;
     }
   
+		// slope
+    vector<TString> *l_iv, *l_dv;
+		l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
+		l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
+    if (nSlopes > 0 && (l_iv == NULL || l_dv == NULL)){
+      cerr << WARNING << "run-" << run << " ^^^^ can't read IVNames or DVNames in root file: " 
+           << file_name << ", skip this run." << ENDL;
+      goto next_run;
+    }
+
     TTree * tin;
 		tin = (TTree*) f_rootfile->Get(tree);
     if (tin == NULL) {
@@ -318,6 +379,11 @@ void TBase::CheckVars() {
       int pos = Index(texp, '=');
       string alias = pos > 0 ? StripSpaces(Sub(texp, 0, pos)) : texp;
       // const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
+			if (real_trees.find(alias) != real_trees.end()) {
+				cout << WARNING << "repeated tree definition\n"
+						 << "\told: " << real_trees[alias] << "\n"
+						 << "\tnew: " << texp << ENDL;
+			}
       real_trees[alias] = texp;
       // it is user's responsibility to make sure each tree has an unique name
     }
@@ -330,7 +396,22 @@ void TBase::CheckVars() {
 		}
 		cout << ENDL;
 
-		for (string var : fVars) {
+		// check variables in cut
+		tmp_vars.clear();
+		for (string var : fVars)
+			tmp_vars.insert(var);
+
+		{	// this brace is needed for compilation because I use goto
+		 	// so that I can limit new defined node in this local scope
+			for (const char * cut : allCuts) {	// check all cuts
+				Node * node = ParseExpression(cut);
+				for (string var : GetVariables(node))
+					tmp_vars.insert(var);
+				DeleteNode(node);
+			}
+		}
+
+		for (string var : tmp_vars) {
       size_t n = count(var.begin(), var.end(), '.');
       string branch, leaf;
       if (n==0) {
@@ -338,6 +419,8 @@ void TBase::CheckVars() {
       } else if (n==1) {
         size_t pos = var.find_first_of('.');
         if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
+					// FIXME: is it possible something like: tree.leaf ??? without branch name ???
+					// ignore it right now
           branch = var;
         } else {
           branch = var.substr(0, pos);
@@ -354,6 +437,14 @@ void TBase::CheckVars() {
 
       TBranch * bbuf = tin->GetBranch(branch.c_str());
 			if (!bbuf) {
+				if (Count(var.c_str(), '.') == 0) {	// try leaf directly
+					TLeaf *l = tin->GetLeaf(branch.c_str());	
+					if (l != NULL) {
+						leaf = branch;
+						bbuf = l->GetBranch();
+						branch = bbuf->GetName();
+					}
+				}
 				// special branches -- stupid
 				if (branch.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
 					// no bpm11X in early runs, replace with bpm12X
@@ -365,8 +456,9 @@ void TBase::CheckVars() {
 					string b = branch;
 					bbuf = tin->GetBranch(b.replace(b.find("bpmE"), 4, "bpm12X").c_str());
 				} 
+
 				if (!bbuf) {
-					cerr << ERROR << "no branch: " << branch << " in var: " << var << ENDL;
+					cerr << ERROR << "no branch (leaf): " << branch << " as in var: " << var << ENDL;
 					tin->Delete();
 					f_rootfile->Close();
 					exit(24);
@@ -397,21 +489,21 @@ void TBase::CheckVars() {
 				leaf = "diff_bpmE";
 			} 
 
-			fVarNames[var] = make_pair(branch, leaf);
+			fVarName[var] = make_pair(branch, leaf);
 			if (branch.find('.') != string::npos) {
 				used_ftrees.insert(StripSpaces(Sub(branch.c_str(), 0, branch.find('.'))));
 			} else {
 				used_ftrees.insert(bbuf->GetTree()->GetName());
 			}
 		}
+		tmp_vars.clear();
 
-		/*	// how to check variables in cut
 		if (used_ftrees.find(tree) == used_ftrees.end()) {
 			cerr << WARNING << "unsed main tree: " << tree << ENDL;
 		} else {
 			used_ftrees.erase(used_ftrees.find(tree));
 		}
-		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend();) {
+		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend(); ) {
 			bool used = false;
 			for (auto const uftree : used_ftrees) {
 				if (real_trees[uftree] == it->first) {
@@ -426,52 +518,52 @@ void TBase::CheckVars() {
 				it = ftrees.erase(it);
 			}
 		}
-		 */
 
-			/*  FIXME: no slope now
-			if (nSlopes>0) {
-				rows = l_dv->size();
-				cols = l_iv->size();
-				slopes_buf = new double[rows*cols];
-				slopes_err_buf = new double[rows*cols];
-				// if (rows != ROWS || cols != COLS) {
-				//   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
-				//   exit(20);
-				// }
-				bool error_dv_flag = false;
-				bool error_iv_flag = false;
-				for (set<pair<string, string>>::const_iterator it=fSlopes.cbegin(); it != fSlopes.cend(); ) {
-					string dv = it->first;
-					string iv = it->second;
-					vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
-					vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
+		if (nSlopes>0) {
+			rows = l_dv->size();
+			cols = l_iv->size();
+			slopes_buf = new double[rows*cols];
+			slopes_err_buf = new double[rows*cols];
+			// if (rows != ROWS || cols != COLS) {
+			//   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
+			//   exit(20);
+			// }
+			bool error_dv_flag = false;
+			bool error_iv_flag = false;
+			for (vector<pair<string, string>>::iterator it=fSlopes.begin(); it != fSlopes.end(); ) {
+				string dv = it->first;
+				string iv = it->second;
+				vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
+				vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
+				if (it_dv == l_dv->cend() || it_iv == l_iv->cend()) {
 					if (it_dv == l_dv->cend()) {
 						cerr << WARNING << "Invalid dv name for slope: " << dv << ENDL;
-						it = fSlopes.erase(it);
 						error_dv_flag = true;
-						continue;
 					}
 					if (it_iv == l_iv->cend()) {
 						cerr << WARNING << "Invalid iv name for slope: " << iv << ENDL;
-						it = fSlopes.erase(it);
 						error_iv_flag = true;
-						continue;
 					}
-					fSlopeIndexes[*it] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
-					it++;
+					map<pair<string, string>, VarCut>::const_iterator it_c = fSlopeCut.find(*it);
+					if (it_c != fSlopeCut.cend())
+						fSlopeCut.erase(it_c);
+					it = fSlopes.erase(it);
+					continue;
 				}
-				if (error_dv_flag) {
-					cout << DEBUG << "List of valid dv names:" << ENDL;
-					for (vector<TString>::const_iterator it = l_dv->cbegin(); it != l_dv->cend(); it++) 
-						cout << "\t" << (*it).Data() << endl;
-				}
-				if (error_iv_flag) {
-					cout << DEBUG << "List of valid dv names:" << ENDL;
-					for (vector<TString>::const_iterator it = l_iv->cbegin(); it != l_iv->cend(); it++) 
-						cout << "\t" << (*it).Data() << endl;
-				}
+				fSlopeIndex[*it] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
+				it++;
 			}
-			*/
+			if (error_dv_flag) {
+				cout << DEBUG << "List of valid dv names:" << ENDL;
+				for (vector<TString>::const_iterator it = l_dv->cbegin(); it != l_dv->cend(); it++) 
+					cout << "\t" << (*it).Data() << endl;
+			}
+			if (error_iv_flag) {
+				cout << DEBUG << "List of valid dv names:" << ENDL;
+				for (vector<TString>::const_iterator it = l_iv->cbegin(); it != l_iv->cend(); it++) 
+					cout << "\t" << (*it).Data() << endl;
+			}
+		}
 		tin->Delete();
 		f_rootfile->Close();
 		break;
@@ -503,9 +595,9 @@ next_run:
 
   for (vector<string>::iterator it=fSolos.begin(); it!=fSolos.end();) {
     if (fVars.find(*it) == fVars.cend()) {
-			map<string, VarCut>::const_iterator it_c = fSoloCuts.find(*it);
-			if (it_c != fSoloCuts.cend())
-				fSoloCuts.erase(it_c);
+			map<string, VarCut>::const_iterator it_c = fSoloCut.find(*it);
+			if (it_c != fSoloCut.cend())
+				fSoloCut.erase(it_c);
 
 			cerr << WARNING << "Invalid solo variable: " << *it << ENDL;
       it = fSolos.erase(it);
@@ -514,10 +606,10 @@ next_run:
   }
 
 	for (vector<string>::iterator it=fCustoms.begin(); it!=fCustoms.end(); ) {
-		if (!CheckCustomVar(fCustomDefs[*it])) {
-			map<string, VarCut>::const_iterator it_c = fCustomCuts.find(*it);
-			if (it_c != fCustomCuts.cend())
-				fCustomCuts.erase(it_c);
+		if (!CheckCustomVar(fCustomDef[*it])) {
+			map<string, VarCut>::const_iterator it_c = fCustomCut.find(*it);
+			if (it_c != fCustomCut.cend())
+				fCustomCut.erase(it_c);
 
 			cerr << WARNING << "Invalid custom variable: " << *it << ENDL;
       it = fCustoms.erase(it);
@@ -528,9 +620,9 @@ next_run:
   for (vector<pair<string, string>>::iterator it=fComps.begin(); it!=fComps.end(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second)) {
 				// || strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) {
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
-			if (it_c != fCompCuts.cend())
-				fCompCuts.erase(it_c);
+			map<pair<string, string>, VarCut>::const_iterator it_c = fCompCut.find(*it);
+			if (it_c != fCompCut.cend())
+				fCompCut.erase(it_c);
 
 			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
       it = fComps.erase(it);
@@ -540,9 +632,9 @@ next_run:
 
   for (vector<pair<string, string>>::iterator it=fCors.begin(); it!=fCors.end(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second)) {
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
-			if (it_c != fCorCuts.cend())
-				fCorCuts.erase(it_c);
+			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCut.find(*it);
+			if (it_c != fCorCut.cend())
+				fCorCut.erase(it_c);
 
 			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
       it = fCors.erase(it);
@@ -602,41 +694,42 @@ bool TBase::CheckCustomVar(Node * node) {
 	return true;
 }
 
-/*
+/* GetValues consideration:
+ * 1. auxiliary cut: e.g. cut on number of entries (good patterns < 4500)
+ * 4. unit
+ * 5. special variables: bpm11X
+ * 7. provide some statistical features of the values
+ */
 void TBase::GetValues() {
-  long total = 0;
-  long ok = 0;
-  map<string, vector<double>> vals_buf;
-  map<string, double> maxes;
-  double unit = 1;
-  map<string, double> var_units;
 
+	map<string, double> unit;
+	// initialization
   for (string var : fVars) {
-    if (var.find("asym") != string::npos)
-      var_units[var] = ppm;
-    else if (var.find("diff") != string::npos)
-      var_units[var] = um/mm; // japan output has a unit of mm
-
-    maxes[var] = 0;
+    fVarMax[var] = 0;
+		unit[var] = 1;
+		if (var.find("diff") != string::npos)
+			unit[var] = mm;
   }
   for (string custom : fCustoms)
-      maxes[custom] = 0;
+		fVarMax[custom] = 0;
 
+	nTotal = 0;
   for (int run : fRuns) {
-    const size_t sessions = fRootFiles[run].size();
+    const size_t sessions = fRootFile[run].size();
     for (size_t session=0; session < sessions; session++) {
-      const char *file_name = fRootFiles[run][session].c_str();
+      const char *file_name = fRootFile[run][session].c_str();
       TFile f_rootfile(file_name, "read");
       if (!f_rootfile.IsOpen()) {
         cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
         continue;
       }
 
-      cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d: ", run, session)
+      cout << INFO << Form("Read run: %d, session: %03d\t", run, session)
            << file_name << ENDL;
       TTree * tin = (TTree*) f_rootfile.Get(tree);
       if (! tin) {
         cerr << ERROR << "No such tree: " << tree << " in root file: " << file_name << ENDL;
+				f_rootfile.Close();
         continue;
       }
 
@@ -659,10 +752,16 @@ void TBase::GetValues() {
 				tin->AddFriend(ftree.first.c_str(), file_name.c_str());	// FIXME: what if the friend tree doesn't exist
 			}
 
+			if (Contain(mCut, "ok_cut") && tin->GetEntries("ok_cut") < 4500) {
+				// FIXME; only for checkruns and mulplots
+				cerr << WARNING << "run-" << run << " ^^^^ too short (< 4500 patterns), ignore it" <<ENDL;
+				continue;
+			}
+
       bool error = false;
       for (string var : fVars) {
-        string branch = fVarNames[var].first;
-        string leaf   = fVarNames[var].second;
+        string branch = fVarName[var].first;
+        string leaf   = fVarName[var].second;
         TBranch * br = tin->GetBranch(branch.c_str());
         if (!br) {
 					// special branches -- stupid
@@ -695,188 +794,111 @@ void TBase::GetValues() {
 						break;
 					}
         }
-        fVarLeaves[var] = l;
+        fVarLeaf[var] = l;
       }
 
       if (error)
         continue;
 
-      // if (nSlopes > 0) { // FIXME no slope now
-      //   tin->SetBranchAddress("coeff", slopes_buf);
-      //   tin->SetBranchAddress("err_coeff", slopes_err_buf);
-      // }
-
-      const int N = tin->Draw(">>elist", cut, "entrylist");
-			if (N < 4500) {
-				cerr << WARNING << "run-" << run << " ^^^^ too short (< 4500 patterns), ignore it" <<ENDL;
-				continue;
-			}
-      TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
-      // tin->SetEntryList(elist);
-      for(int n=0; n<N; n++) {
-        if (n%10000 == 0)
-          cout << INFO << "read " << n << " event" << ENDL;
-
-        const int en = elist->GetEntry(n);
-        if (CheckEntryCut(total+en))
-          continue;
-
-        ok++;
-        for (string var : fVars) {
-          fVarLeaves[var]->GetBranch()->GetEntry(en);
-          double val = fVarLeaves[var]->GetValue();
-
-          val *= (fSigns[run] > 0 ? 1 : -1); 
-          val /= var_units[var];
-					if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
-						val *= 0.6;
-          vars_buf[var] = val;
-          vals_buf[var].push_back(val);
-          if (abs(val) > maxes[var])
-            maxes[var] = abs(val);
-        }
-        for (string custom : fCustoms) {
-          double val = get_custom_value(fCustomDefs[custom]);
-          vars_buf[custom] = val;
-          vals_buf[custom].push_back(val);
-          if (abs(val) > maxes[custom]) 
-            maxes[custom] = abs(val);
-        }
-
-        // for (pair<string, string> slope : fSlopes) {
-        // }
+      if (nSlopes > 0) {
+        tin->SetBranchAddress("coeff", slopes_buf);
+        tin->SetBranchAddress("err_coeff", slopes_err_buf);
       }
-      total += tin->GetEntries();
+
+			for (const char * cut : allCuts) {
+				const int N = tin->Draw(">>elist", cut, "entrylist");
+				TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
+				cout << INFO << "use cut: " << cut << ENDL;
+				for(int n=0; n<N; n++) { // loop through the events
+					if (n % 50000 == 49999) 
+						cout << INFO << "read " << n+1 << " entries!" << ENDL;
+
+					const int en = elist->GetEntry(n);
+					if (CheckEntryCut(nTotal+en))
+					 	continue;
+
+					nOk[cut]++;
+					fEntryNumber[cut].push_back(nTotal+en);
+					for (string var : fVars) {
+						double val;
+						fVarLeaf[var]->GetBranch()->GetEntry(en);
+						val = fVarLeaf[var]->GetValue();
+						// leave sign correction to separated programs
+						// if (program == mulplot || program == checkstatistics)	// FIXME: is there a better way to do sign correction
+						// 	val *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0)); 
+
+						if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
+							val *= 0.6;
+
+						// avg/dd of single arm running
+						if (	  garmflag == allarms 
+								&& (fRunArm[run] == leftarm || fRunArm[run] == rightarm)
+								&& (	 var.find("us_avg") != string::npos 
+										|| var.find("us_dd")	!= string::npos 
+										|| var.find("ds_avg") != string::npos 
+										|| var.find("ds_dd")	!= string::npos)) 
+						{
+							string rvar = var;
+							const char * replaced = "_avg";
+							int l = 4;
+							if (var.find("_dd") != string::npos) {
+								replaced = "_dd";
+								l = 3;
+							}
+							const char * replacement = (fRunArm[run] == leftarm ? "l" : "r");
+							rvar.replace(rvar.find(replaced), l, replacement);
+							fVarLeaf[rvar]->GetBranch()->GetEntry(en);
+							val = fVarLeaf[rvar]->GetValue();
+						}
+						val *= unit[var];	// normalized to standard units
+						vars_buf[var] = val;
+						fVarValue[cut][var].push_back(val);
+						fVarSum[var]	+= val;
+						fVarSum2[var] += val * val;
+
+						if (abs(val) > fVarMax[var])
+							fVarMax[var] = abs(val);
+					}
+					for (string custom : fCustoms) {	// FIXME: this may be incorrect while doing calculation before sign and unit corrections
+						double val = get_custom_value(fCustomDef[custom]);
+						vars_buf[custom] = val;
+						fVarValue[cut][custom].push_back(val);
+						fVarSum[custom]	+= val;
+						fVarSum2[custom]  += val * val;
+
+						if (abs(val) > fVarMax[custom]) 
+							fVarMax[custom] = abs(val);
+					}
+				}
+
+				// slope
+        for (pair<string, string> slope : fSlopes) {
+          // double unit = ppm/(um/mm);
+          fSlopeValue[cut][slope].push_back(slopes_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
+          fSlopeErr[cut][slope].push_back(slopes_err_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
+        }
+			}
+			nTotal += tin->GetEntries();
+			fRunEntries[run] = nTotal;
 
       tin->Delete();
       f_rootfile.Close();
     }
   }
 
-  cout << INFO << "read " << ok << "/" << total << " ok events." << ENDL;
-
-  // initialize histogram
-  for (string solo : fSolos) {
-    // long max = ceil(maxes[solo] * 1.05);
-    long max = ceil(maxes[solo]);
-    int power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    max = (a+1) * pow(10, power) / 10.;
-
-    long min = -max;
-    const char * unit = "";
-    if (solo.find("asym") != string::npos)
-      unit = "ppm";
-    else if (solo.find("diff") != string::npos)
-      unit = "um";
-
-    if (fSoloCuts[solo].low != 1024)
-      min = fSoloCuts[solo].low/UNITS[unit];
-    if (fSoloCuts[solo].high != 1024)
-      max = fSoloCuts[solo].high/UNITS[unit];
-    
-    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), unit), 100, min, max);
-    for (int i=0; i<ok; i++)
-      fSoloHists[solo]->Fill(vals_buf[solo][i]);
-  }
-
-  for (string custom : fCustoms) {
-    long max = ceil(maxes[custom] * 1.05);
-    long power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    max = a * pow(10, power) / 10.;
-
-    long min = -max;
-    const char * unit = "";
-    if (custom.find("asym") != string::npos)
-      unit = "ppm";
-    else if (custom.find("diff") != string::npos)
-      unit = "um";
-
-    if (fCustomCuts[custom].low != 1024)
-      min = fCustomCuts[custom].low/UNITS[unit];
-    if (fCustomCuts[custom].high != 1024)
-      max = fCustomCuts[custom].high/UNITS[unit];
-    
-    // !!! add it to solo histogram
-    fSoloHists[custom] = new TH1F(custom.c_str(), Form("%s;%s", custom.c_str(), unit), 100, min, max);
-    for (int i=0; i<ok; i++)
-      fSoloHists[custom]->Fill(vals_buf[custom][i]);
-  }
-
-  for (pair<string, string> comp : fComps) {
-    string var1 = comp.first;
-    string var2 = comp.second;
-    double max1 = maxes[var1] * 1.2;
-    double max2 = maxes[var2] * 1.2;
-    long max  = ceil((max1 > max2 ? max1 : max2) * 1.05);
-    long power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    max = a * pow(10, power) / 10.;
-
-    long min  = -max;
-    const char * unit = "";
-    if (var1.find("asym") != string::npos)
-      unit = "ppm";
-    else if (var1.find("diff") != string::npos)
-      unit = "um";
-
-    if (fCompCuts[comp].low != 1024)
-      min = fCompCuts[comp].low/UNITS[unit];
-    if (fCompCuts[comp].high != 1024)
-      min = fCompCuts[comp].high/UNITS[unit];
-
-    size_t h = hash<string>{}(var1+var2);
-    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), unit), 100, min, max);
-    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), unit), 100, min, max);
-
-    for (int i=0; i<ok; i++) {
-      fCompHists[comp].first->Fill(vals_buf[var1][i]);
-      fCompHists[comp].second->Fill(vals_buf[var2][i]);
-    }
-  }
-
-	for (pair<string, string> cor : fCors) {
-    string xvar = cor.second;
-    string yvar = cor.first;
-    long xmax = ceil(maxes[xvar] * 1.05);
-    long ymax = ceil(maxes[yvar] * 1.05);
-    long power = floor(log(xmax)/log(10));
-    int  a = xmax*10 / pow(10, power);
-    xmax = a * pow(10, power) / 10.;
-    power = floor(log(ymax)/log(10));
-    a = ymax*10 / pow(10, power);
-    ymax = a * pow(10, power) / 10.;
-		long xmin = -xmax;
-		long ymin = -ymax;
-
-    const char * xunit = "", *yunit = "";
-    if (xvar.find("asym") != string::npos)
-      xunit = "ppm";
-    else if (xvar.find("diff") != string::npos)
-      xunit = "um";
-
-    if (yvar.find("asym") != string::npos)
-      yunit = "ppm";
-    else if (yvar.find("diff") != string::npos)
-      yunit = "um";
-
-    // if (fCorCuts[cor].low != 1024)
-    //   min = fCorCuts[cor].low/UNITS[unit];
-    // if (fCompCuts[comp].high != 1024)
-    //   min = fCompCuts[comp].high/UNITS[unit];
-
-    fCorHists[cor] = new TH2F((yvar + xvar).c_str(), 
-				Form("%s vs %s; %s/%s; %s/%s", yvar.c_str(), xvar.c_str(), xvar.c_str(), xunit, yvar.c_str(), yunit),
-				100, xmin, xmax,
-				100, ymin, ymax);
-
-    for (int i=0; i<ok; i++) {
-      fCorHists[cor]->Fill(vals_buf[xvar][i], vals_buf[yvar][i]);
-    }
+	for (int i=0; i<allCuts.size(); i++) {
+		const char * cut = allCuts[i];
+		if (nOk[cut] == 0) {
+			if (i==0) {
+				cerr << FATAL << "No valid entry for main cut: " << cut << ENDL;
+				exit(44);
+			} else {
+				cerr << ERROR << "No valid entry for cut: " << cut << ENDL;
+			}
+		}
+		cout << INFO << "with cut: " << cut <<  "--read " << nOk[cut] << "/" << nTotal << " good entries." << ENDL;
 	}
 }
- */
 
 double TBase::get_custom_value(Node *node) {
 	if (!node) {
@@ -920,6 +942,37 @@ double TBase::get_custom_value(Node *node) {
 			return -999999;
 	}
 	return -999999;
+}
+
+bool TBase::CheckEntryCut(const long entry) {
+  if (ecuts.size() == 0) return false;
+
+  for (pair<long, long> cut : ecuts) {
+    long start = cut.first;
+    long end = cut.second;
+    if (entry >= start) {
+      if (end == -1)
+        return true;
+      else if (entry < end)
+        return true;
+    }
+  }
+  return false;
+}
+
+const char * TBase::GetUnit (string var) {	// must return const char * to distinguish between same value units (e.g. ppm, um)
+	if (var.find("asym") != string::npos)
+		return "ppm";
+	else if (var.find("diff") != string::npos)
+		return "um";
+	if (var.find("bpm") != string::npos)
+		return "mm";
+	else if (var.find("bcm") != string::npos)
+		return "uA";
+	else if (var.find("us") != string::npos || var.find("ds") != string::npos)
+		return "mV";  // FIXME
+	else
+		return "";
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

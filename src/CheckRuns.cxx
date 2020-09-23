@@ -54,7 +54,8 @@ int main(int argc, char* argv[]) {
   fCheckRuns.CheckRuns();
   fCheckRuns.CheckVars();
   fCheckRuns.GetValues();
-  fCheckRuns.CheckValues();
+	fCheckRuns.ProcessValues();
+  // fCheckRuns.CheckValues();
   fCheckRuns.Draw();
 
   return 0;

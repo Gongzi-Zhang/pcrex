@@ -51,8 +51,6 @@ class TMulPlot : public TBase {
   private:	// class specific variables besides those on base class
 		bool logy = false;
 
-		map<int, long> Entries;
-		map<string, vector<double>> vals_buf;
     map<string, TH1F *>    fSoloHists;
     map<pair<string, string>, pair<TH1F *, TH1F *>>    fCompHists;
     // map<pair<string, string>, TH1F *>    fSlopeHists;
@@ -63,8 +61,7 @@ class TMulPlot : public TBase {
      ~TMulPlot();
      void SetLogy(bool log) {logy = log;}
      void Draw();
-     void GetValues();
-		 double get_custom_value(Node * node);
+     void FillHistograms();
      void DrawHistograms();
 		 void GetOutliers();
 };
@@ -95,348 +92,107 @@ void TMulPlot::Draw() {
   CheckRuns();
   CheckVars();
   GetValues();
+
+	for (string var : fCustoms)	{		// merge customs into solos/vars
+		fSolos.push_back(var);
+		fVars.insert(var);
+	}
+
+	FillHistograms();
   DrawHistograms();
 }
 
-void TMulPlot::GetValues() {
-  long total = 0;
-  long ok = 0;
-  map<string, double> maxes;
-  double unit = 1;
-  map<string, double> var_units;
+void TMulPlot::FillHistograms() {
+	map<string, vector<double>>& vals = fVarValue[mCut];
+	const vector<long>& entrynumber = fEntryNumber[mCut];
+	int ok = nOk[mCut];
 
-  for (string var : fVars) {
-		vals_buf[var].clear();	// Initialization
+	map<string, double> up;
+	for (string var : fVars) {
+		fVarUnit[var] = GetUnit(var);
+		fVarMax[var] /= UNITS[fVarUnit[var]];
+    long max = ceil(fVarMax[var]);
+    int power = floor(log(max)/log(10));
+    int  a = max*10 / pow(10, power);
+    up[var] = (a+1) * pow(10, power) / 10.;
 
-    if (var.find("asym") != string::npos)
-      var_units[var] = ppm;
-    else if (var.find("diff") != string::npos)
-      var_units[var] = um/mm; // japan output has a unit of mm
-
-    maxes[var] = 0;
-  }
-  for (string custom : fCustoms)
-      maxes[custom] = 0;
-
-  for (int run : fRuns) {
-    const size_t sessions = fRootFiles[run].size();
-    for (size_t session=0; session < sessions; session++) {
-      const char *file_name = fRootFiles[run][session].c_str();
-      TFile f_rootfile(file_name, "read");
-      if (!f_rootfile.IsOpen()) {
-        cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
-        continue;
-      }
-
-      cout << __PRETTY_FUNCTION__ << Form(":INFO\t Read run: %d, session: %03d: ", run, session)
-           << file_name << ENDL;
-      TTree * tin = (TTree*) f_rootfile.Get(tree);
-      if (! tin) {
-        cerr << ERROR << "No such tree: " << tree << " in root file: " << file_name << ENDL;
-        continue;
-      }
-
-			for (auto const ftree : ftrees) {
-				string file_name = ftree.second;
-				if (file_name.find("xxxx") != string::npos)
-					file_name.replace(file_name.find("xxxx"), 4, to_string(run));
-				if (file_name.size()) {
-					glob_t globbuf;
-					glob(file_name.c_str(), 0, NULL, &globbuf);
-					if (globbuf.gl_pathc != sessions) {
-						cerr << ERROR << "run-" << run << " ^^^^ unmatched friend tree root files: " << endl 
-								 << "\t" << sessions << "main root files vs " 
-								 << globbuf.gl_pathc << " friend tree root files" << ENDL; 
-						continue;
-					}
-					file_name = globbuf.gl_pathv[session];
-					globfree(&globbuf);
-				}
-				tin->AddFriend(ftree.first.c_str(), file_name.c_str());	// FIXME: what if the friend tree doesn't exist
+		// default sign correction
+		int iok = 0;
+		for (int run : fRuns) {
+			while (iok < ok && entrynumber[iok] < fRunEntries[run]) {
+				vals[var][iok] *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0));
+				iok++;
 			}
-
-      bool error = false;
-      for (string var : fVars) {
-        string branch = fVarNames[var].first;
-        string leaf   = fVarNames[var].second;
-        TBranch * br = tin->GetBranch(branch.c_str());
-        if (!br) {
-					// special branches -- stupid
-					if (branch.find("diff_bpm11X") != string::npos && run < 3390) {	
-						// no bpm11X in early runs, replace with bpm12X
-						cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
-						br = tin->GetBranch(branch.replace(branch.find("bpm11X"), 6, "bpm12X").c_str());
-					} else if (branch.find("diff_bpmE") != string::npos && run < 3390) {	
-						cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
-						br = tin->GetBranch(branch.replace(branch.find("bpmE"), 4, "bpm12X").c_str());
-					} 
-					if (!br) {
-						cerr << ERROR << "no branch: " << branch << " in tree: " << tree
-							<< " of file: " << file_name << ENDL;
-						error = true;
-						break;
-					}
-        }
-        TLeaf * l = br->GetLeaf(leaf.c_str());
-        if (!l) {
-					if (leaf.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
-						l = br->GetLeaf(leaf.replace(leaf.find("bpm11X"), 6, "bpm12X").c_str());
-					} else if (leaf.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
-						l = br->GetLeaf(leaf.replace(leaf.find("bpmE"), 4, "bpm12X").c_str());
-					} 
-					if (!l) {
-						cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch  << "in var: " << var
-							<< " in tree: " << tree << " of file: " << file_name << ENDL;
-						error = true;
-						break;
-					}
-        }
-        fVarLeaves[var] = l;
-      }
-
-      if (error)
-        continue;
-
-      // if (nSlopes > 0) { // FIXME no slope now
-      //   tin->SetBranchAddress("coeff", slopes_buf);
-      //   tin->SetBranchAddress("err_coeff", slopes_err_buf);
-      // }
-
-      int N = tin->Draw(">>elist", cut, "entrylist");
-			if (N < 4500) {
-				cerr << WARNING << "run-" << run << " ^^^^ too short (< 4500 patterns), ignore it" <<ENDL;
-				continue;
-			}
-      TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
-      // tin->SetEntryList(elist);
-      for(int n=0; n<N; n++) {
-        if (n%10000 == 0)
-          cout << INFO << "read " << n << " event" << ENDL;
-
-        const int en = elist->GetEntry(n);
-        // if (CheckEntryCut(total+en))
-        //   continue;
-
-        ok++;
-        for (string var : fVars) {
-          fVarLeaves[var]->GetBranch()->GetEntry(en);
-          double val = fVarLeaves[var]->GetValue();
-
-          val *= (fSigns[run] > 0 ? 1 : -1); 
-          val /= var_units[var];
-					if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
-						val *= 0.6;
-          vars_buf[var] = val;
-          vals_buf[var].push_back(val);
-          if (abs(val) > maxes[var])
-            maxes[var] = abs(val);
-        }
-        for (string custom : fCustoms) {
-          double val = get_custom_value(fCustomDefs[custom]);
-          vars_buf[custom] = val;
-          vals_buf[custom].push_back(val);
-          if (abs(val) > maxes[custom]) 
-            maxes[custom] = abs(val);
-        }
-
-        // for (pair<string, string> slope : fSlopes) {
-        // }
-      }
-      total += tin->GetEntries();
-
-      tin->Delete();
-      f_rootfile.Close();
-    }
-		Entries[run] = ok;
-  }
-
-	if (ok == 0) {
-		cout << ERROR << "no valid event" << ENDL;
-		exit(44);
+		}
 	}
-  cout << INFO << "read " << ok << "/" << total << " ok events." << ENDL;
 
   // initialize histogram
   for (string solo : fSolos) {
-    // long max = ceil(maxes[solo] * 1.05);
-    long max = ceil(maxes[solo]);
-    int power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    max = (a+1) * pow(10, power) / 10.;
-
-    long min = -max;
-    const char * unit = "";
-    if (solo.find("asym") != string::npos)
-      unit = "ppm";
-    else if (solo.find("diff") != string::npos)
-      unit = "um";
-
-    if (fSoloCuts[solo].low != 1024)
-      min = fSoloCuts[solo].low/UNITS[unit];
-    if (fSoloCuts[solo].high != 1024)
-      max = fSoloCuts[solo].high/UNITS[unit];
+		double unit = UNITS[fVarUnit[solo]];
+		double high = up[solo];
+		double low  = -high;
+    if (fSoloCut[solo].low != 1024)
+      low = fSoloCut[solo].low/unit;
+    if (fSoloCut[solo].high != 1024)
+      high = fSoloCut[solo].high/unit;
     
-    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), unit), 100, min, max);
-    for (int i=0; i<ok; i++)
-      fSoloHists[solo]->Fill(vals_buf[solo][i]);
-  }
-
-  for (string custom : fCustoms) {
-    long max = ceil(maxes[custom] * 1.05);
-    long power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    max = a * pow(10, power) / 10.;
-
-    long min = -max;
-    const char * unit = "";
-    if (custom.find("asym") != string::npos)
-      unit = "ppm";
-    else if (custom.find("diff") != string::npos)
-      unit = "um";
-
-    if (fCustomCuts[custom].low != 1024)
-      min = fCustomCuts[custom].low/UNITS[unit];
-    if (fCustomCuts[custom].high != 1024)
-      max = fCustomCuts[custom].high/UNITS[unit];
-    
-    // !!! add it to solo histogram
-    fSoloHists[custom] = new TH1F(custom.c_str(), Form("%s;%s", custom.c_str(), unit), 100, min, max);
-    for (int i=0; i<ok; i++)
-      fSoloHists[custom]->Fill(vals_buf[custom][i]);
+    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), fVarUnit[solo]), 100, low, high);
+    for (int i=0; i<ok; i++) {
+      vals[solo][i] /= unit;
+      fSoloHists[solo]->Fill(vals[solo][i]);
+		}
   }
 
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    double max1 = maxes[var1] * 1.2;
-    double max2 = maxes[var2] * 1.2;
-    long max  = ceil((max1 > max2 ? max1 : max2) * 1.05);
-    long power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    max = a * pow(10, power) / 10.;
-
-    long min  = -max;
-    const char * unit = "";
-    if (var1.find("asym") != string::npos)
-      unit = "ppm";
-    else if (var1.find("diff") != string::npos)
-      unit = "um";
-
-    if (fCompCuts[comp].low != 1024)
-      min = fCompCuts[comp].low/UNITS[unit];
-    if (fCompCuts[comp].high != 1024)
-      min = fCompCuts[comp].high/UNITS[unit];
+		double unit = UNITS[fVarUnit[var1]];
+		double high = (up[var1] > up[var2] ? up[var1] : up[var2]) * 1.05;
+		double low  = -high;
+    if (fCompCut[comp].low != 1024)
+      low = fCompCut[comp].low/unit;
+    if (fCompCut[comp].high != 1024)
+      high = fCompCut[comp].high/unit;
 
     size_t h = hash<string>{}(var1+var2);
-    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), unit), 100, min, max);
-    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), unit), 100, min, max);
+    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), fVarUnit[var1]), 100, low, high);
+    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), fVarUnit[var2]), 100, low, high);
 
     for (int i=0; i<ok; i++) {
-      fCompHists[comp].first->Fill(vals_buf[var1][i]);
-      fCompHists[comp].second->Fill(vals_buf[var2][i]);
+			vals[var1][i] /= unit;
+			vals[var2][i] /= unit;
+      fCompHists[comp].first->Fill(vals[var1][i]);
+      fCompHists[comp].second->Fill(vals[var2][i]);
     }
   }
 
 	for (pair<string, string> cor : fCors) {
     string xvar = cor.second;
     string yvar = cor.first;
-    long xmax = ceil(maxes[xvar] * 1.05);
-    long ymax = ceil(maxes[yvar] * 1.05);
-    long power = floor(log(xmax)/log(10));
-    int  a = xmax*10 / pow(10, power);
-    xmax = a * pow(10, power) / 10.;
-    power = floor(log(ymax)/log(10));
-    a = ymax*10 / pow(10, power);
-    ymax = a * pow(10, power) / 10.;
-		long xmin = -xmax;
-		long ymin = -ymax;
+		double xunit = UNITS[fVarUnit[xvar]];
+		double yunit = UNITS[fVarUnit[yvar]];
+		double xhigh = up[xvar] * 1.05;
+		double xlow = -xhigh;
+		double yhigh = up[yvar] * 1.05;
+		double ylow = -yhigh;
 
-    const char * xunit = "", *yunit = "";
-    if (xvar.find("asym") != string::npos)
-      xunit = "ppm";
-    else if (xvar.find("diff") != string::npos)
-      xunit = "um";
-
-    if (yvar.find("asym") != string::npos)
-      yunit = "ppm";
-    else if (yvar.find("diff") != string::npos)
-      yunit = "um";
-
-    // if (fCorCuts[cor].low != 1024)
-    //   min = fCorCuts[cor].low/UNITS[unit];
-    // if (fCompCuts[comp].high != 1024)
-    //   min = fCompCuts[comp].high/UNITS[unit];
+    // if (fCorCut[cor].low != 1024)
+    //   min = fCorCut[cor].low/UNITS[unit];
+    // if (fCompCut[comp].high != 1024)
+    //   min = fCompCut[comp].high/UNITS[unit];
 
     fCorHists[cor] = new TH2F((yvar + xvar).c_str(), 
-				Form("%s vs %s; %s/%s; %s/%s", yvar.c_str(), xvar.c_str(), xvar.c_str(), xunit, yvar.c_str(), yunit),
-				100, xmin, xmax,
-				100, ymin, ymax);
+				Form("%s vs %s; %s/%s; %s/%s", yvar.c_str(), xvar.c_str(), xvar.c_str(), fVarUnit[xvar], yvar.c_str(), fVarUnit[yvar]),
+				100, xlow, xhigh,
+				100, ylow, yhigh);
 
     for (int i=0; i<ok; i++) {
-      fCorHists[cor]->Fill(vals_buf[xvar][i], vals_buf[yvar][i]);
+			vals[xvar][i] /= xunit;
+			vals[yvar][i] /= yunit;
+      fCorHists[cor]->Fill(vals[xvar][i], vals[yvar][i]);
     }
 	}
 }
-
-double TMulPlot::get_custom_value(Node *node) {
-	if (!node) {
-		cerr << ERROR << "Null node" << ENDL;
-		return -999999;
-	}
-
-	const char * val = node->token.value;
-	double v=0, vl=0, vr=0;
-	if (node->lchild) vl = get_custom_value(node->lchild);
-	if (node->rchild) vr = get_custom_value(node->rchild);
-	if (vl == -999999 || vr == -999999)
-		return -999999;
-
-	switch (node->token.type) {
-		case opt:
-			switch(val[0]) {
-				case '+':
-					return vl + vr;
-				case '-':
-					return vl - vr;
-				case '*':
-					return vl * vr;
-				case '/':
-					return vl / vr;
-				case '%':
-					return ((int)vl) % ((int)vr);
-			}
-		case function1:
-			return f1[val](vl);
-		case function2:
-			return f2[val](vl, get_custom_value(node->lchild->sibling));
-		case number:
-			return atof(val);
-		case variable:
-			if (	 fVars.find(val) != fVars.cend()
-					|| find(fCustoms.cbegin(), fCustoms.cend(), val) != fCustoms.cend())
-				return vars_buf[val];
-		default:
-			cerr << ERROR << "unkonw token type: " << TypeName[node->token.type] << ENDL;
-			return -999999;
-	}
-	return -999999;
-}
-
-// bool TMulPlot::CheckEntryCut(const long entry) {
-//   if (ecuts.size() == 0) return false;
-// 
-//   for (pair<long, long> cut : ecuts) {
-//     long start = cut.first;
-//     long end = cut.second;
-//     if (entry >= start) {
-//       if (end == -1)
-//         return true;
-//       else if (entry < end)
-//         return true;
-//     }
-//   }
-//   return false;
-// }
 
 void TMulPlot::DrawHistograms() {
   TCanvas c("c", "c", 800, 600);
@@ -450,8 +206,6 @@ void TMulPlot::DrawHistograms() {
   if (format == pdf)
     c.Print(Form("%s.pdf[", out_name));
 
-  for (string custom : fCustoms)
-    fSolos.push_back(custom);
   for (string solo : fSolos) {
     c.cd();
     fSoloHists[solo]->Fit("gaus");
@@ -632,9 +386,9 @@ void TMulPlot::GetOutliers() {
 			}
 			long iok = 0;
 			for (int run : fRuns) {
-				const long N = Entries[run];
+				const long N = fRunEntries[run];
 				for (; iok<N; iok++) {
-					double val = vals_buf[solo][iok];
+					double val = fVarValue[mCut][solo][iok];
 					if ((lout && val < lval) || (hout && val > hval)) {
 						cout << ALERT << "Outlier in run: " << run << "\tvariable: " << solo << "\tvalue: " << val << ENDL;
 					}

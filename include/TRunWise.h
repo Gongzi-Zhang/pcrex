@@ -69,20 +69,20 @@ class TRunWise {
     vector<string>	                fSoloPlots;
     vector< pair<string, string> >	fCompPlots;
     vector< pair<string, string> >	fCorPlots;
-    map<string, VarCut>			            fSoloCuts;
-    map< pair<string, string>, VarCut>	fCompCuts;
-    map< pair<string, string>, VarCut>  fCorCuts;
+    map<string, VarCut>			            fSoloCut;
+    map< pair<string, string>, VarCut>	fCompCut;
+    map< pair<string, string>, VarCut>  fCorCut;
 
-    map<int, string> fRootFiles;
+    map<int, string> fRootFile;
     map<string, string> fUnits;
     vector<int> fIvs; // x variable: run or cyclenum
-    map<string, pair<string, string>> fVarNames;
-    map<string, TLeaf *> fVarLeaves;
+    map<string, pair<string, string>> fVarName;
+    map<string, TLeaf *> fVarLeaf;
 
     map<string, set<int>>  fSoloBadIvs;
     map<pair<string, string>, set<int>>	  fCompBadIvs;
     map<pair<string, string>, set<int>>	  fCorBadIvs;
-    map<string, vector<double>> fVarValues;
+    map<string, vector<double>> fVarValue;
 
     TCanvas * c;
   public:
@@ -122,9 +122,9 @@ TRunWise::TRunWise(const char* config_file) :
   fSoloPlots  = fConf.GetSoloPlots();
   fCompPlots  = fConf.GetCompPlots();
   fCorPlots   = fConf.GetCorPlots();
-  fSoloCuts   = fConf.GetSoloCuts();
-  fCompCuts   = fConf.GetCompCuts();
-  fCorCuts    = fConf.GetCorCuts();
+  fSoloCut   = fConf.GetSoloCut();
+  fCompCut   = fConf.GetCompCut();
+  fCorCut    = fConf.GetCorCut();
 
   // if (fConf.GetFileType())  SetFileType(fConf.GetFileType()); // must precede the following statements
   if (fConf.GetDir())       SetDir(fConf.GetDir());
@@ -188,7 +188,7 @@ void TRunWise::CheckSlugs() {
       it = fSlugs.erase(it);
       continue;
     }
-    fRootFiles[slug] = globbuf.gl_pathv[0];
+    fRootFile[slug] = globbuf.gl_pathv[0];
 
     globfree(&globbuf);
     it++;
@@ -215,7 +215,7 @@ void TRunWise::CheckVars() {
 
   while (it_s != fSlugs.cend()) {
     int slug = *it_s;
-    const char * file_name = fRootFiles[slug].c_str();
+    const char * file_name = fRootFile[slug].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
     if (f_rootfile->IsOpen()) {
       TTree * tin = (TTree*) f_rootfile->Get(tree); // receive minitree
@@ -259,7 +259,7 @@ void TRunWise::CheckVars() {
             exit(24);
           }
 
-          fVarNames[var] = make_pair(branch, leaf);
+          fVarName[var] = make_pair(branch, leaf);
         }
 
         tin->Delete();
@@ -293,9 +293,9 @@ void TRunWise::CheckVars() {
 			if (it_p != fSoloPlots.cend())
 				fSoloPlots.erase(it_p);
 
-			map<string, VarCut>::const_iterator it_c = fSoloCuts.find(*it);
-			if (it_c != fSoloCuts.cend())
-				fSoloCuts.erase(it_c);
+			map<string, VarCut>::const_iterator it_c = fSoloCut.find(*it);
+			if (it_c != fSoloCut.cend())
+				fSoloCut.erase(it_c);
 
 			cerr << WARNING << "Invalid solo variable: " << *it << ENDL;
       it = fSolos.erase(it);
@@ -305,12 +305,12 @@ void TRunWise::CheckVars() {
 
   for (set<pair<string, string>>::const_iterator it=fComps.cbegin(); it!=fComps.cend(); ) {
 		if (CheckVar(it->first) && CheckVar(it->second)) {
-			//	&& fVarNames[it->first].second == fVarNames[it->second].second) {
+			//	&& fVarName[it->first].second == fVarName[it->second].second) {
 			it++;
 			continue;
 		} 
 			
-    // if (fVarNames[it->first].second != fVarNames[it->second].second)
+    // if (fVarName[it->first].second != fVarName[it->second].second)
     //   cerr << WARNING << "different statistical types for comparison in: " << it->first << " , " << it->second << ENDL;
     // else 
 		// 	cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
@@ -319,9 +319,9 @@ void TRunWise::CheckVars() {
 		if (it_p != fCompPlots.cend())
 			fCompPlots.erase(it_p);
 
-		map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
-		if (it_c != fCompCuts.cend())
-			fCompCuts.erase(it_c);
+		map<pair<string, string>, VarCut>::const_iterator it_c = fCompCut.find(*it);
+		if (it_c != fCompCut.cend())
+			fCompCut.erase(it_c);
 
 		it = fComps.erase(it);
   }
@@ -332,9 +332,9 @@ void TRunWise::CheckVars() {
 			if (it_p != fCorPlots.cend())
 				fCorPlots.erase(it_p);
 
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
-			if (it_c != fCorCuts.cend())
-				fCorCuts.erase(it_c);
+			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCut.find(*it);
+			if (it_c != fCorCut.cend())
+				fCorCut.erase(it_c);
 
 			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
       it = fCors.erase(it);
@@ -375,7 +375,7 @@ bool TRunWise::CheckVar(string var) {
 
 void TRunWise::GetValues() {
   for (int slug : fSlugs) {
-    const char * file_name = fRootFiles[slug].c_str();
+    const char * file_name = fRootFile[slug].c_str();
     TFile f_rootfile(file_name, "read");
     if (!f_rootfile.IsOpen()) {
       cerr << WARNING << "Can't open root file: " << file_name << ENDL;
@@ -415,8 +415,8 @@ void TRunWise::GetValues() {
     TLeaf *l_iv = (TLeaf *)b_iv->GetListOfLeaves()->At(0);
 
     for (string var : fVars) {
-      string branch = fVarNames[var].first;
-      string leaf   = fVarNames[var].second;
+      string branch = fVarName[var].first;
+      string leaf   = fVarName[var].second;
       TBranch * br = tin->GetBranch(branch.c_str());
       if (!br) {
         cerr << ERROR << "no branch: " << branch << " in tree: " << tree
@@ -431,7 +431,7 @@ void TRunWise::GetValues() {
         error = true;
         break;
       }
-      fVarLeaves[var] = l;
+      fVarLeaf[var] = l;
     }
 
     if (error)
@@ -446,7 +446,7 @@ void TRunWise::GetValues() {
       for (string var : fVars) {
         double unit = 1;
         double value;
-        string leaf = fVarNames[var].second;
+        string leaf = fVarName[var].second;
         // if (var.find("asym") != string::npos) {
         //   if (leaf == "mean" || leaf == "err")
         //     unit = ppb;
@@ -460,9 +460,9 @@ void TRunWise::GetValues() {
         //     unit = mm/mm;
         // }
 
-        fVarLeaves[var]->GetBranch()->GetEntry(n);
-        value = fVarLeaves[var]->GetValue() / unit;
-        fVarValues[var].push_back(value);
+        fVarLeaf[var]->GetBranch()->GetEntry(n);
+        value = fVarLeaf[var]->GetValue() / unit;
+        fVarValue[var].push_back(value);
       }
     }
 
@@ -474,15 +474,15 @@ void TRunWise::GetValues() {
 
 void TRunWise::CheckValues() {
   for (string solo : fSolos) {
-    const double low_cut  = fSoloCuts[solo].low;
-    const double high_cut = fSoloCuts[solo].high;
-    const double burp_cut = fSoloCuts[solo].burplevel;
+    const double low_cut  = fSoloCut[solo].low;
+    const double high_cut = fSoloCut[solo].high;
+    const double burp_cut = fSoloCut[solo].burplevel;
     double sum  = 0;
     double sum2 = 0;  // sum of square
     double mean;
     // double sigma = 0;
     for (int i=0; i<nIvs; i++) {
-      double val = fVarValues[solo][i];
+      double val = fVarValue[solo][i];
 
       if (i == 0) {
         mean = val;
@@ -509,11 +509,11 @@ void TRunWise::CheckValues() {
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    const double low_cut  = fCompCuts[comp].low;
-    const double high_cut = fCompCuts[comp].high;
+    const double low_cut  = fCompCut[comp].low;
+    const double high_cut = fCompCut[comp].high;
     for (int i=0; i<nIvs; i++) {
-      double val1 = fVarValues[var1][i];
-      double val2 = fVarValues[var1][i];
+      double val1 = fVarValue[var1][i];
+      double val2 = fVarValue[var1][i];
 			double diff = abs(val1 - val2);
 
       if ( (low_cut  != 1024 && diff < low_cut)
@@ -530,12 +530,12 @@ void TRunWise::CheckValues() {
   for (pair<string, string> cor : fCors) {
     string yvar = cor.first;
     string xvar = cor.second;
-    const double low_cut   = fCorCuts[cor].low;
-    const double high_cut  = fCorCuts[cor].high;
+    const double low_cut   = fCorCut[cor].low;
+    const double high_cut  = fCorCut[cor].high;
     // const double 
     for (int i=0; i<nIvs; i++) {
-      double xval = fVarValues[xvar][i];
-      double yval = fVarValues[yvar][i];
+      double xval = fVarValue[xvar][i];
+      double yval = fVarValue[yvar][i];
 
 			/*
       if () {
@@ -583,7 +583,7 @@ void TRunWise::DrawSolos() {
 
     for(int i=0, ibad=0; i<nIvs; i++) {
       double val, err=0;
-      val = fVarValues[solo][i];
+      val = fVarValue[solo][i];
       g->SetPoint(i, fIvs[i], val);
       // g->SetPointError(i, 0, err);
       gc->SetPoint(i, fIvs[i], val);
@@ -638,8 +638,8 @@ void TRunWise::DrawComps() {
   for (pair<string, string> comp : fCompPlots) {
     string var1 = comp.first;
     string var2 = comp.second;
-    string branch1 = fVarNames[var1].first;
-    string branch2 = fVarNames[var2].first;
+    string branch1 = fVarName[var1].first;
+    string branch2 = fVarName[var2].first;
     string name1 = branch1.substr(branch1.find_last_of('_')+1);
     string name2 = branch2.substr(branch2.find_last_of('_')+1);
 
@@ -661,8 +661,8 @@ void TRunWise::DrawComps() {
     for(int i=0, ibad=0; i<nIvs; i++) {
       double val1, err1=0;
       double val2, err2=0;
-      val1 = fVarValues[var1][i];
-      val2 = fVarValues[var2][i];
+      val1 = fVarValue[var1][i];
+      val2 = fVarValue[var2][i];
       if (i==0) 
         min = max = val1;
 
@@ -780,8 +780,8 @@ void TRunWise::DrawCors() {
   for (pair<string, string> cor : fCorPlots) {
     string xvar = cor.second;
     string yvar = cor.first;
-    string xbranch = fVarNames[xvar].first;
-    string ybranch = fVarNames[yvar].first;
+    string xbranch = fVarName[xvar].first;
+    string ybranch = fVarName[yvar].first;
     string xunit = GetUnit(xvar);
     string yunit = GetUnit(yvar);
 
@@ -792,8 +792,8 @@ void TRunWise::DrawCors() {
     for(int i=0, ibad=0; i<nIvs; i++) {
       double xval, xerr=0;
       double yval, yerr=0;
-      xval = fVarValues[xvar][i];
-      yval = fVarValues[yvar][i];
+      xval = fVarValue[xvar][i];
+      yval = fVarValue[yvar][i];
 
       g->SetPoint(i, xval, yval);
       // g->SetPointError(i, xerr, yerr);
@@ -831,8 +831,8 @@ void TRunWise::DrawCors() {
 }
 
 const char * TRunWise::GetUnit (string var) {
-  string branch = fVarNames[var].first;
-  string leaf   = fVarNames[var].second;
+  string branch = fVarName[var].first;
+  string leaf   = fVarName[var].second;
   if (branch.find("asym") != string::npos) {
     if (leaf == "mean")
       return "ppb";

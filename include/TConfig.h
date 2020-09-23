@@ -38,26 +38,26 @@ public:
   set<int>	  GetBoldRuns()	  {return fBoldRuns;}	// for ChectStat
   set<string> GetVars()	      {return fVars;}
 	map<string, const char*> GetFriendTrees()	{return ftrees;}
-  vector<pair<long, long>> GetEntryCuts() {return ecuts;}
-	vector<const char *>		 GetHighlightCuts() {return hcuts;}
+  vector<pair<long, long>> GetEntryCut() {return ecuts;}
+	vector<const char *>		 GetHighlightCut() {return hcuts;}
 
   vector<string>							GetSolos()	    {return fSolos;}
-  map<string, VarCut>         GetSoloCuts()   {return fSoloCuts;}
+  map<string, VarCut>         GetSoloCut()   {return fSoloCut;}
 
 	// custom variables: for CheckRun
   vector<string>							GetCustoms()    {return fCustoms;}	
-  map<string, VarCut>					GetCustomCuts() {return fCustomCuts;}
-	map<string, Node *>					GetCustomDefs()	{return fCustomDefs;}
+  map<string, VarCut>					GetCustomCut() {return fCustomCut;}
+	map<string, Node *>					GetCustomDef()	{return fCustomDef;}
 
 	// slope: for CheckStat
   vector<pair<string, string>>			GetSlopes()			{return fSlopes;}	
-  map<pair<string, string>, VarCut> GetSlopeCuts()  {return fSlopeCuts;}
+  map<pair<string, string>, VarCut> GetSlopeCut()  {return fSlopeCut;}
 
   vector<pair<string, string>>				GetComps()			{return fComps;}
-  map<pair<string, string>, VarCut>		GetCompCuts()   {return fCompCuts;}
+  map<pair<string, string>, VarCut>		GetCompCut()   {return fCompCut;}
 
   vector<pair<string, string>>			GetCors()			{return fCors;}
-  map<pair<string, string>, VarCut> GetCorCuts()  {return fCorCuts;}
+  map<pair<string, string>, VarCut> GetCorCut()  {return fCorCut;}
 
   bool ParseRun(char *line);
   bool ParseSolo(char *line);
@@ -90,20 +90,20 @@ private:
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
   vector<string>      fSolos;
-  map<string, VarCut>	fSoloCuts;
+  map<string, VarCut>	fSoloCut;
 
 	vector<string>			fCustoms;
-  map<string, VarCut> fCustomCuts;
-	map<string, Node *>	fCustomDefs;	// custom variables' def
+  map<string, VarCut> fCustomCut;
+	map<string, Node *>	fCustomDef;	// custom variables' def
 
   vector<pair<string, string>>			fComps;
-  map<pair<string, string>, VarCut>	fCompCuts;
+  map<pair<string, string>, VarCut>	fCompCut;
 
   vector<pair<string, string>>			fSlopes;
-  map<pair<string, string>, VarCut>	fSlopeCuts;
+  map<pair<string, string>, VarCut>	fSlopeCut;
 
   vector<pair<string, string>>			fCors;
-  map<pair<string, string>, VarCut>	fCorCuts;
+  map<pair<string, string>, VarCut>	fCorCut;
 };
 
 // ClassImp(TConfig);
@@ -119,13 +119,13 @@ TConfig::~TConfig() {
   fBoldRuns.clear();
   fVars.clear();
   fSolos.clear();
-  fSoloCuts.clear();
+  fSoloCut.clear();
   fComps.clear();
-  fCompCuts.clear();
+  fCompCut.clear();
   fSlopes.clear();
-  fSlopeCuts.clear();
+  fSlopeCut.clear();
   fCors.clear();
-  fCorCuts.clear();
+  fCorCut.clear();
   cout << INFO << "End of TConfig" << ENDL;
 }
 
@@ -366,7 +366,7 @@ bool TConfig::ParseSolo(char *line) {
   }
 
   fSolos.push_back(var);
-  fSoloCuts[var] = cut;
+  fSoloCut[var] = cut;
   fVars.insert(var);
   return true;
 }
@@ -442,8 +442,8 @@ bool TConfig::ParseCustom(char *line) {
   fCustoms.push_back(var);
 	for (string v : GetVariables(node)) 
 		fVars.insert(v);
-  fCustomCuts[var] = cut;
-	fCustomDefs[var] = node;
+  fCustomCut[var] = cut;
+	fCustomDef[var] = node;
   return true;
 }
 
@@ -547,7 +547,7 @@ bool TConfig::ParseComp(char *line) {
   }
 
   fComps.push_back(make_pair(vars[0], vars[1]));
-  fCompCuts[make_pair(vars[0], vars[1])] = cut;
+  fCompCut[make_pair(vars[0], vars[1])] = cut;
   if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
     fVars.insert(vars[0]);
   if (find(fCustoms.cbegin(), fCustoms.cend(), vars[1]) == fCustoms.cend())
@@ -615,7 +615,7 @@ bool TConfig::ParseSlope(char *line) {
   }
 
   fSlopes.push_back(make_pair(vars[0], vars[1]));
-  fSlopeCuts[make_pair(vars[0], vars[1])] = cut;
+  fSlopeCut[make_pair(vars[0], vars[1])] = cut;
   return true;
 }
 
@@ -679,7 +679,7 @@ bool TConfig::ParseCor(char *line) {
   }
 
   fCors.push_back(make_pair(vars[0], vars[1]));
-  fCorCuts[make_pair(vars[0], vars[1])] = cut;
+  fCorCut[make_pair(vars[0], vars[1])] = cut;
   if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
     fVars.insert(vars[0]);
   if (find(fCustoms.cbegin(), fCustoms.cend(), vars[1]) == fCustoms.cend())
@@ -730,7 +730,7 @@ bool TConfig::ParseOtherCommands(char *line) {
       return false;
     }
     ftrees[t] = f;
-	} else if (strcmp(command, "@highlightcut")) {
+	} else if (strcmp(command, "@highlightcut") == 0) {
 		hcuts.push_back(value);
   } else {
     cerr << WARNING << "Unknow commands: " << command << ENDL;

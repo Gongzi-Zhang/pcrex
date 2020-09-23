@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:R:s:a:f:n:S")) != -1)
+  while((opt = getopt(argc, argv, "hc:r:R:s:a:i:w:f:n:S")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -51,8 +51,42 @@ int main(int argc, char* argv[]) {
 					SetArmFlag(leftarm);
 				else if (strcmp(optarg, "right") == 0)
 					SetArmFlag(rightarm);
+				else if (strcmp(optarg, "all") == 0)
+					SetArmFlag(allarms);
 				else {
 					cerr << ERROR << "Unknown arm flag: " << optarg << ENDL;
+					exit(4);
+				}
+				break;
+			case 'i':
+				cout << INFO << "set required ihwp to " << optarg << ENDL;
+				if (strcmp(optarg, "in") == 0)
+					SetIHWP(in_hwp);
+				else if (strcmp(optarg, "out") == 0)
+					SetIHWP(out_hwp);
+				else if (strcmp(optarg, "both") == 0)
+					SetIHWP(both_hwp);
+				else {
+					cerr << ERROR << "Unknown IHWP state: " << optarg << ENDL;
+					exit(4);
+				}
+				break;
+			case 'w':
+				cout << INFO << "set required wien flip to " << optarg << ENDL;
+				if (strcmp(optarg, "left") == 0)
+					SetWienFlip(wienleft);
+				else if (strcmp(optarg, "right") == 0)
+					SetWienFlip(wienright);
+				else if (strcmp(optarg, "horizontal") == 0)
+					SetWienFlip(wienhorizontal);
+				else if (strcmp(optarg, "up") == 0)
+					SetWienFlip(wienup);
+				else if (strcmp(optarg, "down") == 0)
+					SetWienFlip(wiendown);
+				else if (strcmp(optarg, "vertical") == 0)
+					SetWienFlip(wienvertical);
+				else {
+					cerr << ERROR << "Unknown Wien state: " << optarg << ENDL;
 					exit(4);
 				}
 				break;
@@ -82,10 +116,10 @@ int main(int argc, char* argv[]) {
   if (sign)
     fCheckStat.SetSign();
 
-  fCheckStat.CheckRuns();
-  fCheckStat.CheckVars();
-  fCheckStat.GetValues();
-  fCheckStat.CheckValues();
+  // fCheckStat.CheckRuns();
+  // fCheckStat.CheckVars();
+  // fCheckStat.GetValues();
+  // fCheckStat.CheckValues();
   fCheckStat.Draw();
 
   return 0;
@@ -99,7 +133,9 @@ void usage() {
        << "\t -r: specify runs (seperate by comma, no space between them. ran range is supportted: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-			 << "\t -a: indicate arm flag you want (both, left, right: default both): of course, single arm specification will also include both arms running, but not vice versa." << endl
+			 << "\t -a: indicate arm flag you want (both, left, right, singlearm, all: default both): of course, single arm specification will also include both arms running, but not vice versa." << endl
+			 << "\t -i: set wanted ihwp state (in, out)" << endl
+			 << "\t -w: set wien flip (left, right, horizontal, up, down, vertical)" << endl
        << "\t -f: set output file format: pdf or png" << endl
        << "\t -n: prefix of output pdf file" << endl
        << "\t -S: make sign correction" << endl

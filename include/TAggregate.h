@@ -55,9 +55,9 @@ void TAggregate::Aggregate()
 	unsigned int N;
 
 	for (unsigned int run : fRuns) {
-		const size_t sessions = fRootFiles[run].size();
+		const size_t sessions = fRootFile[run].size();
 		for (size_t session=0; session < sessions; session++) {
-			const char *file_name = fRootFiles[run][session].c_str();
+			const char *file_name = fRootFile[run][session].c_str();
       TFile fin(file_name, "read");
       if (!fin.IsOpen()) {
         cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
@@ -93,8 +93,8 @@ void TAggregate::Aggregate()
 
       bool error = false;
       for (string var : fVars) {
-        string branch = fVarNames[var].first;
-        string leaf   = fVarNames[var].second;
+        string branch = fVarName[var].first;
+        string leaf   = fVarName[var].second;
         TBranch * br = tin->GetBranch(branch.c_str());
         if (!br) {
 					// special branches -- stupid
@@ -127,7 +127,7 @@ void TAggregate::Aggregate()
 						break;
 					}
         }
-        fVarLeaves[var] = l;
+        fVarLeaf[var] = l;
       }
 
       if (error)
@@ -156,14 +156,14 @@ void TAggregate::Aggregate()
 					for (string var : fVars) {
 						if (var.find("bpm11X") != string::npos && run < 3390)
 							continue;
-						fVarLeaves[var]->GetBranch()->GetEntry(en);
-						double val = fVarLeaves[var]->GetValue();
+						fVarLeaf[var]->GetBranch()->GetEntry(en);
+						double val = fVarLeaf[var]->GetValue();
 						vars_buf[var] = val;
 						sum[var] += val;
 						sum2[var] += val * val;
 					}
 					for (string custom : fCustoms) {
-						double val = get_custom_value(fCustomDefs[custom]);
+						double val = get_custom_value(fCustomDef[custom]);
 						vars_buf[custom] = val;
 						sum[custom] += val;
 						sum2[custom] += val * val;

@@ -37,101 +37,49 @@
 #include "line.h"
 #include "rcdb.h"
 #include "TConfig.h"
+#include "TBase.h"
 
-
-enum Format {pdf, png};
+enum SType {mean, err, rms};	// statistical type
 
 map<int, const char *> legends = {
-  {1,   "left in"},
-  {-1,  "left out"},
-  {-2,  "right in"},
-  {2,   "right out"},
-  {3,   "up in"},
-  {-3,  "up out"},
-  {-4,  "down in"},
-  {4,   "down out"},
+  {-1,  "left in"},
+  {1,		"left out"},
+  {2,		"right in"},
+  {-2,  "right out"},
+  {-3,  "up in"},
+  {3,		"up out"},
+  {4,		"down in"},
+  {-4,  "down out"},
 };
-vector<string> mean_leaves = { "mean", "hw_sum" };
-vector<string> err_leaves  = { "err",  "hw_sum_err"};
-vector<string> rms_leaves  = { "rms",  "hw_sum_m2" };
 
 using namespace std;
 
-class TCheckStat {
+class TCheckStat : public TBase {
 
     // ClassDe (TCheckStat, 0) // check statistics
 
   private:
-    TConfig fConf;
-    Format format         = pdf;
-    const char *out_name  = "check";
-    const char *dir	      = "/chafs2/work1/apar/postpan-outputs/";
-    string pattern        = "prexPrompt_xxxx_???_regress_postpan.root"; 
-    const char *tree      = "mini";
-		map<string, const char*> ftrees;
-		map<string, const char*> real_trees;
+		set<int> fBoldRuns;
+		int nBoldRuns;
     bool  sign = false;
     vector<int> flips;
-    int	  nRuns;
-    int	  nBoldRuns;
-    int	  nSlugs;
-    int	  nMiniruns;
-    int	  nVars;
-    int	  nSolos;
-    int	  nComps;
-    int	  nSlopes;
-    int	  nCors;
-    set<int> fRuns;
-    set<int> fSlugs;
-    set<int> fBoldRuns;
-    set<string>	  fVars;
-    vector<string>	  fSolos;
-    vector< pair<string, string> >	fComps;
-    vector< pair<string, string> >	fSlopes;
-    vector< pair<string, string> >	fCors;
-    map<string, VarCut>			            fSoloCuts;
-    map< pair<string, string>, VarCut>	fCompCuts;
-    map< pair<string, string>, VarCut>  fSlopeCuts;
-    map< pair<string, string>, VarCut>  fCorCuts;
 
-    map<int, vector<string>> fRootFiles;
-    map<int, int> fSigns;
-    map<string, string> fUnits;
-    map<pair<string, string>, pair<int, int>>	  fSlopeIndexes;
-    // map<string, StatsType> fStatsTypes;
-    // map<string, string> fVarNames;
-    map<string, pair<string, string>> fVarNames;
-    // double slopes_buf[ROWS][COLS];
-    // double slopes_err_buf[ROWS][COLS];
-    int      rows, cols;
-    double * slopes_buf;
-    double * slopes_err_buf;
-
+		map<string, SType> fVarStatType;
     vector<pair<int, int>> fMiniruns;
+		int nMiniruns;
     map<string, set<pair<int, int>>>  fSoloBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fCompBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fSlopeBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fCorBadMiniruns;
-    map<string, vector<double>> fVarValues;
-    map<pair<string, string>, vector<double>> fSlopeValues;
-    map<pair<string, string>, vector<double>> fSlopeErrs;
 
-    TCanvas * c;
+		map<string, vector<double>>& val_buff = fVarValue[mCut];
+
   public:
-     TCheckStat(const char*);
+     TCheckStat(const char*, const char* run_list = NULL);
      ~TCheckStat();
-     void SetOutName(const char * name) {if (name) out_name = name;}
-     void SetOutFormat(const char * f);
-     // void SetFileType(const char * f);
-     void SetDir(const char * d);
-     void SetRuns(set<int> runs);
      void SetBoldRuns(set<int> runs);
-     void SetSlugs(set<int> slugs);
      void SetSign() {sign = true;}
-     void CheckRuns();
-     void CheckVars();
-     bool CheckVar(string exp);
-     void GetValues();
+		 void ProcessValues();
      void CheckValues();
      void Draw();
      void DrawSolos();
@@ -145,101 +93,19 @@ class TCheckStat {
 
 // ClassImp(TCheckStat);
 
-TCheckStat::TCheckStat(const char* config_file) :
-  fConf(config_file)
+TCheckStat::TCheckStat(const char* config_file, const char *run_list) :
+  TBase(config_file, run_list)
 {
-  fConf.ParseConfFile();
+	program		= checkstatistics;
+	out_name	= "check";
+	// dir       = "/chafs2/work1/apar/postpan-outputs/";
+	// pattern   = "prexPrompt_xxxx_???_regress_postpan.root"; 
+	// tree      = "mini";
   fBoldRuns = fConf.GetBoldRuns();
-  fRuns   = fConf.GetRuns();
-  fVars	  = fConf.GetVars();
-  fSolos  = fConf.GetSolos();
-  fComps  = fConf.GetComps();
-  fSlopes = fConf.GetSlopes();
-  fCors	  = fConf.GetCors();
-  nSlopes = fSlopes.size();
-  nRuns   = fRuns.size();
-
-  fSoloCuts   = fConf.GetSoloCuts();
-  fCompCuts   = fConf.GetCompCuts();
-  fSlopeCuts  = fConf.GetSlopeCuts();
-  fCorCuts    = fConf.GetCorCuts();
-
-  // if (fConf.GetFileType())  SetFileType(fConf.GetFileType()); // must precede the following statements
-  if (fConf.GetDir())       SetDir(fConf.GetDir());
-  if (fConf.GetPattern())   pattern = fConf.GetPattern();
-  if (fConf.GetTreeName())  tree  = fConf.GetTreeName();
-	ftrees = fConf.GetFriendTrees();
-
-  gROOT->SetBatch(1);
 }
 
 TCheckStat::~TCheckStat() {
   cerr << INFO << "Release TCheckStat" << ENDL;
-}
-
-/*
-void TCheckStat::SetFileType(const char * ftype) {
-  if (ftype == NULL) {
-    cerr << FATAL << "no filetype specified" << ENDL;
-    exit(10);
-  }
-
-  char * type = Sub(ftype, 0);
-  StripSpaces(type);
-  if (strcmp(type, "postpan") == 0) {
-    filetype = "postpan";
-    ft = postpan;
-    dir	= "/chafs2/work1/apar/postpan-outputs";
-    pattern = "prexPrompt_xxxx_???_regress_postpan.root";
-    tree = "mini"; // default tree
-  } else if (strcmp(type, "dithering") == 0) {
-    filetype = "dithering";
-    ft = dithering;
-    dir = "/adaqfs/home/apar/weibin/check/dithering/";  // default dir.
-    pattern = "prexPrompt_dit_agg_xxxx.root";
-    tree = "mini";
-  } else {
-    cerr << FATAL << "unknown root file type: " << type << ".\t Allowed type: " << endl
-         << "\t postpan" << endl
-         << "\t dithering" << ENDL;
-    exit(10);
-  }
-}
-*/
-
-void TCheckStat::SetDir(const char * d) {
-  struct stat info;
-  if (stat( d, &info) != 0) {
-    cerr << FATAL << "can't access specified dir: " << dir << ENDL;
-    exit(30);
-  } else if ( !(info.st_mode & S_IFDIR)) {
-    cerr << FATAL << "not a dir: " << dir << ENDL;
-    exit(31);
-  }
-  dir = d;
-}
-
-void TCheckStat::SetOutFormat(const char * f) {
-  if (strcmp(f, "pdf") == 0) {
-    format = pdf;
-  } else if (strcmp(f, "png") == 0) {
-    format = png;
-  } else {
-    cerr << FATAL << "Unknow output format: " << f << ENDL;
-    exit(40);
-  }
-}
-
-void TCheckStat::SetRuns(set<int> runs) {
-  for(int run : runs) {
-    if (run < START_RUN || run > END_RUN) {
-      cerr << ERROR << "Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << ENDL;
-      continue;
-    }
-    fBoldRuns.insert(run);
-    fRuns.insert(run);
-  }
-  nRuns = fRuns.size();
 }
 
 void TCheckStat::SetBoldRuns(set<int> runs) {
@@ -254,583 +120,68 @@ void TCheckStat::SetBoldRuns(set<int> runs) {
   nBoldRuns = fBoldRuns.size();
 }
 
-void TCheckStat::SetSlugs(set<int> slugs) {
-  for(int slug : slugs) {
-    if (   (CREX_AT_START_SLUG <= slug && slug <= CREX_AT_END_SLUG)
-        || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
-        || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
-      fSlugs.insert(slug);
-    } else {
-      cerr << ERROR << "Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << ENDL;
-      continue;
-    }
-  }
-  nSlugs = fSlugs.size();
-}
-
-void TCheckStat::CheckRuns() {
-  StartConnection();
-
-  if (nSlugs > 0) {
-    set<int> runs;
-    for(int slug : fSlugs) {
-      runs = GetRunsFromSlug(slug);
-      for (int run : runs) {
-        fRuns.insert(run);
-      }
-    }
-  }
-  nRuns = fRuns.size();
-
-  // check runs against database
-	GetValidRuns(fRuns);
-  nRuns = fRuns.size();
-  nBoldRuns = fBoldRuns.size();
-
-  for (set<int>::const_iterator it = fRuns.cbegin(); it != fRuns.cend(); ) {
-    int run = *it;
-    string p_buf(pattern);
-		if (p_buf.find("xxxx") != string::npos)
-			p_buf.replace(p_buf.find("xxxx"), 4, to_string(run));
-    const char * p = Form("%s/%s", dir, p_buf.c_str());
-    glob_t globbuf;
-    glob(p, 0, NULL, &globbuf);
-    if (globbuf.gl_pathc == 0) {
-      cerr << WARNING << "no root file for run " << run << ". Ignore it." << ENDL;
-      it = fRuns.erase(it);
-      continue;
-    }
-    for (int i=0; i<globbuf.gl_pathc; i++)
-      fRootFiles[run].push_back(globbuf.gl_pathv[i]);
-
-    globfree(&globbuf);
-    it++;
-  }
-
-  nRuns = fRuns.size();
-  if (nRuns == 0) {
-    cerr << FATAL << "No valid runs specified!" << ENDL;
-    EndConnection();
-    exit(10);
-  }
-
-  cout << INFO << "" << nRuns << " valid runs specified:" << ENDL;
-  for(int run : fRuns) {
-    cout << "\t" << run << endl;
-  }
-
-  fSigns = GetSign(fRuns); // sign corrected
-  for (map<int, int>::const_iterator it = fSigns.cbegin(); it!=fSigns.cend(); it++) {
-    if (find(flips.cbegin(), flips.cend(), it->second) == flips.cend())
-      flips.push_back(it->second);
-  }
-
-  EndConnection();
-}
-
-void TCheckStat::CheckVars() {
-  srand(time(NULL));
-  int s = rand() % nRuns;
-  set<int>::const_iterator it_r=fRuns.cbegin();
-  for(int i=0; i<s; i++)
-    it_r++;
-
-  while (it_r != fRuns.cend()) {
-		set<string> used_ftrees;
-    int run = *it_r;
-    const char * file_name = fRootFiles[run][0].c_str();
-    TFile * f_rootfile = new TFile(file_name, "read");
-    if (!f_rootfile->IsOpen()) {
-      cerr << WARNING << "run-" << run << " ^^^^ can't read root file: " << file_name 
-           << ", skip this run." << ENDL;
-      goto next_run;
-    }
-
-    vector<TString> *l_iv, *l_dv;
-		l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
-		l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
-    if (nSlopes > 0 && (l_iv == NULL || l_dv == NULL)){
-      cerr << WARNING << "run-" << run << " ^^^^ can't read IVNames or DVNames in root file: " 
-           << file_name << ", skip this run." << ENDL;
-      goto next_run;
-    }
-
-    TTree * tin;
-		tin = (TTree*) f_rootfile->Get(tree); // receive minitree
-    if (tin == NULL) {
-      cerr << WARNING << "run-" << run << " ^^^^ can't read tree: " << tree << " in root file: "
-           << file_name << ", skip this run." << ENDL;
-      goto next_run;
-    }
-
-    for (auto const ftree : ftrees) {
-      const char *texp = ftree.first.c_str();
-      string file_name = ftree.second;
-			if (file_name.find("xxxx") != string::npos)
-				file_name.replace(file_name.find("xxxx"), 4, to_string(run));
-      if (file_name.size()) {
-        glob_t globbuf;
-        glob(file_name.c_str(), 0, NULL, &globbuf);
-        if (globbuf.gl_pathc == 0) {
-          cerr << WARNING << "run-" << run << " ^^^^ can't read friend tree: " << texp
-							 << " in root file: " << file_name << ", skip this run." << ENDL; 
-					goto next_run;
-				}
-				file_name = globbuf.gl_pathv[0];
-				globfree(&globbuf);
-      }
-      tin->AddFriend(texp, file_name.c_str());	// FIXME: what if the friend tree doesn't exist
-      int pos = Index(texp, '=');
-      string alias = pos > 0 ? StripSpaces(Sub(texp, 0, pos)) : texp;
-      // const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
-      real_trees[alias] = texp;
-      // it is user's responsibility to make sure each tree has an unique name
-    }
-
-    cout << INFO << "use the following root files to check vars: \n";
-		cout << "\t" << file_name;
-		for (auto const ftree : ftrees) {
-			if (ftree.second[0])
-				cout << "\n\t" << ftree.second;
-		}
-		cout << ENDL;
-
-    for (string var : fVars) {
-      size_t n = count(var.begin(), var.end(), '.');
-      string branch, leaf;
-      if (n==0) {
-        branch = var;
-      } else if (n==1) {
-        size_t pos = var.find_first_of('.');
-        if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
-          branch = var;
-        } else {
-          branch = var.substr(0, pos);
-          leaf = var.substr(pos+1);
-        }
-      } else if (n==2) {
-        size_t pos = var.find_last_of('.');
-        branch = var.substr(0, pos);
-        leaf = var.substr(pos+1);
-      } else {
-        cerr << ERROR << "Invalid variable expression: " << var << endl;
-        exit(24);
-      }
-
-      TBranch * bbuf = tin->GetBranch(branch.c_str());
-      if (!bbuf) {
-        cerr << WARNING << "No such branch: " << branch << " in var: " << var << ENDL;
-        // FIXME: how to find out possible candidate, there should be a function to measure
-        // the closeness between them.
-        // cout << DEBUG << "List of valid branches:" << ENDL;
-        // TObjArray * l_var = tin->GetListOfBranches();
-        // TIter next(l_var);
-        // TBranch *br;
-        // while (br = (TBranch*) next()) {
-        //   cout << "\t" << br->GetName() << endl;
-        // }
-				tin->Delete();
-				f_rootfile->Close();
-        exit(24);
-      }
-
-      TObjArray * l_leaf = bbuf->GetListOfLeaves();
-      if (leaf.size() == 0) {
-        leaf = l_leaf->At(0)->GetName();  // use the first leaf
-      }
-      TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
-      if (!lbuf) {
-        cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
-        cout << DEBUG << "List of valid leaves:" << ENDL;
-        TIter next(l_leaf);
-        TLeaf *l;
-        while (l = (TLeaf*) next()) {
-          cout << "\t" << l->GetName() << endl;
-        }
-
-				tin->Delete();
-				f_rootfile->Close();
-        exit(24);
-      }
-
-      fVarNames[var] = make_pair(branch, leaf);
-			if (branch.find('.') != string::npos) {
-				used_ftrees.insert(StripSpaces(Sub(branch.c_str(), 0, branch.find('.'))));
-			} else {
-				used_ftrees.insert(bbuf->GetTree()->GetName());
-			}
-
-      vector<string>::const_iterator it = find(mean_leaves.cbegin(), mean_leaves.cend(), leaf);
-      if (it != mean_leaves.cend()) {
-        string err_leaf;
-        it = err_leaves.cbegin() + (it - mean_leaves.cbegin());
-        if (it == err_leaves.cend()) {
-          cerr << ERROR << "no corresponding error leaf for mean leaf: " << leaf << ENDL;
-          continue;
-        }
-        err_leaf = *it;
-        lbuf = (TLeaf *) l_leaf->FindObject(err_leaf.c_str());
-        if (! lbuf) {
-          cerr << WARNING << "No err leaf for mean var: " << var << ENDL;
-          continue;
-        }
-        string err_var = branch + ("." + err_leaf);
-        fVars.insert(err_var);
-        fVarNames[err_var] = make_pair(branch, err_leaf);
-      }
-    }
-		if (used_ftrees.find(tree) == used_ftrees.end()) {
-			cerr << WARNING << "unsed main tree: " << tree << ENDL;
-		} else {
-			used_ftrees.erase(used_ftrees.find(tree));
-		}
-		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend();) {
-			bool used = false;
-			for (auto const uftree : used_ftrees) {
-				if (real_trees[uftree] == it->first) {
-					used = true;
-					break;
-				}
-			}
-			if (used)
-				it++;
-			else {
-				cerr << WARNING << "unused friend tree: " << it->first << ". remove it." << ENDL;
-				it = ftrees.erase(it);
-			}
-		}
-
-    if (nSlopes>0) {
-      rows = l_dv->size();
-      cols = l_iv->size();
-      slopes_buf = new double[rows*cols];
-      slopes_err_buf = new double[rows*cols];
-      // if (rows != ROWS || cols != COLS) {
-      //   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
-      //   exit(20);
-      // }
-      bool error_dv_flag = false;
-      bool error_iv_flag = false;
-      for (pair<string, string> slope : fSlopes) {
-        string dv = slope.first;
-        string iv = slope.second;
-        vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
-        vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
-
-        if (it_dv == l_dv->cend()) {
-          cerr << FATAL << "Invalid dv name for slope: " << dv << ENDL;
-          error_dv_flag = true;
-          break;
-        } 
-        if (it_iv == l_iv->cend()) {
-          cerr << FATAL << "Invalid iv name for slope: " << iv << ENDL;
-          error_iv_flag = true;
-          break;
-        }
-
-        fSlopeIndexes[slope] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
-      }
-      if (error_dv_flag) {
-        cout << DEBUG << "List of valid dv names:" << ENDL;
-        for (TString dv : (*l_dv)) 
-          cout << "\t" << dv.Data() << endl;
-
-        exit(24);
-      }
-      if (error_iv_flag) {
-        cout << DEBUG << "List of valid dv names:" << ENDL;
-        for (TString iv : (*l_iv)) 
-          cout << "\t" << iv.Data() << endl;
-
-        exit(24);
-      }
-    }
-    tin->Delete();
-    f_rootfile->Close();
-    break;
-      
-next_run:
-		f_rootfile->Close();
-		if (tin) {
-			tin->Delete();
-			tin = NULL;
-		}
-    it_r = fRuns.erase(it_r);
-    if (fBoldRuns.find(run) != fBoldRuns.cend())
-      fBoldRuns.erase(run);
-
-    if (it_r == fRuns.cend())
-      it_r = fRuns.cbegin();
-  }
-
-  nRuns = fRuns.size();
-  if (nRuns == 0) {
-    cerr << FATAL << "no valid runs, aborting." << ENDL;
-    exit(10);
-  }
-
-  nVars = fVars.size();
-  nSlopes = fSlopes.size();
-  if (nVars == 0 && nSlopes == 0) {
-    cerr << FATAL << "no valid variables specified, aborting." << ENDL;
-    exit(11);
-  }
-
-  for (vector<string>::iterator it=fSolos.begin(); it!=fSolos.end();) {
-    if (!CheckVar(*it)) {
-			map<string, VarCut>::const_iterator it_c = fSoloCuts.find(*it);
-			if (it_c != fSoloCuts.cend())
-				fSoloCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid solo variable: " << *it << ENDL;
-      it = fSolos.erase(it);
-		} else
-      it++;
-  }
-
-  for (vector<pair<string, string>>::iterator it=fComps.begin(); it!=fComps.end(); ) {
-		if (CheckVar(it->first) && CheckVar(it->second)
-				&& fVarNames[it->first].second == fVarNames[it->second].second) {
-			it++;
-			continue;
-		} 
-			
-    if (fVarNames[it->first].second != fVarNames[it->second].second)
-      cerr << WARNING << "different statistical types for comparison in: " << it->first << " , " << it->second << ENDL;
-    else 
-			cerr << WARNING << "Invalid Comp variable: " << it->first << "\t" << it->second << ENDL;
-
-		map<pair<string, string>, VarCut>::const_iterator it_c = fCompCuts.find(*it);
-		if (it_c != fCompCuts.cend())
-			fCompCuts.erase(it_c);
-
-		it = fComps.erase(it);
-  }
-
-  for (vector<pair<string, string>>::iterator it=fCors.begin(); it!=fCors.end(); ) {
-    if (!CheckVar(it->first) || !CheckVar(it->second)) {
-			map<pair<string, string>, VarCut>::const_iterator it_c = fCorCuts.find(*it);
-			if (it_c != fCorCuts.cend())
-				fCorCuts.erase(it_c);
-
-			cerr << WARNING << "Invalid Cor variable: " << it->first << "\t" << it->second << ENDL;
-      it = fCors.erase(it);
-		} else
-      it++;
-  }
-
-  nSolos = fSolos.size();
-  nComps = fComps.size();
-  nCors  = fCors.size();
-
-  // cout << DEBUG << "" << " internal variables:" << ENDL;
-  // for (string var : fVars) {
-  //   cout << "\t" << var << endl;
-  // }
-  cout << INFO << "" << nSolos << " valid solo variables specified:" << ENDL;
-  for(string solo : fSolos) {
-    cout << "\t" << solo << endl;
-  }
-  cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
-  for(pair<string, string> comp : fComps) {
-    cout << "\t" << comp.first << " , " << comp.second << endl;
-  }
-  cout << INFO << "" << nSlopes << " valid slopes specified:" << ENDL;
-  for(pair<string, string> slope : fSlopes) {
-    cout << "\t" << slope.first << " vs " << slope.second << endl;
-  }
-  cout << INFO << "" << nCors << " valid correlations specified:" << ENDL;
-  for(pair<string, string> cor : fCors) {
-    cout << "\t" << cor.first << " : " << cor.second << endl;
-  }
-}
-
-bool TCheckStat::CheckVar(string var) {
-  if (fVars.find(var) == fVars.cend()) {
-    cerr << WARNING << "Unknown variable in: " << var << ENDL;
-    return false;
-  }
-
-  return true;
-}
-
-void TCheckStat::GetValues() {
-	unsigned int npatterns = 0;
-  for (int run : fRuns) {
-    const size_t sessions = fRootFiles[run].size();
-    for (size_t session=0; session<sessions; session++) {
-      const char * file_name = fRootFiles[run][session].c_str();
-      TFile f_rootfile(file_name, "read");
-      if (!f_rootfile.IsOpen()) {
-        cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
-				f_rootfile.Close();
-        continue;
-      }
-
-      cout << INFO << Form("Read run: %d, session: %03ld\t", run, session)
-           << file_name << ENDL;
-      TTree * tin = (TTree*) f_rootfile.Get(tree); // receive minitree
-      if (! tin) {
-        cerr << ERROR << "No such tree: " << tree << " in root file: " << file_name << ENDL;
-        f_rootfile.Close();
-        continue;
-      }
-			for (auto const ftree : ftrees) {
-				string file_name = ftree.second;
-				if (file_name.find("xxxx") != string::npos)
-					file_name.replace(file_name.find("xxxx"), 4, to_string(run));
-				if (file_name.size()) {
-					glob_t globbuf;
-					glob(file_name.c_str(), 0, NULL, &globbuf);
-					if (globbuf.gl_pathc != sessions) {
-						cerr << ERROR << "run-" << run << " ^^^^ unmatched friend tree root files: " << endl 
-								 << "\t" << sessions << "main root files vs " 
-								 << globbuf.gl_pathc << " friend tree root files" << ENDL; 
-						continue;
-					}
-					file_name = globbuf.gl_pathv[session];
-					globfree(&globbuf);
-				}
-				tin->AddFriend(ftree.first.c_str(), file_name.c_str());	// FIXME: what if the friend tree doesn't exist
-			}
-
-      bool error = false;
-      // minirun
-      set<const char *> mini_names = {"minirun", "mini", "miniruns"};
-      TBranch * b_minirun = NULL;
-      for (const char * mini_name : mini_names) {
-        if (!b_minirun)
-          b_minirun = tin->GetBranch(mini_name);
-        if (b_minirun) 
-          break;
-      }
-      TLeaf *l_minirun;
-      if (!b_minirun) {
-        cerr << WARNING << "no minirun branch in tree: " << tree 
-          << " of file: " << file_name << endl
-          << "\t will use entry number as minrun number" << ENDL;
-        // continue;
-      } else {
-        l_minirun = (TLeaf *)b_minirun->GetListOfLeaves()->At(0);
-      }
-
-      bool num_samples_leaf = false;
-			map<string, TLeaf *> fVarLeaves;
-      for (string var : fVars) {
-        string branch = fVarNames[var].first;
-        string leaf   = fVarNames[var].second;
-        TBranch * br = tin->GetBranch(branch.c_str());
-        if (!br) {
-          cerr << ERROR << "no branch: " << branch << " in tree: " << tree
-            << " of file: " << file_name << ENDL;
-          error = true;
-          break;
-        }
-        TLeaf * l = br->GetLeaf(leaf.c_str());
-        if (!l) {
-          cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch 
-            << " in tree: " << tree << " of file: " << file_name << ENDL;
-          error = true;
-          break;
-        }
-        fVarLeaves[var] = l;
-
-				if (! num_samples_leaf) {
-					l = br->GetLeaf("num_samples");
-					if (l) {
-						fVarLeaves["num_samples"] = l;
-						num_samples_leaf = true;
-					}
-				}
-      }
-
-      if (error)
-        continue;
-
-			if (!num_samples_leaf) {
-				cerr << WARNING << "No num_samples leaf, will not cut on num_samples (<4500)" << ENDL;
-			}
-
-      if (nSlopes > 0) {
-        tin->SetBranchAddress("coeff", slopes_buf);
-        tin->SetBranchAddress("err_coeff", slopes_err_buf);
-      }
-
-      const int nentries = tin->GetEntries();  // number of miniruns
-      for(int n=0; n<nentries; n++) { // loop through the miniruns
-				if (num_samples_leaf) {
-					fVarLeaves["num_samples"]->GetBranch()->GetEntry(n);
-					const int nsamples = fVarLeaves["num_samples"]->GetValue();
-					if (nsamples < 4500) {
-						cerr << WARNING << "run-" << run << " ^^^^ too short minirun (< 4500 patterns), ignore it" <<ENDL;
-						continue;
-					}
-					npatterns += nsamples;
-				}
-
-        if (l_minirun) {
-          l_minirun->GetBranch()->GetEntry(n);
-          fMiniruns.push_back(make_pair(run, l_minirun->GetValue()));
-        } else {
-          fMiniruns.push_back(make_pair(run, n));
-        }
-        for (string var : fVars) {
-          double value;
-          double unit = 1;
-          string leaf = fVarNames[var].second;
-          if (var.find("asym") != string::npos) {
-            if (  find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend()
-               || find(err_leaves.cbegin(), err_leaves.cend(), leaf) != err_leaves.cend())
-              unit = ppb;
-            else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
-              unit = ppm;
-          }
-          else if (var.find("diff")) {
-            if (  find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend()
-               || find(err_leaves.cbegin(), err_leaves.cend(), leaf) != err_leaves.cend())
-              unit = um/mm;
-            else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
-              unit = mm/mm;
-          }
-
-          fVarLeaves[var]->GetBranch()->GetEntry(n);
-          value = fVarLeaves[var]->GetValue() / unit;
-          if (sign) {
-            if (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[var].second) != mean_leaves.cend()) {
-              if (fSigns[run] == 0)
-                value = 0;
-              else 
-                value *= (fSigns[run] > 0 ? 1 : -1);
-            }
-          }
-          fVarValues[var].push_back(value);
-        }
-        for (pair<string, string> slope : fSlopes) {
-          double unit = ppm/(um/mm);
-          fSlopeValues[slope].push_back(slopes_buf[fSlopeIndexes[slope].first*cols+fSlopeIndexes[slope].second]/unit);
-          fSlopeErrs[slope].push_back(slopes_err_buf[fSlopeIndexes[slope].first*cols+fSlopeIndexes[slope].second]/unit);
-        }
-      }
-
-      tin->Delete();
-      f_rootfile.Close();
-    }
-  }
-  nMiniruns = fMiniruns.size();
-	if (nMiniruns == 0) {
-		cerr << FATAL << "No valid minirun." << ENDL;
-		exit(44);
+void TCheckStat::ProcessValues() {
+	for (map<int, int>::const_iterator it = fRunSign.cbegin(); it!=fRunSign.cend(); it++) {
+		if (find(flips.cbegin(), flips.cend(), it->second) == flips.cend())
+			flips.push_back(it->second);
 	}
-	cout << OUTPUT << "read " << npatterns << " patterns in " << nMiniruns << " miniruns." << ENDL;
-  // cout << INFO << "Read " << nMiniruns << " miniruns in total" << ENDL;
+
+	const vector<long>& entrynumber = fEntryNumber[mCut];
+	nMiniruns = entrynumber.size();
+
+	{
+		int m = 0;
+		int pre = 0;	// previous run entries
+		for (int run : fRuns) {
+			while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
+				fMiniruns.push_back(make_pair(run, entrynumber[m]-pre));
+				m++;
+			}
+			pre = fRunEntries[run];
+		}
+	}
+	for (string var : fVars) {
+		// unit correction
+		fVarUnit[var] = GetUnit(var);
+		for (int m=0; m<nMiniruns; m++) {
+			val_buff[var][m] /= UNITS[fVarUnit[var]];
+		}
+
+		// sign correction: only for mean value
+		if (sign && fVarStatType[var] == mean) {
+			int m = 0;
+			for (int run : fRuns) {
+				while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
+					val_buff[var][m] *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0));
+					m++;
+				}
+			}
+		}
+	}
+
+	for (string var : fVars) {
+		TString v = var;
+		if (	 v.EndsWith("asym_us_avg.err")
+				|| v.EndsWith("asym_bcm_target.hw_sum_err")
+				|| (var.find("diff_bpm") != string::npos && v.EndsWith(".hw_sum_err")))
+		{
+      int m = 0;
+			for (int run : fRuns) {
+				while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
+					val_buff[var][m] = val_buff["lagr_asym_us_avg.err"][m];	// weighted by lagr_asym_us_avg err bar
+					m++;
+				}
+			}
+		}
+	}
 }
 
 void TCheckStat::CheckValues() {
   for (string solo : fSolos) {
-    double low_cut  = fSoloCuts[solo].low;
-    double high_cut = fSoloCuts[solo].high;
-    double burp_cut = fSoloCuts[solo].burplevel;
-    double unit = UNITS[GetUnit(solo)];
+    double low_cut  = fSoloCut[solo].low;
+    double high_cut = fSoloCut[solo].high;
+    double burp_cut = fSoloCut[solo].burplevel;
+    double unit = UNITS[fVarUnit[solo]];
     if (low_cut != 1024)
       low_cut /= unit;
     if (high_cut != 1024)
@@ -842,7 +193,7 @@ void TCheckStat::CheckValues() {
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
     for (int i=0; i<nMiniruns; i++) {
-      double val = fVarValues[solo][i];
+      double val = val_buff[solo][i];
 
       if (i == 0) {
         mean = val;
@@ -867,8 +218,8 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    double low_cut  = fCompCuts[comp].low;
-    double high_cut = fCompCuts[comp].high;
+    double low_cut  = fCompCut[comp].low;
+    double high_cut = fCompCut[comp].high;
     double unit = UNITS[GetUnit(var1)];
     if (low_cut != 1024)
       low_cut /= unit;
@@ -876,8 +227,8 @@ void TCheckStat::CheckValues() {
       high_cut /= unit;
 
     for (int i=0; i<nMiniruns; i++) {
-      double val1 = fVarValues[var1][i];
-      double val2 = fVarValues[var1][i];
+      double val1 = val_buff[var1][i];
+      double val2 = val_buff[var1][i];
 			double diff = abs(val1 - val2);
 
       if ( (low_cut  != 1024 && diff < low_cut)
@@ -892,9 +243,9 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> slope : fSlopes) {
     string dv = slope.first;
     string iv = slope.second;
-    double low_cut  = fSlopeCuts[slope].low;
-    double high_cut = fSlopeCuts[slope].high;
-    double burp_cut = fSlopeCuts[slope].burplevel;
+    double low_cut  = fSlopeCut[slope].low;
+    double high_cut = fSlopeCut[slope].high;
+    double burp_cut = fSlopeCut[slope].burplevel;
 
     double dunit = UNITS[GetUnit(dv)];
     double iunit = UNITS[GetUnit(iv)];
@@ -907,10 +258,10 @@ void TCheckStat::CheckValues() {
 
     double sum  = 0;
     double sum2 = 0;  // sum of square
-    double mean = fSlopeValues[slope][0];
-    double sigma = fSlopeErrs[slope][0];
+    double mean = fSlopeValue[mCut][slope][0];
+    double sigma = fSlopeErr[mCut][slope][0];
     for (int i=0; i<nMiniruns; i++) {
-      double val = fSlopeValues[slope][i];
+      double val = fSlopeValue[mCut][slope][i];
       if ( (low_cut  != 1024 && val < low_cut)
         || (high_cut != 1024 && val > high_cut)
         || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
@@ -929,8 +280,8 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> cor : fCors) {
     string yvar = cor.first;
     string xvar = cor.second;
-    double low_cut   = fCorCuts[cor].low;
-    double high_cut  = fCorCuts[cor].high;
+    double low_cut   = fCorCut[cor].low;
+    double high_cut  = fCorCut[cor].high;
     double xunit = UNITS[GetUnit(xvar)];
     double yunit = UNITS[GetUnit(yvar)];
     if (low_cut != 1024)
@@ -939,8 +290,8 @@ void TCheckStat::CheckValues() {
       high_cut /= (yunit/xunit);
     // const double 
     for (int i=0; i<nMiniruns; i++) {
-      double xval = fVarValues[xvar][i];
-      double yval = fVarValues[yvar][i];
+      double xval = val_buff[xvar][i];
+      double yval = val_buff[yvar][i];
 
 			/*
       if () {
@@ -955,7 +306,41 @@ void TCheckStat::CheckValues() {
 }
 
 void TCheckStat::Draw() {
-  c = new TCanvas("c", "c", 800, 600);
+	// make sure get err for mean values
+	for (string var : fVars) {
+		TString v = var;
+		if (v.EndsWith(".mean")) {
+			fVarStatType[var] = mean;
+			string err_var = var;	
+			err_var.replace(err_var.find(".mean"), 5, ".err");	
+			fVars.insert(err_var);	// add new elements while looping the set
+			fVarStatType[err_var] = err;
+		} else if (v.EndsWith(".hw_sum")) {
+			fVarStatType[var] = mean;
+			string err_var = var;	
+			err_var.replace(err_var.find(".hw_sum"), 7, ".hw_sum_err");
+			fVars.insert(err_var);
+			fVarStatType[err_var] = err;
+		} else if (v.EndsWith(".err") || v.EndsWith(".hw_sum_err")) {
+			fVarStatType[var] = err;
+		} else if (v.EndsWith(".rms") || v.EndsWith(".hw_sum_m2") ) {
+			fVarStatType[var] = rms;
+		} else {
+			cerr << FATAL << "unknow statistical for var: " << var << ENDL;
+			exit(204);
+		}
+	}
+
+	CheckRuns();
+	CheckVars();
+	GetValues();
+	ProcessValues();
+	// CheckValues();
+
+	if (nMiniruns > 100)
+		c = new TCanvas("c", "c", 1800, 600);
+	else 
+		c = new TCanvas("c", "c", 800, 600);
   c->SetGridy();
   gStyle->SetOptFit(111);
   gStyle->SetOptStat(1110);
@@ -967,9 +352,9 @@ void TCheckStat::Draw() {
     c->Print(Form("%s.pdf[", out_name));
 
   DrawSolos();
-  DrawSlopes();
-  DrawComps();
-  DrawCors();
+  // DrawSlopes();
+  // DrawComps();
+  // DrawCors();
 
   if (format == pdf)
     c->Print(Form("%s.pdf]", out_name));
@@ -979,11 +364,17 @@ void TCheckStat::Draw() {
 
 void TCheckStat::DrawSolos() {
   for (string solo : fSolos) {
-    string unit = GetUnit(solo);
+		string branch = fVarName[solo].first;
+		string leaf = fVarName[solo].second;
     string err_var;
-    bool mean = (fVarNames[solo].second == "mean");
-    if (mean)
-      err_var = fVarNames[solo].first + ".err";
+		bool meanflag = fVarStatType[solo] == mean;
+
+    if (meanflag) {
+			if (leaf.find("mean") != string::npos)
+				err_var = branch + ".err";
+			else if (leaf.find("hw_sum") != string::npos)
+				err_var = branch + ".hw_sum_err";
+		}
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bold = new TGraphErrors();
@@ -995,16 +386,16 @@ void TCheckStat::DrawSolos() {
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err=0;
-      val = fVarValues[solo][i];
-      if (mean) {
-        err = fVarValues[err_var][i];
+      val = val_buff[solo][i];
+      if (meanflag) {
+        err = val_buff[err_var][i];
       }
       g->SetPoint(i, i+1, val);
       g->SetPointError(i, 0, err);
 
-      int ipoint = g_flips[fSigns[fMiniruns[i].first]]->GetN();
-      g_flips[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
-      g_flips[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
+      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
+      g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
+      g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
 
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
         g_bold->SetPoint(ibold, i+1, val);
@@ -1018,10 +409,14 @@ void TCheckStat::DrawSolos() {
       }
     }
     g->GetXaxis()->SetRangeUser(0, nMiniruns+1);
+		string title = solo;
+		if (count(title.begin(), title.end(), '.') == 2) {
+			title = title.substr(title.find('.')+1);
+		}
     if (sign)
-      g->SetTitle((solo + " (sign corrected);;" + unit).c_str());
+      g->SetTitle((title + " (sign corrected);;" + fVarUnit[solo]).c_str());
     else
-      g->SetTitle((solo + ";;" + unit).c_str());
+      g->SetTitle((title + ";;" + fVarUnit[solo]).c_str());
     g_bold->SetMarkerStyle(21);
     g_bold->SetMarkerSize(1.3);
     g_bold->SetMarkerColor(kBlue);
@@ -1044,13 +439,13 @@ void TCheckStat::DrawSolos() {
 		cout << OUTPUT << solo << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
 
     TGraph * pull = NULL; 
-    if (mean) {
+    if (meanflag) {
       pull = new TGraph();
 
       for (int i=0; i<nMiniruns; i++) {
         double ratio = 0;
-        if (fVarValues[err_var][i]!= 0)
-          ratio = (fVarValues[solo][i]-mean_value)/fVarValues[err_var][i];
+        if (val_buff[err_var][i]!= 0)
+          ratio = (val_buff[solo][i]-mean_value)/val_buff[err_var][i];
 
         pull->SetPoint(i, i+1, ratio);
       }
@@ -1063,7 +458,7 @@ void TCheckStat::DrawSolos() {
     TPad * p1;
     TPad * p2;
     c->cd();
-    if (mean) {
+    if (meanflag) {
       p1 = new TPad("p1", "p1", 0.0, 0.35, 1.0, 1.0);
       p1->SetBottomMargin(0);
       p1->SetRightMargin(0.05);
@@ -1119,7 +514,7 @@ void TCheckStat::DrawSolos() {
     double labelSize = 0.03;
     double labelY = 0.16 * 0.5;
     double tickY = 0.16;
-    if (mean) {
+    if (meanflag) {
       labelSize = 0.05;
       labelY = 0.17*0.3;
       tickY = 0.17;
@@ -1141,7 +536,7 @@ void TCheckStat::DrawSolos() {
     ax->ChangeLabel(-1, -1, 0); // erase last label
     unsigned int nDivisions = nMiniruns + 1;
     if (nDivisions < 100) {
-      ax->SetNdivisions(nDivisions);
+      ax->SetNdivisions(-nDivisions);
       // ax->SetLabelOffset(0.02);
       for (int i=0; i<=nMiniruns; i++) {
         ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
@@ -1197,14 +592,14 @@ void TCheckStat::DrawSlopes() {
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err;
-      val = fSlopeValues[slope][i];
-      err = fSlopeErrs[slope][i];
+      val = fSlopeValue[mCut][slope][i];
+      err = fSlopeErr[mCut][slope][i];
       g->SetPoint(i, i+1, val);
       g->SetPointError(i, 0, err);
 
-      int ipoint = g_flips[fSigns[fMiniruns[i].first]]->GetN();
-      g_flips[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
-      g_flips[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
+      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
+      g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
+      g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
       
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
         g_bold->SetPoint(ibold, i+1, val);
@@ -1246,8 +641,8 @@ void TCheckStat::DrawSlopes() {
     TGraph * pull = new TGraph;
     for (int i=0; i<nMiniruns; i++) {
       double ratio = 0;
-      if (fSlopeErrs[slope][i] != 0)
-        ratio = (fSlopeValues[slope][i]-mean_value)/fSlopeErrs[slope][i];
+      if (fSlopeErr[mCut][slope][i] != 0)
+        ratio = (fSlopeValue[mCut][slope][i]-mean_value)/fSlopeErr[mCut][slope][i];
 
       pull->SetPoint(i, i+1, ratio);
     }
@@ -1365,16 +760,14 @@ void TCheckStat::DrawComps() {
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    string branch1 = fVarNames[var1].first;
-    string branch2 = fVarNames[var2].first;
+    string branch1 = fVarName[var1].first;
+    string branch2 = fVarName[var2].first;
     string name1 = branch1.substr(branch1.find_last_of('_')+1);
     string name2 = branch2.substr(branch2.find_last_of('_')+1);
 
     const char * err_var1 = Form("%s.err", branch1.c_str());
     const char * err_var2 = Form("%s.err", branch2.c_str());
-    bool mean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[var1].second) != mean_leaves.cend());
-
-    string unit = GetUnit(var1);
+    bool meanflag = fVarStatType[var1] == mean;
 
     TGraphErrors * g1 = new TGraphErrors();
     TGraphErrors * g2 = new TGraphErrors();
@@ -1400,11 +793,11 @@ void TCheckStat::DrawComps() {
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val1, err1=0;
       double val2, err2=0;
-      val1 = fVarValues[var1][i];
-      val2 = fVarValues[var2][i];
-      if (mean) {
-        err1 = fVarValues[err_var1][i];
-        err2 = fVarValues[err_var2][i];
+      val1 = val_buff[var1][i];
+      val2 = val_buff[var2][i];
+      if (meanflag) {
+        err1 = val_buff[err_var1][i];
+        err2 = val_buff[err_var2][i];
       }
       if (i==0) 
         min = max = val1;
@@ -1418,11 +811,11 @@ void TCheckStat::DrawComps() {
       g1->SetPointError(i, 0, err1);
       g2->SetPoint(i, i+1, val2);
       g2->SetPointError(i, 0, err2);
-      int ipoint = g_flips1[fSigns[fMiniruns[i].first]]->GetN();
-      g_flips1[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val1);
-      g_flips1[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err1);
-      g_flips2[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val2);
-      g_flips2[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err2);
+      int ipoint = g_flips1[fRunSign[fMiniruns[i].first]]->GetN();
+      g_flips1[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val1);
+      g_flips1[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err1);
+      g_flips2[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val2);
+      g_flips2[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err2);
       h_diff->SetBinContent(i+1, val1-val2);
       
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
@@ -1448,9 +841,9 @@ void TCheckStat::DrawComps() {
     h_diff->GetXaxis()->SetRangeUser(0, nMiniruns+1);
 
     if (sign)
-      g1->SetTitle(Form("%s & %s (sign corrected);;%s", var1.c_str(), var2.c_str(), unit.c_str()));
+      g1->SetTitle(Form("%s & %s (sign corrected);;%s", var1.c_str(), var2.c_str(), fVarUnit[var1]));
     else 
-      g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), unit.c_str()));
+      g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), fVarUnit[var1]));
     g_bold1->SetMarkerStyle(21);
     g_bold1->SetMarkerSize(1.3);
     g_bold1->SetMarkerColor(kBlue);
@@ -1614,13 +1007,11 @@ void TCheckStat::DrawCors() {
   for (pair<string, string> cor : fCors) {
     string xvar = cor.second;
     string yvar = cor.first;
-    string xbranch = fVarNames[xvar].first;
-    string ybranch = fVarNames[yvar].first;
-    string xunit = GetUnit(xvar);
-    string yunit = GetUnit(yvar);
+    string xbranch = fVarName[xvar].first;
+    string ybranch = fVarName[yvar].first;
 
-    bool xmean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[xvar].second) != mean_leaves.cend());
-    bool ymean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[yvar].second) != mean_leaves.cend());
+    bool xmeanflag = fVarStatType[xvar] == mean;
+    bool ymeanflag = fVarStatType[yvar] == mean;
     const char * xerr_var = Form("%s.err", xbranch.c_str());
     const char * yerr_var = Form("%s.err", ybranch.c_str());
 
@@ -1635,21 +1026,21 @@ void TCheckStat::DrawCors() {
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double xval, xerr=0;
       double yval, yerr=0;
-      xval = fVarValues[xvar][i];
-      yval = fVarValues[yvar][i];
-      if (xmean) {
-        xerr = fVarValues[xerr_var][i];
+      xval = val_buff[xvar][i];
+      yval = val_buff[yvar][i];
+      if (xmeanflag) {
+        xerr = val_buff[xerr_var][i];
       }
-      if (ymean) {
-        yerr = fVarValues[yerr_var][i];
+      if (ymeanflag) {
+        yerr = val_buff[yerr_var][i];
       }
 
       g->SetPoint(i, xval, yval);
       g->SetPointError(i, xerr, yerr);
       
-      int ipoint = g_flips[fSigns[fMiniruns[i].first]]->GetN();
-      g_flips[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, xval, yval);
-      g_flips[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, xerr, yerr);
+      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
+      g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, xval, yval);
+      g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, xerr, yerr);
 
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
         g_bold->SetPoint(ibold, xval, yval);
@@ -1664,9 +1055,9 @@ void TCheckStat::DrawCors() {
     }
     // g->GetXaxis()->SetRangeUser(0, nMiniruns+1);
     if (sign)
-      g->SetTitle((cor.first + " vs " + cor.second + " (sign corrected);" + xunit + ";" + yunit).c_str());
+      g->SetTitle((cor.first + " vs " + cor.second + " (sign corrected);" + fVarUnit[xvar] + ";" + fVarUnit[yvar]).c_str());
     else
-      g->SetTitle((cor.first + " vs " + cor.second + ";" + xunit + ";" + yunit).c_str());
+      g->SetTitle((cor.first + " vs " + cor.second + ";" + fVarUnit[xvar] + ";" + fVarUnit[yvar]).c_str());
     g_bold->SetMarkerStyle(20);
     g_bold->SetMarkerSize(1.3);
     g_bold->SetMarkerColor(kBlue);
@@ -1736,20 +1127,18 @@ void TCheckStat::DrawCors() {
 }
 
 const char * TCheckStat::GetUnit (string var) {
-  string branch = fVarNames[var].first;
-  string leaf   = fVarNames[var].second;
+  string branch = fVarName[var].first;
+  string leaf   = fVarName[var].second;
   if (branch.find("asym") != string::npos) {
-    if (find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend())
+    if (fVarStatType[var] == mean || fVarStatType[var] == err)
       return "ppb";
-    else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
+    else if (fVarStatType[var] == rms)
       return "ppm";
   } else if (branch.find("diff") != string::npos) {
-    if (find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend())
+    if (fVarStatType[var] == mean || fVarStatType[var] == err)
       return "nm";
-    else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
+    else if (fVarStatType[var] == rms)
       return "um";
-  } else {
-    return "";
   }
 	return "";
 }

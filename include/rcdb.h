@@ -13,7 +13,29 @@
 #include "line.h"
 #include "const.h"
 
-enum ARMFLAG {botharms=0, rightarm=1, leftarm=2};
+enum ARMFLAG {botharms=0, rightarm=1, leftarm=2, singlearm=3, allarms=4};
+enum IHWP {in_hwp=1, out_hwp=2, both_hwp=3 };
+enum WIENFLIP {wienleft=1, wienright=2, wienhorizontal=3, wienup=4, wiendown=8, wienvertical=12};
+map<ARMFLAG, const char *> afname = {
+	{botharms,	"both arms"},
+	{rightarm,	"right arm"},
+	{leftarm,		"left arm"},
+	{singlearm,	"single arm"},
+	{allarms,		"all arms"},
+};
+map<IHWP, const char *> ihwpname = {
+	{in_hwp,	"IN"},
+	{out_hwp,	"OUT"},
+	{both_hwp,"BOTH"},
+};
+map<WIENFLIP, const char *> wfname = {
+	{wienleft,	"FLIP-LEFT"},
+	{wienright,	"FLIP-RIGHT"},
+	{wienhorizontal,	"FLIP-HORIZONTAL"},
+	{wienup,		"Vertical(UP)"},
+	{wiendown,	"Vertical(DOWN)"},
+	{wienvertical,		"FLIP-VERTICAL"},
+};
 
 /* condition_type_id
  * 1    float_value   event_rate  
@@ -48,13 +70,15 @@ enum ARMFLAG {botharms=0, rightarm=1, leftarm=2};
  * 35    text_value   bmw
  * 36    text_value   feedback
  *
- * 38    text_value   flip_state  (FLIP-LEFT/FLIP-RIGHT)
+ * 38    text_value   flip_state  (FLIP-LEFT/FLIP-RIGHT/Vertical(UP)/Vertical(DOWN)/Longitudinal)
  * 39     int_value   arm_flag
  */
 
 using namespace std;
 
-ARMFLAG armflag = botharms;
+ARMFLAG garmflag = botharms;
+IHWP		gihwp		 = both_hwp;
+WIENFLIP gwienflip = wienhorizontal;
 
 MYSQL *con;
 MYSQL_RES  *res;
@@ -62,19 +86,21 @@ MYSQL_ROW   row;
 char query[256];
 
 void    StartConnection();
-void		SetArmFlag(const ARMFLAG f)	{armflag = f;}
-char *  GetExperiment(const int run);
+void		SetArmFlag(const ARMFLAG f)	{garmflag = f;}
+void		SetIHWP(const IHWP i) {gihwp = i;}
+void		SetWienFlip(const WIENFLIP w) {gwienflip = w;}
+char *  GetRunExperiment(const int run);
 char *  GetRunType(const int run);
 // float   GetRunCurrent(const int run);
 char *  GetRunFlag(const int run);
-char *  GetTarget(const int run);
-int     GetSlugNumber(const int run);
-int     GetArmFlag(const int run);
-char *  GetIHWP(const int run);
-char *  GetWienFlip(const int run);
+char *  GetRunTarget(const int run);
+int     GetRunSlugNumber(const int run);
+int     GetRunArmFlag(const int run);
+char *  GetRunIHWP(const int run);
+char *  GetRunWienFlip(const int run);
 void    GetValidRuns(set<int> &runs);
 set<int>  GetRunsFromSlug(const int slug);
-map<int, int> GetSign(set<int> runs);
+int			GetRunSign(const int run);
 void    EndConnection();
 void    RunTests();
 
@@ -95,7 +121,7 @@ void StartConnection() {
   }
 }
 
-char * GetExperiment(const int run) {
+char * GetRunExperiment(const int run) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
@@ -164,7 +190,7 @@ char * GetRunFlag(const int run) {
   return row[0];
 }
 
-char * GetTarget(const int run) {
+char * GetRunTarget(const int run) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
@@ -181,7 +207,7 @@ char * GetTarget(const int run) {
   return row[0];
 }
 
-int GetSlugNumber(const int run) {
+int GetRunSlugNumber(const int run) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return -1;
@@ -197,7 +223,7 @@ int GetSlugNumber(const int run) {
   return atoi(row[0]);
 }
 
-int GetArmFlag(const int run) {
+int GetRunArmFlag(const int run) {
   // 0: both
   // 1: right
   // 2: left
@@ -216,7 +242,7 @@ int GetArmFlag(const int run) {
   return atoi(row[0]);
 }
 
-char * GetIHWP(const int run) {
+char * GetRunIHWP(const int run) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
@@ -233,7 +259,7 @@ char * GetIHWP(const int run) {
   return row[0];
 }
 
-char * GetWienFlip(const int run) {
+char * GetRunWienFlip(const int run) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else." << ENDL;
     return NULL;
@@ -243,7 +269,7 @@ char * GetWienFlip(const int run) {
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);
   if (row == NULL) {
-    cerr << WARNING << "can't fetch slug number for run " << run << ENDL;
+    cerr << WARNING << "can't fetch wien flip for run " << run << ENDL;
     return NULL;
   }
   StripSpaces(row[0]);
@@ -255,37 +281,81 @@ void GetValidRuns(set<int> &runs) {
     cerr << ERROR << "please StartConnection before anything else" << ENDL;
     return;
   }
-	cout << INFO << "require arm flag = " << armflag << " ("
-		<< (armflag == botharms ? "botharms" : (armflag == leftarm ? "left" : "right"))
-		<< ")" << ENDL;
+	cout << INFO << "require arm flag:\t"		<< afname[garmflag] << ENDL;
+	cout << INFO << "require wien flip:\t"	<< wfname[gwienflip] << ENDL;
+	cout << INFO << "require ihwp state:\t" << ihwpname[gihwp] << ENDL;
 
   for(set<int>::const_iterator it=runs.cbegin(); it!=runs.cend(); ) {
     int run = *it;
-		int af = GetArmFlag(run);
 
-		if (af != botharms) {
-			if (af == leftarm) 
-				cerr << ALERT << "run-" << run << " ^^^^ Left arm running." << ENDL;
-			else if (af == rightarm)
-				cerr << ALERT << "run-" << run << " ^^^^ Right arm running." << ENDL;
-			else 
-				cerr << ERROR << "run-" << run << " ^^^^ unknown arm flag: " << af << ENDL;
+		// check run type and run flag
+    const char * t = (PREX_AT_START_RUN <= run && run <= PREX_AT_END_RUN) ? "A_T" : "Production";
+    char * type = GetRunType(run);
+    char * flag = GetRunFlag(run);
+    if (!type || strcmp(type, t) != 0 || !flag || (strcmp(flag, "Good") != 0 /* && strcmp(flag, "NeedCut") != 0 */)) {
+      cerr << WARNING << "run " << run << " is not a good production run, ignore it." << ENDL;
+      it = runs.erase(it);
+			continue;
+    }
 
-			if (af != armflag) {
-				cerr << WARNING << "run-" << run << " ^^^^ Unmatched run flag, ignore it." << ENDL;
+		// check armflag
+		ARMFLAG af = static_cast<ARMFLAG>(GetRunArmFlag(run));
+		if (af != botharms && af != leftarm && af != rightarm) {
+			cerr << FATAL << "run-" << run << " ^^^^ unknown arm flag: " << afname[af] << ENDL;
+			exit(404);
+		}
+		if (af != garmflag) {
+			if (	(garmflag == singlearm && af != leftarm && af != rightarm)
+					||(garmflag == allarms && af != botharms && af != leftarm && af != rightarm) ) {
+				cerr << WARNING << "run-" << run << " ^^^^ Unmatched run flag: " << afname[af] << ENDL;
 				it = runs.erase(it);
 				continue;
 			}
 		}
-			
-    const char * t = (PREX_AT_START_RUN <= run && run <= PREX_AT_END_RUN) ? "A_T" : "Production";
-    char * type = GetRunType(run);
-    char * flag = GetRunFlag(run);
-    if (!type || strcmp(type, t) != 0 || !flag || (strcmp(flag, "Good") != 0 && strcmp(flag, "NeedCut") != 0)) {
-      cerr << WARNING << "run " << run << " is not a good production run, ignore it." << ENDL;
+
+		// check ihwp and wien_flip
+		const char * ihwp = GetRunIHWP(run);
+		const char * wien_flip = GetRunWienFlip(run);
+		if (!ihwp || !wien_flip) {
+      cerr << WARNING << "ignore run " << run << ENDL;
       it = runs.erase(it);
-    } else
-      it++;
+			continue;
+		}
+		IHWP is = both_hwp;
+		WIENFLIP wf = wienhorizontal;
+		if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
+			wf = wienleft;
+		else if (strcmp(wien_flip, "FLIP-RIGHT") == 0)
+			wf = wienright;
+		else if (strcmp(wien_flip, "Vertical(UP)") == 0)
+			wf = wienup;
+		else if (strcmp(wien_flip, "Vertical(DOWN)") == 0)
+			wf = wiendown;
+		else {
+			cerr << FATAL << "run-" << run << " ^^^^ unknown flip state: " << wien_flip << ENDL;
+			exit(404);
+		}
+    if ((wf & gwienflip) == 0) {
+			cout << WARNING << "run-" << run << " ^^^^ Unmatched wien flip: " << wfname[wf] << ENDL;
+			it = runs.erase(it);
+			continue;
+		}
+
+		if (strcmp(ihwp, "IN") == 0)
+			is = in_hwp;
+		else if (strcmp(ihwp, "OUT") == 0)
+			is = out_hwp;
+		else {
+			cerr << FATAL << "run-" << run << " ^^^^ unknown ihwp state: " << ihwp << ENDL;
+			exit(404);
+		}
+    if ((is & gihwp) == 0) {
+			cout << WARNING << "run-" << run << " ^^^^ Unmatched ihwp: " << ihwpname[is] << ENDL;
+			it = runs.erase(it);
+			continue;            
+		}
+
+		it++;
   }
 }
 
@@ -307,61 +377,58 @@ set<int> GetRunsFromSlug(const int slug) {
   return runs;
 }
 
-map<int, int> GetSign(set<int> runs) {
+int GetRunSign(const int run) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else." << ENDL;
-    return map<int, int>();
+    return 0;
   }
 
-  map<int, int> signs;
+	int sign = 1;
   char * wien_flip;
   char * ihwp;
 
-  for(set<int>::const_iterator it=runs.cbegin(); it!=runs.cend(); it++) {
-    int run = *it;
-    signs[run] = 1; // initialization
-    sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=38", run);
-    mysql_query(con, query);
-    res = mysql_store_result(con);
-    row = mysql_fetch_row(res);
-    if (row == NULL) {
-      cerr << WARNING << "can't fetch wien flip for run " << run << ENDL;
-      signs[run] = 0;
-      continue;
-    }
-    wien_flip = row[0];
-    sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=20", run);
-    mysql_query(con, query);
-    res = mysql_store_result(con);
-    row = mysql_fetch_row(res);
-    if (row == NULL) {
-      cerr << WARNING << "can't fetch ihwp for run " << run << ENDL;
-      signs[run] = 0;
-      continue;
-    }
-    ihwp = row[0];
+	sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=38", run);
+	mysql_query(con, query);
+	res = mysql_store_result(con);
+	row = mysql_fetch_row(res);
+	if (row == NULL) {
+		cerr << WARNING << "can't fetch wien flip for run " << run << ENDL;
+		return 0;
+	}
+	wien_flip = row[0];
+	sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=20", run);
+	mysql_query(con, query);
+	res = mysql_store_result(con);
+	row = mysql_fetch_row(res);
+	if (row == NULL) {
+		cerr << WARNING << "can't fetch ihwp for run " << run << ENDL;
+		return 0;
+	}
+	ihwp = row[0];
 
-    if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
-      signs[run] = 1;
-    else if (strcmp(wien_flip, "FLIP-RIGHT") == 0)
-      signs[run] = -2;
-    else if (strcmp(wien_flip, "Vertical(UP)") == 0)
-      signs[run] = 3;
-    else if (strcmp(wien_flip, "Vertical(DOWN)") == 0)
-      signs[run] = -4;
-    else
-      signs[run] = 0; // unknow flip
+	if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
+		sign = 1;
+	else if (strcmp(wien_flip, "FLIP-RIGHT") == 0)
+		sign = -2;
+	else if (strcmp(wien_flip, "Vertical(UP)") == 0)
+		sign = 3;
+	else if (strcmp(wien_flip, "Vertical(DOWN)") == 0)
+		sign = -4;
+	else {
+		cerr << WARNING << "unknow flip state: " << wien_flip << ENDL;
+		return 0;
+	}
 
-    // if (strcmp
-    if (strcmp(ihwp, "IN") == 0)
-      signs[run] *= 1;
-    else if (strcmp(ihwp, "OUT") == 0)
-      signs[run] *= -1;
-    else
-      signs[run] = 0; // unknow flip
-  }
+	if (strcmp(ihwp, "IN") == 0)
+		sign *= -1;
+	else if (strcmp(ihwp, "OUT") == 0)
+		sign *= 1;
+	else {
+		cerr << WARNING << "unknow ihwp state: " << ihwp << ENDL;
+		return 0;
+	}
 
-  return signs;
+  return sign;
 }
 
 void EndConnection() {
@@ -379,10 +446,10 @@ void RunTests() {
   const int run = 6666;
   StartConnection();
   assert(strcmp(GetRunType(run), "Production") == 0);
-  assert(GetSlugNumber(run) == 145);
-  assert(GetArmFlag(run) == 0);
-  assert(strcmp(GetIHWP(run), "OUT") == 0);
-  assert(strcmp(GetWienFlip(run), "FLIP-LEFT") == 0);
+  assert(GetRunSlugNumber(run) == 145);
+  assert(GetRunArmFlag(run) == 0);
+  assert(strcmp(GetRunIHWP(run), "OUT") == 0);
+  assert(strcmp(GetRunWienFlip(run), "FLIP-LEFT") == 0);
   EndConnection();
   cerr << INFO << "Pass all tests." << ENDL;
 }

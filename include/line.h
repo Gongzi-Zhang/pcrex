@@ -27,11 +27,12 @@ bool IsInteger(const char *line);
 bool IsNumber(const char *line);
 int  Size(const char *line);
 int  Index(const char *line, const char c, const int start=0);
-pair<int, int> Index(const char *line, const char *sub, const int start=0);
+int	 Index(const char *line, const char *sub, const int start=0);
 int  Count(const char *line, const char c);
 bool Contain(const char *line, const char *sub, const int start=0);
 vector<char*> Split(const char *line);	// split on space (tab), all space will be regarded as one del.
 vector<char*> Split(const char *line, const char del);
+vector<char*> Split(const char *line, const char *del);
 char* Sub(const char *line, const int start=0);
 char* Sub(const char *line, const int start, const int length);
 void StringTests();
@@ -169,9 +170,11 @@ bool IsNumber(const char *line) {
   while (isdigit(line[i]))  // fractional part
     i++;
   
-  if (line[i] == 'e' || line[i] == 'E') 
+  if (line[i] == 'e' || line[i] == 'E') {
     i++;
-  else {	// non-digit char
+		if (line[i] == '\0')	// end with e/E
+			return false;
+	} else {	// non-digit char
     while (line[i] == ' ' || line[i] == '\t') // can only be space/tab
       i++;
 
@@ -185,7 +188,7 @@ bool IsNumber(const char *line) {
   if (line[i] == '+' || line[i] == '-')
     i++;
 
-  while (isdigit(line[i]))  // consider only integer exponents
+  while (isdigit(line[i]))  // consider only integer exponents, no dot in exponent part
     i++;
 
   while (line[i] == ' ' || line[i] == '\t')
@@ -232,21 +235,23 @@ int Index(const char *line, const char c, const int start) { // first index of c
     return i;
 }
 
-pair<int, int> Index(const char *line, const char *sub, const int start) {  // index of a sub string 
+int Index(const char *line, const char *sub, const int start) {  // index of a sub string 
   if (line == NULL) {
-    cerr << WARNING << "uninitialized line";
-    return {-2, -2};
+    cerr << WARNING << "uninitialized line" << ENDL;
+    return -2;
   }
 
-  if (sub == NULL)
-    return {start, start};
+  if (sub == NULL) {
+    cerr << WARNING << "uninitialized sub" << ENDL;
+    return -3;
+	}
   
   const int n = Size(line);
   const int m = Size(sub);
 
   if (abs(start) >= n) {
     cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
-    return {-3, -3};
+    return -4;
   }
 
   int i = start>=0 ? start : n+start;
@@ -264,12 +269,12 @@ pair<int, int> Index(const char *line, const char *sub, const int start) {  // i
         break;
     }
     if (j==m)
-      return {i, i+j};
+      return i;
     else 
       i += j;
   }
 
-  return {-1, -1};  // not fount
+  return -1;  // not fount
 }
 
 int Count(const char *line, const char c) {  // count the occurrance of char c in line
@@ -435,6 +440,28 @@ vector<char*> Split(const char *line, const char del) {
   return fields;
 }
 
+vector<char*> Split(const char *line, const char * del) {
+  vector<char*> fields;
+  if (line == NULL) {
+    cerr << WARNING << "uninitialized line";
+    return fields; // FIXME: what should be return?
+  }
+
+  int n=Size(line);
+	int m=Size(del);
+	int pi = 0;
+	int i = Index(line, del, pi);	// if del is null, return minus value
+	while (i>=pi) {
+		fields.push_back(Sub(line, pi, i-pi));
+		pi = i+m;
+		i = Index(line, del, pi);
+	}
+	if (line[pi] != '\0')
+		fields.push_back(Sub(line, pi));	// last field
+
+  return fields;
+}
+
 void StringTests() {
   const char * line = "hello, world";
   assert(IsEmpty(" \t ") == false);
@@ -448,7 +475,7 @@ void StringTests() {
   assert(Index(line, ',') == 5);
   assert(Index(line, ',', 6) == -1);
   assert(Index(line, ',', -4) == -1);
-  assert(Index(line, "world") == make_pair(7, 12));
+  assert(Index(line, "world") == 7);
   assert(Count(line, 'o') == 2);
   assert(Contain(line, "llo") == true);
   assert(Contain(line, "llo", 5) == false);

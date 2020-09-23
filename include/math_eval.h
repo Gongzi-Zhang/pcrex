@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cmath>
 #include <map>
+#include <set>
 #include <vector>
 #include "line.h"
 
@@ -66,6 +67,7 @@ map<ExpType, const char*> TypeName {
 map<string, double (*) ()> f0 = {  // function with 0 parameter
 };
 map<string, double (*) (double)> f1 = {  // function with 1 parameter
+	{"abs",		&abs},
   {"sqrt", &sqrt},
 };
 map<string, double (*) (double, double)> f2 = {  // function with 1 parameter
@@ -74,9 +76,10 @@ map<string, double (*) (double, double)> f2 = {  // function with 1 parameter
 
 Node * ParseExpression(const char *line);
 Node * SortToken (vector<Token> &vt);
+set<string> GetVariables(Node *node);
 // int GetPriority( const char *opt);
-void PrintTokenTree(Node *node);
-void DeleteTokenTree(Node *node);
+void PrintNode(Node *node);		// print node recursively
+void DeleteNode(Node *node);	// delete node recursively
 
 Node * ParseExpression(const char *line) {
   if (line == NULL) {
@@ -129,11 +132,11 @@ Node * ParseExpression(const char *line) {
         }
         break;
       // numbers
-      case '.': // dot can only be part of a number
-        if (pi != -1 && pt.type != number) {
-          cerr << ERROR << "dot can't be part of anything except number" << ENDL;
-          return NULL;
-        }
+      case '.': // dot can only show up in numbers or names
+        // if (pi != -1 && pt.type != number && pt.type != name) {
+        //   cerr << ERROR << "dot can't be part of anything except number or name" <<  ENDL;
+        //   return NULL;
+        // }
       case '0' ... '9':   // case range of value, this is an extension of gcc, not portable
         if (pi == -1) {
           pt.type = number;
@@ -168,9 +171,16 @@ Node * ParseExpression(const char *line) {
   if (__MATH_EVAL_DEBUG) {
     for (int i = 0; i<result.size(); i++)
       printf("%d\t%-10s\t%s\n", i+1, TypeName[result[i].type], result[i].value);
+		cout << endl;
   }
 
-  /* check tokens
+	/* token value check: currently not seperated from type check
+   * number token can have at most 1 dot, 1 [eE], no other alphabets
+	 * dot is not allowed in the exponential part of a number
+	 * variables can have at most 2 dots
+	 */
+
+  /* token type check 
    * operator token must be surrounded by other types of token (except +-): 
    *    * operator token can't be the first/last token (except +-)
    *    * no consecutive operator tokens: a + -b is also not allowed, write it as a + (-b)
@@ -178,7 +188,6 @@ Node * ParseExpression(const char *line) {
    *    * +- can be single operator, which must be followed by numbers
    * open_prt must have corresponding close_prt
    * close_prt can only be followed by separator, operator or another close_prt;
-   * number token can have at most 1 dot, 1 [eE], no other alphabets
    * number can only be followed by separator, close_prt, operator
    * functions are followed by (
    * function must be one of f1 or f2
@@ -201,130 +210,146 @@ Node * ParseExpression(const char *line) {
     else 
       nt = {null, ""};
 
-    if (t.type == opt) {
-      if (nt.type == null) {
-        cerr << ERROR << "exp. can't ended with operator: " << t.value 
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
+		switch (t.type) {
+			case opt:
+				if (nt.type == null) {
+					cerr << ERROR << "expression can't ended with operator: " << t.value 
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
 
-      if ( nt.type == opt    // two consecutive operators
-           || nt.type == separator  // operator followed by separator
-           || nt.type == close_prt )  // operator followed by closing parenthesis
-      {
-        cerr << ERROR << "invalid type following single operator: " << t.value << " " << nt.value 
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
-      
-      // is it single operator: first token, token after , or (
-      if (pt.type == null || pt.type == open_prt || pt.type == separator) {
-        if ( (strcmp(t.value, "+") != 0 && strcmp(t.value, "-") != 0) )
-        {
-          cerr << ERROR << "single operator can only be +/- and must be followed by numbers: " << t.value << " " << nt.value
-               << "\n\t" << line << ENDL;
-          return NULL;
-        }
+				if ( nt.type == opt    // two consecutive operators
+						 || nt.type == separator  // operator followed by separator
+						 || nt.type == close_prt )  // operator followed by closing parenthesis
+				{
+					cerr << ERROR << "invalid type following single operator: " << t.value << " " << nt.value 
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
+				
+				// is it single operator: first token, token after , or (
+				if (pt.type == null || pt.type == open_prt || pt.type == separator) {
+					if ( (strcmp(t.value, "+") != 0 && strcmp(t.value, "-") != 0) )
+					{
+						cerr << ERROR << "single operator can only be +/- and must be followed by numbers: " << t.value << " " << nt.value
+								 << "\n\t" << line << ENDL;
+						return NULL;
+					}
 
-        // insert 0 before single operator
-        it = result.insert(it, {number, "0"});
-        it++;
-      }
-    } else if (t.type == number) {
-      if (!IsNumber(t.value)) {
-        cerr << ERROR << "invalid number expr: " << t.value
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
+					// insert 0 before single operator
+					it = result.insert(it, {number, "0"});
+					it++;
+				}
+				break;
+			case number:
+				if (!IsNumber(t.value)) {	// value check
+					cerr << ERROR << "invalid number expr: " << t.value
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
 
-      if ( nt.type == name 
-           || nt.type == number
-           || (nt.type == separator && nfunc == 0) ) // followed by a separator, but not in a function
-      {
-        cerr << ERROR << "invalid type following number in: " << t.value << " " << nt.value
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
-    } else if (t.type == name) {
-      if ( nt.type == name
-           || nt.type == number )
-      {
-        cerr << ERROR << "name can't be followed by another name or number " << t.value << " " << nt.value
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
+				if ( nt.type == name 
+						 || nt.type == number
+						 || (nt.type == separator && nfunc == 0) ) // followed by a separator, but not in a function
+				{
+					cerr << ERROR << "invalid type following number in: " << t.value << " " << nt.value
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
+				break;
+			case name:
+				if ( nt.type == name
+						 || nt.type == number )
+				{
+					cerr << ERROR << "name can't be followed by another name or number " << t.value << " " << nt.value
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
 
-      if ( nt.type == open_prt ) {  // function
-        it->type = func;
-        param_buf.push_back(it_f.size());
-        it_f.push_back(it);
-        param.push_back(0);
-        nfunc++;
-      } else {  // variable
-        if (nt.type == separator && nfunc == 0) {
-          cerr << ERROR << "variable can't be followed by separator outside a funciton: " << t.value << " " << nt.value
-               << "\n\t" << line << ENDL;
-          return NULL;
-        }
-        it->type = variable;
-      }
-    } else if (t.type == separator) {
-      if (nfunc == 0) {        // separator outside of a function
-        cerr << ERROR << "separator must be within a function "
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
-      if ( nt.type == separator  // two consecutive separator
-           || nt.type == close_prt
-           || (nt.type == opt && strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) ) // non +/- operator
-      {
-        cerr << ERROR << "invalid type following separator : " << t.value << " " << nt.value
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
-      param[param_buf.back()]++;
-    } else if (t.type == open_prt) {
-      if ( (nt.type == opt && (strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) )
-           || nt.type == separator )
-      {
-        cerr << ERROR << "invalid type following ( : " << t.value << " " << nt.value
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
-      if (pt.type == func) {
-        prt_type.push_back(1);
-      } else {
-        prt_type.push_back(0);
-      }
-      nprt++;
-    } else if (t.type == close_prt) {
-      if (prt_type.size() == 0) {
-        cerr << ERROR << "more close prt. ) than opening prt. ( : "
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
+				if ( nt.type == open_prt ) {  // function
+					if (Contain(t.value, ".")) {
+						cerr << ERROR << "function name can't contain dot: " << t.value 
+								 << "\n\t" << line << ENDL;
+						return NULL;
+					}
+					it->type = func;
+					param_buf.push_back(it_f.size());
+					it_f.push_back(it);
+					param.push_back(0);
+					nfunc++;
+				} else {  // variable
+					if (Count(t.value, '.') > 2) {	// value check
+						cerr << ERROR << "invalid variable expression (at most 2 dots): " << t.value
+								 << "\n\t" << line << ENDL;
+						return NULL;
+					}
+					if (nt.type == separator && nfunc == 0) {
+						cerr << ERROR << "variable can't be followed by separator outside a funciton: " << t.value << " " << nt.value
+								 << "\n\t" << line << ENDL;
+						return NULL;
+					}
+					it->type = variable;
+				}
+				break;
+			case separator:
+				if (nfunc == 0) {        // separator outside of a function
+					cerr << ERROR << "separator must be within a function "
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
+				if ( nt.type == separator  // two consecutive separator
+						 || nt.type == close_prt
+						 || (nt.type == opt && strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) ) // non +/- operator
+				{
+					cerr << ERROR << "invalid type following separator : " << t.value << " " << nt.value
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
+				param[param_buf.back()]++;
+				break;
+			case open_prt:
+				if ( (nt.type == opt && (strcmp(nt.value, "+") != 0 && strcmp(nt.value, "-") != 0) )
+						 || nt.type == separator )
+				{
+					cerr << ERROR << "invalid type following ( : " << t.value << " " << nt.value
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
+				if (pt.type == func) {
+					prt_type.push_back(1);
+				} else {
+					prt_type.push_back(0);
+				}
+				nprt++;
+				break;
+			case close_prt:
+				if (prt_type.size() == 0) {
+					cerr << ERROR << "more close prt. ) than opening prt. ( : "
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
 
-      if ( nt.type == name
-           || nt.type == open_prt )
-      {
-        cerr << ERROR << "invalid type following ( : " << t.value << " " << nt.value
-             << "\n\t" << line << ENDL;
-        return NULL;
-      }
+				if ( nt.type == name
+						 || nt.type == open_prt )
+				{
+					cerr << ERROR << "invalid type following ) : " << t.value << " " << nt.value
+							 << "\n\t" << line << ENDL;
+					return NULL;
+				}
 
-      if (prt_type.back() == 1) {
-        param[param_buf.back()]++;
-        nfunc--;
-        param_buf.pop_back();
-      }
-      prt_type.pop_back();
-      nprt--;
-    } else {
-      cerr << ERROR << "unknown token type: " << t.type << " of value: " << t.value 
-           << "\n\t" << line << ENDL;
-      return NULL;
+				if (prt_type.back() == 1) {
+					param[param_buf.back()]++;
+					nfunc--;
+					param_buf.pop_back();
+				}
+				prt_type.pop_back();
+				nprt--;
+				break;
+			default:
+				cerr << ERROR << "unknown token type: " << t.type << " of value: " << t.value 
+						 << "\n\t" << line << ENDL;
+				return NULL;
     }
-
     pt = *it;
   }
 
@@ -375,12 +400,13 @@ Node * ParseExpression(const char *line) {
   }
 
   if (__MATH_EVAL_DEBUG) {
-  for (int i = 0; i<result.size(); i++)
-    printf("%d\t%-10s\t%s\n", i+1, TypeName[result[i].type], result[i].value);
+		for (int i = 0; i<result.size(); i++)
+			printf("%d\t%-10s\t%s\n", i+1, TypeName[result[i].type], result[i].value);
+		cout << endl;
   }
 
   Node * token_tree = SortToken(result);
-  // PrintTokenTree(token_tree);
+  // PrintNode(token_tree);
   return token_tree;
 }
 
@@ -496,14 +522,29 @@ Node * SortToken (vector<Token> &vt) {
   return pnode;
 }
 
+set<string> GetVariables(Node * node) {
+	set<string> vars;
+	if (node) {
+		if (node->token.type == variable)
+			vars.insert(node->token.value);
 
-void PrintTokenTree(Node * node) {
+		for(string var : GetVariables(node->lchild))
+			vars.insert(var);
+		for(string var : GetVariables(node->rchild))
+			vars.insert(var);
+		for(string var : GetVariables(node->sibling))
+			vars.insert(var);
+	}
+	return vars;
+}
+
+void PrintNode(Node * node) {
   switch ((node->token).type) {
     case opt:
       cout << "(";
-      PrintTokenTree(node->lchild);
+      PrintNode(node->lchild);
       cout << (node->token).value;
-      PrintTokenTree(node->rchild);
+      PrintNode(node->rchild);
       cout << ")";
       break;
     case function1:
@@ -513,11 +554,11 @@ void PrintTokenTree(Node * node) {
       node = node->lchild;
       if (node) {
         while (node->sibling) {
-          PrintTokenTree(node);
+          PrintNode(node);
           cout << ", ";
           node = node->sibling;
         }
-        PrintTokenTree(node);
+        PrintNode(node);
       }
       cout << ")";
       break;
@@ -530,6 +571,16 @@ void PrintTokenTree(Node * node) {
            << " from expression: " << ENDL;
       return;
   }
+}
+
+void DeleteNode(Node * node) {
+	if (node) {
+		DeleteNode(node->lchild);
+		DeleteNode(node->rchild);
+		DeleteNode(node->sibling);
+		delete node;
+		node = NULL;
+	}
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */
