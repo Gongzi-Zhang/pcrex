@@ -254,7 +254,7 @@ void TConfig::ParseRunFile() {
     exit(2);
   }
 
-  char line[20];
+  char line[MAX];
   int  nline = 0;
   while (ifs.getline(line, MAX)) {
     nline++;

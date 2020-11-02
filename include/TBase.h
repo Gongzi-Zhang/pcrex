@@ -60,7 +60,6 @@ class TBase {
 		const char *mCut	= "";	// main cut
     // bool logy         = false;
 		map<string, const char*> ftrees;	// friend trees: tree, file_name
-		map<string, const char*> real_trees;	// used trees
     vector<pair<long, long>> ecuts;
     vector<TCut> allCuts;	// including highlight cuts, only for TCheckRuns
 
@@ -142,6 +141,8 @@ class TBase {
 
 		 double get_custom_value(Node * node);
 		 virtual const char * GetUnit(string var);
+
+		 void PrintStatistics();	// auxiliary functions
 };
 
 // ClassImp(TBase);
@@ -331,6 +332,7 @@ void TBase::CheckVars() {
   while (it_r != fRuns.cend()) {
 		set<string> tmp_vars;
 		set<string> used_ftrees;
+		map<string, const char*> real_trees;	// real tree expression for alias
 
     int run = *it_r;
     const char * file_name = fRootFile[run][0].c_str();
@@ -380,9 +382,10 @@ void TBase::CheckVars() {
       string alias = pos > 0 ? StripSpaces(Sub(texp, 0, pos)) : texp;
       // const char *old_name = pos > 0 ? StripSpaces(Sub(texp, pos+1)) : texp;
 			if (real_trees.find(alias) != real_trees.end()) {
-				cout << WARNING << "repeated tree definition\n"
+				cerr << FATAL << "repeated tree definition\n"
 						 << "\told: " << real_trees[alias] << "\n"
 						 << "\tnew: " << texp << ENDL;
+				exit(404);
 			}
       real_trees[alias] = texp;
       // it is user's responsibility to make sure each tree has an unique name
@@ -490,11 +493,7 @@ void TBase::CheckVars() {
 			} 
 
 			fVarName[var] = make_pair(branch, leaf);
-			if (branch.find('.') != string::npos) {
-				used_ftrees.insert(StripSpaces(Sub(branch.c_str(), 0, branch.find('.'))));
-			} else {
-				used_ftrees.insert(bbuf->GetTree()->GetName());
-			}
+			used_ftrees.insert(bbuf->GetTree()->GetName());
 		}
 		tmp_vars.clear();
 
@@ -505,8 +504,12 @@ void TBase::CheckVars() {
 		}
 		for (map<string, const char*>::const_iterator it=ftrees.cbegin(); it!=ftrees.cend(); ) {
 			bool used = false;
+			string expr = it->first;
+			string tname = expr;
+			if (expr.find('=') != string::npos)
+				tname = expr.substr(expr.find('='));
 			for (auto const uftree : used_ftrees) {
-				if (real_trees[uftree] == it->first) {
+				if (uftree == tname) {
 					used = true;
 					break;
 				}
@@ -809,6 +812,10 @@ void TBase::GetValues() {
 				const int N = tin->Draw(">>elist", cut, "entrylist");
 				TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
 				cout << INFO << "use cut: " << cut << ENDL;
+				if (N == 0) {
+					cerr << WARNING << "run-" << run << " fails cut: " << cut << ENDL;
+					continue;
+				}
 				for(int n=0; n<N; n++) { // loop through the events
 					if (n % 50000 == 49999) 
 						cout << INFO << "read " << n+1 << " entries!" << ENDL;
@@ -973,6 +980,11 @@ const char * TBase::GetUnit (string var) {	// must return const char * to distin
 		return "mV";  // FIXME
 	else
 		return "";
+}
+
+void TBase::PrintStatistics() {
+	for (string var : fVars) 
+		printf("OUTPUT\t%s\t%13.9g\n", var.c_str(), fVarSum[var]);
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

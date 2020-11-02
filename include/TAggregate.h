@@ -26,8 +26,8 @@ TAggregate::TAggregate(const char * config_file, const char * run_list) :
 void TAggregate::SetOutDir(const char *dir) 
 {
 	if (!dir) {
-		cerr << WARNING << "Null out dir value, use default value: " << out_dir << ENDL;
-		return;
+		cerr << FATAL << "Null out dir value!" << ENDL;
+		exit(104);
 	}
 	out_dir = dir;
 }
@@ -36,6 +36,14 @@ void TAggregate::CheckOutDir()
 {
 	struct stat info;
 	if (stat(out_dir, &info) != 0) {
+		cerr << FATAL << "can't access specified dir: " << out_dir << ENDL;
+		exit(104);
+	} else if ( !(info.st_mode & S_IFDIR)) {
+		cerr << FATAL << "not a dir: " << out_dir << ENDL;
+		exit(104);
+	}
+	/*
+	if (stat(out_dir, &info) != 0) {
 		cerr << WARNING << "Out dir doesn't exist, create it." << ENDL;
 		int status = mkdir(out_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		if (status != 0) {
@@ -43,6 +51,7 @@ void TAggregate::CheckOutDir()
 			exit(44);
 		}
 	}
+	*/
 }
 
 void TAggregate::Aggregate()
@@ -134,25 +143,50 @@ void TAggregate::Aggregate()
         continue;
 
 			TFile fout(Form("%s/agg_minirun_%d_%03ld.root", out_dir, run, session), "update");
-			TTree * tout = new TTree("reg", "reg");
+			TTree * tout = (TTree*) fout.Get("mini");
+			bool update=true;	// update tree: add new branches
+			vector<TBranch *> brs;
+			if (!tout) {
+				tout = new TTree("mini", "mini");
+				tout->Branch("run", &run, "run/i");
+				tout->Branch("minirun", &mini, "minirun/i");
+				tout->Branch("num_samples", &num_samples, "num_samples/i");
+				update=false;
+			} 
 
 			for (string var : fVars) {
-				tout->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
+				if (tout->GetBranch(var.c_str())) {
+					fVars.erase(var);
+					continue;
+				} 
+				TBranch *b = tout->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
+				if (update)
+					brs.push_back(b);
 			}
 			for (string custom : fCustoms) {
-				tout->Branch(custom.c_str(), &stat[custom], "mean/D:err/D:rms/D");
+				if (tout->GetBranch(custom.c_str())) {
+					fVars.erase(custom);
+					continue;
+				} 
+				TBranch *b = tout->Branch(custom.c_str(), &stat[custom], "mean/D:err/D:rms/D");
+				if (update)
+					brs.push_back(b);
 			}
-			tout->Branch("run", &run, "run/i");
-			tout->Branch("minirun", &mini, "minirun/i");
-			tout->Branch("num_samples", &N, "num_samples/i");
 
 			mini = 0;
-			N	= tin->Draw(Form(">>elist%d", mini), Form("mini == %d && ok_cut", mini), "entrylist");
-			while (N >= 9000) {
-				cout << INFO << "minirun: " << mini << " of run: " << run << ENDL;
-				TEntryList *elist = (TEntryList*) gDirectory->Get(Form("elist%d", mini));
-				for (int n=0; n<9000; n++) {
-					const int en = elist->GetEntry(n);
+			N	= tin->Draw(">>elist", mCut, "entrylist");
+			TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
+			const int Nmini = N>9000 ? N/9000 : 1;
+			if (update && Nmini != tout->GetEntries()) {
+				cerr << ERROR << "Unmatch # of miniruns: "
+					<< "\told: " << tout->GetEntries() 
+					<< "\tnew: " << Nmini << ENDL;
+			}
+			for (mini=0; mini<Nmini; mini++) {
+				cout << INFO << "aggregate minirun: " << mini << " of run: " << run << ENDL;
+				num_samples = (mini == Nmini-1) ? N-9000*mini : 9000;
+				for (int n=0; n<num_samples; n++) {
+					const int en = elist->GetEntry(n+9000*mini);
 					for (string var : fVars) {
 						if (var.find("bpm11X") != string::npos && run < 3390)
 							continue;
@@ -170,28 +204,33 @@ void TAggregate::Aggregate()
 					}
 				}
 				for (string var : fVars) {
-					stat[var].mean = sum[var]/N;
-					stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/N)/(N-1));
-					stat[var].err = stat[var].rms / sqrt(N);
+					stat[var].mean = sum[var]/num_samples;
+					stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/num_samples)/(num_samples-1));
+					stat[var].err = stat[var].rms / sqrt(num_samples);
 					sum[var] = 0;
 					sum2[var] = 0;
 				}
 				for (string custom : fCustoms) {
-					stat[custom].mean = sum[custom]/N;
-					stat[custom].rms = sqrt((sum2[custom] - sum[custom]*sum[custom]/N)/(N-1));
-					stat[custom].err = stat[custom].rms / sqrt(N);
+					stat[custom].mean = sum[custom]/num_samples;
+					stat[custom].rms = sqrt((sum2[custom] - sum[custom]*sum[custom]/num_samples)/(num_samples-1));
+					stat[custom].err = stat[custom].rms / sqrt(num_samples);
 					sum[custom] = 0;
 					sum2[custom] = 0;
 				}
-				tout->Fill();
-				mini++;
-				N = tin->Draw(Form(">>elist%d", mini), Form("mini == %d && ok_cut", mini), "entrylist");
+				if (update) {
+					for (TBranch * b : brs)
+						b->Fill();
+				} else 
+					tout->Fill();
 			}
 
 			tin->Delete();
 			fin.Close();
 			fout.cd();
-			tout->Write();
+			if (update)
+				tout->Write("", TObject::kOverwrite);
+			else 
+				tout->Write();
 			tout->Delete();
 			fout.Close();
 		}

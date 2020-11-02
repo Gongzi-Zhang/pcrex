@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
   if (dconf) 
     cout << INFO << "use default config file: " << config_file << ENDL;
 
-  TCheckStat fCheckStat(config_file);
+  TCheckStat fCheckStat(config_file, run_list);
   if (out_format)
     fCheckStat.SetOutFormat(out_format);
   if (out_name)

@@ -15,19 +15,19 @@ io					:= include/io.h
 all: check mulplot checkruns runwise runinfo
 	@echo "compiling ... "
 
-check: src/Check.cxx include/TCheckStat.h $(TConfig) $(rcdb) $(line) $(const) $(io)
+check: src/Check.cxx include/TCheckStat.h $(TBase) $(TConfig) $(rcdb) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ src/Check.cxx $(root_libs) $(mysql_libs)
 
-checkruns: src/CheckRuns.cxx include/TCheckRuns.h $(TConfig) $(rcdb) $(line) $(const) $(io)
+checkruns: src/CheckRuns.cxx include/TCheckRuns.h $(TBase) $(TConfig) $(rcdb) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ src/CheckRuns.cxx $(root_libs) $(mysql_libs)
 
-mulplot: src/MulPlot.cxx include/TMulPlot.h $(TConfig) $(rcdb) $(line) $(const) $(io)
+mulplot: src/MulPlot.cxx include/TMulPlot.h $(TBase) $(TConfig) $(rcdb) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ src/MulPlot.cxx $(root_libs) $(mysql_libs)
 
 runwise: src/RunWise.cxx include/TRunWise.h $(TConfig) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ src/RunWise.cxx $(root_libs)
 
-aggregate: src/Aggregate.cxx include/TAggregate.h $(TBase) $(TConfig) $(line) $(const) $(io)
+aggregate: src/Aggregate.cxx include/TAggregate.h $(TBase) $(TConfig) $(rcdb) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ src/Aggregate.cxx $(root_libs) $(mysql_libs)
 
 runinfo: src/RunInfo.cxx $(rcdb) $(TRun) $(line) $(const) $(io)
@@ -41,6 +41,9 @@ math_eval: src/math_eval.cxx $(math_eval) $(line) $(io)
 
 test: src/test.cxx $(line) $(rcdb) $(TConfig) $(io)
 	g++ $(CXXFLAGS) -o $@ src/test.cxx $(root_libs) $(mysql_libs)
+
+tmp: src/tmp.cxx $(line) $(rcdb) $(TConfig) $(io) $(TBase)
+	g++ $(CXXFLAGS) -o $@ src/tmp.cxx $(root_libs) $(mysql_libs)
 
 plot:
 	tar czvf plots.tar.gz *.png 

@@ -13,8 +13,8 @@
 #include "line.h"
 #include "const.h"
 
-enum ARMFLAG {botharms=0, rightarm=1, leftarm=2, singlearm=3, allarms=4};
-enum IHWP {in_hwp=1, out_hwp=2, both_hwp=3 };
+enum ARMFLAG {botharms=0, rightarm=1, leftarm=2, singlearm=3, allarms=4, noarm=5};
+enum IHWP {in_hwp=1, out_hwp=2, both_hwp=3};
 enum WIENFLIP {wienleft=1, wienright=2, wienhorizontal=3, wienup=4, wiendown=8, wienvertical=12};
 map<ARMFLAG, const char *> afname = {
 	{botharms,	"both arms"},
@@ -22,6 +22,7 @@ map<ARMFLAG, const char *> afname = {
 	{leftarm,		"left arm"},
 	{singlearm,	"single arm"},
 	{allarms,		"all arms"},
+	{noarm,			"no arm"},
 };
 map<IHWP, const char *> ihwpname = {
 	{in_hwp,	"IN"},
@@ -114,7 +115,7 @@ void StartConnection() {
   }
   con = mysql_real_connect(con, "hallcdb.jlab.org", "rcdb", "", "a-rcdb", 3306, NULL, 0);
   if (con)
-    cerr << INFO << "Connection to database succeeded" << ENDL;
+    cout << INFO << "Connection to database succeeded" << ENDL;
   else {
     cerr << FATAL << "Connection to database failed" << ENDL;
     exit(11);
@@ -304,12 +305,15 @@ void GetValidRuns(set<int> &runs) {
 			cerr << FATAL << "run-" << run << " ^^^^ unknown arm flag: " << afname[af] << ENDL;
 			exit(404);
 		}
-		if (af != garmflag) {
-			if (	(garmflag == singlearm && af != leftarm && af != rightarm)
-					||(garmflag == allarms && af != botharms && af != leftarm && af != rightarm) ) {
-				cerr << WARNING << "run-" << run << " ^^^^ Unmatched run flag: " << afname[af] << ENDL;
-				it = runs.erase(it);
-				continue;
+		if (garmflag != noarm) {
+			if (af != garmflag) {
+				if (   (garmflag == botharms)	
+						|| ((garmflag == leftarm || garmflag==rightarm) && af != botharms)	// left/right arm include both arms
+						|| (garmflag == singlearm && af != leftarm && af != rightarm)) {
+					cerr << WARNING << "run-" << run << " ^^^^ Unmatched run flag: " << afname[af] << ENDL;
+					it = runs.erase(it);
+					continue;
+				}
 			}
 		}
 
@@ -433,7 +437,7 @@ int GetRunSign(const int run) {
 
 void EndConnection() {
   if (con) {
-    cerr << INFO << "Close Connection to database." << ENDL;
+    cout << INFO << "Close Connection to database." << ENDL;
     mysql_close(con);
   }
   con = NULL;

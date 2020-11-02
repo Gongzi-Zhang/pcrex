@@ -39,47 +39,59 @@
 #include "TConfig.h"
 #include "TBase.h"
 
-enum SType {mean, err, rms};	// statistical type
 
 map<int, const char *> legends = {
-  {-1,  "left in"},
-  {1,		"left out"},
-  {2,		"right in"},
-  {-2,  "right out"},
-  {-3,  "up in"},
-  {3,		"up out"},
-  {4,		"down in"},
-  {-4,  "down out"},
+  {1,   "left in"},
+  {-1,  "left out"},
+  {-2,  "right in"},
+  {2,   "right out"},
+  {3,   "up in"},
+  {-3,  "up out"},
+  {-4,  "down in"},
+  {4,   "down out"},
 };
+vector<string> mean_leaves = { "mean", "hw_sum" };
+vector<string> err_leaves  = { "err",  "hw_sum_err"};
+vector<string> rms_leaves  = { "rms",  "hw_sum_m2" };
 
 using namespace std;
 
-class TCheckStat : public TBase {
+class TCheckStat {
 
     // ClassDe (TCheckStat, 0) // check statistics
 
   private:
-		set<int> fBoldRuns;
-		int nBoldRuns;
     bool  sign = false;
     vector<int> flips;
+    int	  latest_run;
+    int	  nBoldRuns;
+    int	  nMiniruns;
 
-		map<string, SType> fVarStatType;
+    set<int> fRuns;
+    set<int> fSlugs;
+    set<int> fBoldRuns;
+    set<string>	  fVars;
+
+    map<int, vector<string>> fRootFiles;
+    map<string, string> fUnits;
+    map<pair<string, string>, pair<int, int>>	  fSlopeIndexes;
+
     vector<pair<int, int>> fMiniruns;
-		int nMiniruns;
     map<string, set<pair<int, int>>>  fSoloBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fCompBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fSlopeBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fCorBadMiniruns;
-
-		map<string, vector<double>>& val_buff = fVarValue[mCut];
+    map<string, vector<double>> fVarValues;
+    map<pair<string, string>, vector<double>> fSlopeValues;
+    map<pair<string, string>, vector<double>> fSlopeErrs;
 
   public:
-     TCheckStat(const char*, const char* run_list = NULL);
+     TCheckStat(const char *, const char *);
      ~TCheckStat();
+     void SetLatestRun(int run);
      void SetBoldRuns(set<int> runs);
      void SetSign() {sign = true;}
-		 void ProcessValues();
+     void GetValues();
      void CheckValues();
      void Draw();
      void DrawSolos();
@@ -96,16 +108,29 @@ class TCheckStat : public TBase {
 TCheckStat::TCheckStat(const char* config_file, const char *run_list) :
   TBase(config_file, run_list)
 {
-	program		= checkstatistics;
-	out_name	= "check";
-	// dir       = "/chafs2/work1/apar/postpan-outputs/";
-	// pattern   = "prexPrompt_xxxx_???_regress_postpan.root"; 
+	out_name  = "check";
+	// dir	      = "/chafs2/work1/apar/postpan-outputs/";
+	// pattern        = "prexPrompt_xxxx_???_regress_postpan.root"; 
 	// tree      = "mini";
-  fBoldRuns = fConf.GetBoldRuns();
 }
 
 TCheckStat::~TCheckStat() {
-  cout << INFO << "Release TCheckStat" << ENDL;
+  cerr << INFO << "Release TCheckStat" << ENDL;
+}
+
+void TCheckStat::SetLatestRun(int run) {
+  if (run < START_RUN || run > END_RUN) {
+    cerr << FATAL << "latest run is out of range (" 
+	 << START_RUN << "-" << END_RUN << "): " << run << ENDL;
+    exit(41);
+  }
+  char * type = GetRunType(run);
+  if (!type || strcmp(type, "Production") != 0) {
+    cerr << FATAL << "latest run is not a production run: " << run << ENDL;
+    exit(42);
+  }
+  latest_run = run;
+  check_latest_run = true;
 }
 
 void TCheckStat::SetBoldRuns(set<int> runs) {
@@ -120,71 +145,238 @@ void TCheckStat::SetBoldRuns(set<int> runs) {
   nBoldRuns = fBoldRuns.size();
 }
 
-void TCheckStat::ProcessValues() {
-	for (map<int, int>::const_iterator it = fRunSign.cbegin(); it!=fRunSign.cend(); it++) {
-		if (find(flips.cbegin(), flips.cend(), it->second) == flips.cend())
-			flips.push_back(it->second);
-	}
+void TCheckStat::CheckRuns() {
+  // check runs against database
+  if (check_latest_run) {
+    fRuns.clear();
+    fBoldRuns.clear();
+    fBoldRuns.insert(latest_run);
+    int i=0;
+    int run = latest_run - 1;
+    while (i<10 && run > START_RUN) { // get 10 valid runs before latest_run
+      char * type = GetRunType(run);
+			char * flag = GetRunFlag(run);
+      if (type && strcmp(type, "Production") == 0 && strcmp(flag, "Good") == 0) {
+        fRuns.insert(run);
+        i++;
+      }
+      run--;
+    }
+  } 
 
-	const vector<long>& entrynumber = fEntryNumber[mCut];
-	nMiniruns = entrynumber.size();
+  fSigns = GetSign(fRuns); // sign corrected
+  for (map<int, int>::const_iterator it = fSigns.cbegin(); it!=fSigns.cend(); it++) {
+    if (find(flips.cbegin(), flips.cend(), it->second) == flips.cend())
+      flips.push_back(it->second);
+  }
+}
 
-	{
-		int m = 0;
-		int pre = 0;	// previous run entries
-		for (int run : fRuns) {
-			while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
-				fMiniruns.push_back(make_pair(run, entrynumber[m]-pre));
-				m++;
-			}
-			pre = fRunEntries[run];
-		}
-	}
-	for (string var : fVars) {
-		// unit correction
-		fVarUnit[var] = GetUnit(var);
-		for (int m=0; m<nMiniruns; m++) {
-			val_buff[var][m] /= UNITS[fVarUnit[var]];
-		}
+void TCheckStat::CheckVars() {
+    if (nSlopes>0) {
+      rows = l_dv->size();
+      cols = l_iv->size();
+      slopes_buf = new double[rows*cols];
+      slopes_err_buf = new double[rows*cols];
+      // if (rows != ROWS || cols != COLS) {
+      //   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
+      //   exit(20);
+      // }
+      bool error_dv_flag = false;
+      bool error_iv_flag = false;
+      for (pair<string, string> slope : fSlopes) {
+        string dv = slope.first;
+        string iv = slope.second;
+        vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
+        vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
 
-		// sign correction: only for mean value
-		if (sign && fVarStatType[var] == mean) {
-			int m = 0;
-			for (int run : fRuns) {
-				while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
-					val_buff[var][m] *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0));
-					m++;
+        if (it_dv == l_dv->cend()) {
+          cerr << FATAL << "Invalid dv name for slope: " << dv << ENDL;
+          error_dv_flag = true;
+          break;
+        } 
+        if (it_iv == l_iv->cend()) {
+          cerr << FATAL << "Invalid iv name for slope: " << iv << ENDL;
+          error_iv_flag = true;
+          break;
+        }
+
+        fSlopeIndexes[slope] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
+      }
+      if (error_dv_flag) {
+        cout << DEBUG << "List of valid dv names:" << ENDL;
+        for (TString dv : (*l_dv)) 
+          cout << "\t" << dv.Data() << endl;
+
+        exit(24);
+      }
+      if (error_iv_flag) {
+        cout << DEBUG << "List of valid dv names:" << ENDL;
+        for (TString iv : (*l_iv)) 
+          cout << "\t" << iv.Data() << endl;
+
+        exit(24);
+      }
+    }
+    tin->Delete();
+    f_rootfile->Close();
+    break;
+
+  cout << INFO << "" << nSlopes << " valid slopes specified:" << ENDL;
+  for(pair<string, string> slope : fSlopes) {
+    cout << "\t" << slope.first << " vs " << slope.second << endl;
+  }
+}
+
+void TCheckStat::GetValues() {
+  for (int run : fRuns) {
+    const size_t sessions = fRootFiles[run].size();
+    for (size_t session=0; session<sessions; session++) {
+      const char * file_name = fRootFiles[run][session].c_str();
+      TFile f_rootfile(file_name, "read");
+      if (!f_rootfile.IsOpen()) {
+        cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
+				f_rootfile.Close();
+        continue;
+      }
+
+      cout << INFO << Form("Read run: %d, session: %03ld\t", run, session)
+           << file_name << ENDL;
+      TTree * tin = (TTree*) f_rootfile.Get(tree); // receive minitree
+      if (! tin) {
+        cerr << ERROR << "No such tree: " << tree << " in root file: " << file_name << ENDL;
+        f_rootfile.Close();
+        continue;
+      }
+			for (auto const ftree : ftrees) {
+				string file_name = ftree.second;
+				if (file_name.find("xxxx") != string::npos)
+					file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+				if (file_name.size()) {
+					glob_t globbuf;
+					glob(file_name.c_str(), 0, NULL, &globbuf);
+					if (globbuf.gl_pathc != sessions) {
+						cerr << ERROR << "run-" << run << " ^^^^ unmatched friend tree root files: " << endl 
+								 << "\t" << sessions << "main root files vs " 
+								 << globbuf.gl_pathc << " friend tree root files" << ENDL; 
+						continue;
+					}
+					file_name = globbuf.gl_pathv[session];
+					globfree(&globbuf);
 				}
+				tin->AddFriend(ftree.first.c_str(), file_name.c_str());	// FIXME: what if the friend tree doesn't exist
 			}
-		}
-	}
 
-	for (string var : fVars) {	// weight raw det asym with lagr. det asym error
-		TString v = var;
-		if (v.CountChar('.') == 2)
-			v = var.substr(var.find('.')+1);
-		if (	 v == "asym_us_avg.err"
-				|| v == "asym_bcm_target.err"	
-				|| v == "asym_bcm_target.hw_sum_err"	
-				|| (var.find("diff_bpm") != string::npos && (v.EndsWith(".hw_sum_err") || v.EndsWith(".err"))))
-		{
-      int m = 0;
-			for (int run : fRuns) {
-				while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
-					val_buff[var][m] = val_buff["lagr_asym_us_avg.err"][m];	// weighted by lagr_asym_us_avg err bar
-					m++;
-				}
-			}
-		}
-	}
+      bool error = false;
+      // minirun
+      set<const char *> mini_names = {"minirun", "mini", "miniruns"};
+      TBranch * b_minirun = NULL;
+      for (const char * mini_name : mini_names) {
+        if (!b_minirun)
+          b_minirun = tin->GetBranch(mini_name);
+        if (b_minirun) 
+          break;
+      }
+      TLeaf *l_minirun;
+      if (!b_minirun) {
+        cerr << WARNING << "no minirun branch in tree: " << tree 
+          << " of file: " << file_name << endl
+          << "\t will use entry number as minrun number" << ENDL;
+        // continue;
+      } else {
+        l_minirun = (TLeaf *)b_minirun->GetListOfLeaves()->At(0);
+      }
+
+      for (string var : fVars) {
+        string branch = fVarNames[var].first;
+        string leaf   = fVarNames[var].second;
+        TBranch * br = tin->GetBranch(branch.c_str());
+        if (!br) {
+          cerr << ERROR << "no branch: " << branch << " in tree: " << tree
+            << " of file: " << file_name << ENDL;
+          error = true;
+          break;
+        }
+        TLeaf * l = br->GetLeaf(leaf.c_str());
+        if (!l) {
+          cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch 
+            << " in tree: " << tree << " of file: " << file_name << ENDL;
+          error = true;
+          break;
+        }
+        fVarLeaves[var] = l;
+      }
+
+      if (error)
+        continue;
+
+      if (nSlopes > 0) {
+        tin->SetBranchAddress("coeff", slopes_buf);
+        tin->SetBranchAddress("err_coeff", slopes_err_buf);
+      }
+
+      const int nentries = tin->GetEntries();  // number of miniruns
+      for(int n=0; n<nentries; n++) { // loop through the miniruns
+        tin->GetEntry(n);
+
+        if (l_minirun) {
+          l_minirun->GetBranch()->GetEntry(n);
+          fMiniruns.push_back(make_pair(run, l_minirun->GetValue()));
+        } else {
+          fMiniruns.push_back(make_pair(run, n));
+        }
+        for (string var : fVars) {
+          double value;
+          double unit = 1;
+          string leaf = fVarNames[var].second;
+          if (var.find("asym") != string::npos) {
+            if (  find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend()
+               || find(err_leaves.cbegin(), err_leaves.cend(), leaf) != err_leaves.cend())
+              unit = ppb;
+            else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
+              unit = ppm;
+          }
+          else if (var.find("diff")) {
+            if (  find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend()
+               || find(err_leaves.cbegin(), err_leaves.cend(), leaf) != err_leaves.cend())
+              unit = um/mm;
+            else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
+              unit = mm/mm;
+          }
+
+          fVarLeaves[var]->GetBranch()->GetEntry(n);
+          value = fVarLeaves[var]->GetValue() / unit;
+          if (sign) {
+            if (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[var].second) != mean_leaves.cend()) {
+              if (fSigns[run] == 0)
+                value = 0;
+              else 
+                value *= (fSigns[run] > 0 ? 1 : -1);
+            }
+          }
+          fVarValues[var].push_back(value);
+        }
+        for (pair<string, string> slope : fSlopes) {
+          double unit = ppm/(um/mm);
+          fSlopeValues[slope].push_back(slopes_buf[fSlopeIndexes[slope].first*cols+fSlopeIndexes[slope].second]/unit);
+          fSlopeErrs[slope].push_back(slopes_err_buf[fSlopeIndexes[slope].first*cols+fSlopeIndexes[slope].second]/unit);
+        }
+      }
+
+      tin->Delete();
+      f_rootfile.Close();
+    }
+  }
+  nMiniruns = fMiniruns.size();
+
+  cout << INFO << "Read " << nMiniruns << " miniruns in total" << ENDL;
 }
 
 void TCheckStat::CheckValues() {
   for (string solo : fSolos) {
-    double low_cut  = fSoloCut[solo].low;
-    double high_cut = fSoloCut[solo].high;
-    double burp_cut = fSoloCut[solo].burplevel;
-    double unit = UNITS[fVarUnit[solo]];
+    double low_cut  = fSoloCuts[solo].low;
+    double high_cut = fSoloCuts[solo].high;
+    double burp_cut = fSoloCuts[solo].burplevel;
+    double unit = UNITS[GetUnit(solo)];
     if (low_cut != 1024)
       low_cut /= unit;
     if (high_cut != 1024)
@@ -196,7 +388,7 @@ void TCheckStat::CheckValues() {
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
     for (int i=0; i<nMiniruns; i++) {
-      double val = val_buff[solo][i];
+      double val = fVarValues[solo][i];
 
       if (i == 0) {
         mean = val;
@@ -208,6 +400,8 @@ void TCheckStat::CheckValues() {
         || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
         cout << ALERT << "bad datapoint in " << solo
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
+        if (find(fSoloPlots.cbegin(), fSoloPlots.cend(), solo) == fSoloPlots.cend())
+          fSoloPlots.push_back(solo);
         fSoloBadMiniruns[solo].insert(fMiniruns[i]);
       }
 
@@ -221,8 +415,8 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-    double low_cut  = fCompCut[comp].low;
-    double high_cut = fCompCut[comp].high;
+    double low_cut  = fCompCuts[comp].low;
+    double high_cut = fCompCuts[comp].high;
     double unit = UNITS[GetUnit(var1)];
     if (low_cut != 1024)
       low_cut /= unit;
@@ -230,14 +424,16 @@ void TCheckStat::CheckValues() {
       high_cut /= unit;
 
     for (int i=0; i<nMiniruns; i++) {
-      double val1 = val_buff[var1][i];
-      double val2 = val_buff[var1][i];
+      double val1 = fVarValues[var1][i];
+      double val2 = fVarValues[var1][i];
 			double diff = abs(val1 - val2);
 
       if ( (low_cut  != 1024 && diff < low_cut)
         || (high_cut != 1024 && diff > high_cut)) {
         cout << ALERT << "bad datapoint in Comp: " << var1 << " vs " << var2 
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
+        if (find(fCompPlots.cbegin(), fCompPlots.cend(), comp) == fCompPlots.cend())
+          fCompPlots.push_back(comp);
         fCompBadMiniruns[comp].insert(fMiniruns[i]);
       }
     }
@@ -246,9 +442,9 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> slope : fSlopes) {
     string dv = slope.first;
     string iv = slope.second;
-    double low_cut  = fSlopeCut[slope].low;
-    double high_cut = fSlopeCut[slope].high;
-    double burp_cut = fSlopeCut[slope].burplevel;
+    double low_cut  = fSlopeCuts[slope].low;
+    double high_cut = fSlopeCuts[slope].high;
+    double burp_cut = fSlopeCuts[slope].burplevel;
 
     double dunit = UNITS[GetUnit(dv)];
     double iunit = UNITS[GetUnit(iv)];
@@ -261,15 +457,17 @@ void TCheckStat::CheckValues() {
 
     double sum  = 0;
     double sum2 = 0;  // sum of square
-    double mean = fSlopeValue[mCut][slope][0];
-    double sigma = fSlopeErr[mCut][slope][0];
+    double mean = fSlopeValues[slope][0];
+    double sigma = fSlopeErrs[slope][0];
     for (int i=0; i<nMiniruns; i++) {
-      double val = fSlopeValue[mCut][slope][i];
+      double val = fSlopeValues[slope][i];
       if ( (low_cut  != 1024 && val < low_cut)
         || (high_cut != 1024 && val > high_cut)
         || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
         cout << ALERT << "bad datapoint in slope: " << slope.first << " vs " << slope.second 
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
+        if (find(fSlopePlots.cbegin(), fSlopePlots.cend(), slope) == fSlopePlots.cend())
+          fSlopePlots.push_back(slope);
         fSlopeBadMiniruns[slope].insert(fMiniruns[i]);
       }
 
@@ -283,8 +481,8 @@ void TCheckStat::CheckValues() {
   for (pair<string, string> cor : fCors) {
     string yvar = cor.first;
     string xvar = cor.second;
-    double low_cut   = fCorCut[cor].low;
-    double high_cut  = fCorCut[cor].high;
+    double low_cut   = fCorCuts[cor].low;
+    double high_cut  = fCorCuts[cor].high;
     double xunit = UNITS[GetUnit(xvar)];
     double yunit = UNITS[GetUnit(yvar)];
     if (low_cut != 1024)
@@ -293,13 +491,15 @@ void TCheckStat::CheckValues() {
       high_cut /= (yunit/xunit);
     // const double 
     for (int i=0; i<nMiniruns; i++) {
-      double xval = val_buff[xvar][i];
-      double yval = val_buff[yvar][i];
+      double xval = fVarValues[xvar][i];
+      double yval = fVarValues[yvar][i];
 
 			/*
       if () {
         cout << ALERT << "bad datapoint in Cor: " << yvar << " vs " << xvar 
              << " in run: " << fMiniruns[i].first << "." << fMiniruns[i].second << ENDL;
+        if (find(fCorPlots.cbegin(), fCorPlots.cend(), *it) == fCorPlots.cend())
+          fCorPlots.push_back(*it);
         fCorBadMiniruns[*it].insert(fMiniruns[i]);
       }
 			*/
@@ -309,41 +509,7 @@ void TCheckStat::CheckValues() {
 }
 
 void TCheckStat::Draw() {
-	// make sure get err for mean values
-	for (string var : fVars) {
-		TString v = var;
-		if (v.EndsWith(".mean")) {
-			fVarStatType[var] = mean;
-			string err_var = var;	
-			err_var.replace(err_var.find(".mean"), 5, ".err");	
-			fVars.insert(err_var);	// add new elements while looping the set
-			fVarStatType[err_var] = err;
-		} else if (v.EndsWith(".hw_sum")) {
-			fVarStatType[var] = mean;
-			string err_var = var;	
-			err_var.replace(err_var.find(".hw_sum"), 7, ".hw_sum_err");
-			fVars.insert(err_var);
-			fVarStatType[err_var] = err;
-		} else if (v.EndsWith(".err") || v.EndsWith(".hw_sum_err")) {
-			fVarStatType[var] = err;
-		} else if (v.EndsWith(".rms") || v.EndsWith(".hw_sum_m2") ) {
-			fVarStatType[var] = rms;
-		} else {
-			cerr << WARNING << "unknow statistical for var: " << var << ENDL;
-			// exit(204);
-		}
-	}
-
-	CheckRuns();
-	CheckVars();
-	GetValues();
-	ProcessValues();
-	// CheckValues();
-
-	if (nMiniruns > 100)
-		c = new TCanvas("c", "c", 1800, 600);
-	else 
-		c = new TCanvas("c", "c", 800, 600);
+  c = new TCanvas("c", "c", 800, 600);
   c->SetGridy();
   gStyle->SetOptFit(111);
   gStyle->SetOptStat(1110);
@@ -355,9 +521,9 @@ void TCheckStat::Draw() {
     c->Print(Form("%s.pdf[", out_name));
 
   DrawSolos();
-  // DrawSlopes();
-  // DrawComps();
-  // DrawCors();
+  DrawSlopes();
+  DrawComps();
+  DrawCors();
 
   if (format == pdf)
     c->Print(Form("%s.pdf]", out_name));
@@ -366,18 +532,12 @@ void TCheckStat::Draw() {
 }
 
 void TCheckStat::DrawSolos() {
-  for (string solo : fSolos) {
-		string branch = fVarName[solo].first;
-		string leaf = fVarName[solo].second;
+  for (string solo : fSoloPlots) {
+    string unit = GetUnit(solo);
     string err_var;
-		bool meanflag = fVarStatType[solo] == mean;
-
-    if (meanflag) {
-			if (leaf.find("mean") != string::npos)
-				err_var = branch + ".err";
-			else if (leaf.find("hw_sum") != string::npos)
-				err_var = branch + ".hw_sum_err";
-		}
+    bool mean = (fVarNames[solo].second == "mean");
+    if (mean)
+      err_var = fVarNames[solo].first + ".err";
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bold = new TGraphErrors();
@@ -389,16 +549,16 @@ void TCheckStat::DrawSolos() {
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err=0;
-      val = val_buff[solo][i];
-      if (meanflag) {
-        err = val_buff[err_var][i];
+      val = fVarValues[solo][i];
+      if (mean) {
+        err = fVarValues[err_var][i];
       }
       g->SetPoint(i, i+1, val);
       g->SetPointError(i, 0, err);
 
-      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
-      g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
-      g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
+      int ipoint = g_flips[fSigns[fMiniruns[i].first]]->GetN();
+      g_flips[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
+      g_flips[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
 
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
         g_bold->SetPoint(ibold, i+1, val);
@@ -412,14 +572,10 @@ void TCheckStat::DrawSolos() {
       }
     }
     g->GetXaxis()->SetRangeUser(0, nMiniruns+1);
-		string title = solo;
-		if (count(title.begin(), title.end(), '.') == 2) {
-			title = title.substr(title.find('.')+1);
-		}
     if (sign)
-      g->SetTitle((title + " (sign corrected);;" + fVarUnit[solo]).c_str());
+      g->SetTitle((solo + " (sign corrected);;" + unit).c_str());
     else
-      g->SetTitle((title + ";;" + fVarUnit[solo]).c_str());
+      g->SetTitle((solo + ";;" + unit).c_str());
     g_bold->SetMarkerStyle(21);
     g_bold->SetMarkerSize(1.3);
     g_bold->SetMarkerColor(kBlue);
@@ -439,16 +595,15 @@ void TCheckStat::DrawSolos() {
     g->Fit("pol0");
     TF1 * fit= g->GetFunction("pol0");
     double mean_value = fit->GetParameter(0);
-		cout << OUTPUT << solo << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
 
     TGraph * pull = NULL; 
-    if (meanflag) {
+    if (mean) {
       pull = new TGraph();
 
       for (int i=0; i<nMiniruns; i++) {
         double ratio = 0;
-        if (val_buff[err_var][i]!= 0)
-          ratio = (val_buff[solo][i]-mean_value)/val_buff[err_var][i];
+        if (fVarValues[err_var][i]!= 0)
+          ratio = (fVarValues[solo][i]-mean_value)/fVarValues[err_var][i];
 
         pull->SetPoint(i, i+1, ratio);
       }
@@ -461,7 +616,7 @@ void TCheckStat::DrawSolos() {
     TPad * p1;
     TPad * p2;
     c->cd();
-    if (meanflag) {
+    if (mean) {
       p1 = new TPad("p1", "p1", 0.0, 0.35, 1.0, 1.0);
       p1->SetBottomMargin(0);
       p1->SetRightMargin(0.05);
@@ -514,18 +669,9 @@ void TCheckStat::DrawSolos() {
     TAxis * ax = g->GetXaxis();
     TAxis * ay = g->GetYaxis();
 
-    double labelSize = 0.03;
-    double labelY = 0.16 * 0.5;
-    double tickY = 0.16;
-    if (meanflag) {
-      labelSize = 0.05;
-      labelY = 0.17*0.3;
-      tickY = 0.17;
+    if (mean) {
       g->GetXaxis()->SetLabelSize(0);
-      if (nMiniruns + 1 < 100)
-        g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
-      else 
-        g->GetXaxis()->SetNdivisions(0);
+      g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
 
       p2->cd();
       pull->SetFillColor(kGreen);
@@ -534,33 +680,12 @@ void TCheckStat::DrawSolos() {
       ax = pull->GetXaxis();
     }
 
-    ax->SetNdivisions(-0);
+    ax->SetNdivisions(-(nMiniruns+1));
     ax->ChangeLabel(1, -1, 0);  // erase first label
     ax->ChangeLabel(-1, -1, 0); // erase last label
-    unsigned int nDivisions = nMiniruns + 1;
-    if (nDivisions < 100) {
-      ax->SetNdivisions(-nDivisions);
-      // ax->SetLabelOffset(0.02);
-      for (int i=0; i<=nMiniruns; i++) {
-        ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
-      }
-    } else {
-      ax->SetLabelSize(0);  // remove old labels
-      for (int i=0; i<nMiniruns; i++) {
-        if (fMiniruns[i].second == 0) {
-          TText * label = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), labelY, Form("%d", fMiniruns[i].first));
-          label->SetNDC();
-          label->SetTextAngle(90);
-          label->SetTextSize(labelSize);
-          label->SetTextAlign(12);
-          label->Draw();
-          TText * tick = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), tickY*1.02, "|");
-          tick->SetNDC();
-          tick->SetTextAlign(21);
-          tick->SetTextSize(labelSize*0.8);
-          tick->Draw();
-        }
-      }
+    // ax->SetLabelOffset(0.02);
+    for (int i=0; i<=nMiniruns; i++) {
+      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
     }
 
     double min = ay->GetXmin();
@@ -583,7 +708,7 @@ void TCheckStat::DrawSolos() {
 }
 
 void TCheckStat::DrawSlopes() {
-  for (pair<string, string> slope : fSlopes) {
+  for (pair<string, string> slope : fSlopePlots) {
     string unit = "ppb/nm";
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bold = new TGraphErrors();
@@ -595,14 +720,14 @@ void TCheckStat::DrawSlopes() {
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err;
-      val = fSlopeValue[mCut][slope][i];
-      err = fSlopeErr[mCut][slope][i];
+      val = fSlopeValues[slope][i];
+      err = fSlopeErrs[slope][i];
       g->SetPoint(i, i+1, val);
       g->SetPointError(i, 0, err);
 
-      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
-      g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
-      g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
+      int ipoint = g_flips[fSigns[fMiniruns[i].first]]->GetN();
+      g_flips[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
+      g_flips[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
       
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
         g_bold->SetPoint(ibold, i+1, val);
@@ -644,8 +769,8 @@ void TCheckStat::DrawSlopes() {
     TGraph * pull = new TGraph;
     for (int i=0; i<nMiniruns; i++) {
       double ratio = 0;
-      if (fSlopeErr[mCut][slope][i] != 0)
-        ratio = (fSlopeValue[mCut][slope][i]-mean_value)/fSlopeErr[mCut][slope][i];
+      if (fSlopeErrs[slope][i] != 0)
+        ratio = (fSlopeValues[slope][i]-mean_value)/fSlopeErrs[slope][i];
 
       pull->SetPoint(i, i+1, ratio);
     }
@@ -669,10 +794,7 @@ void TCheckStat::DrawSlopes() {
 
     p1->cd();
     g->GetXaxis()->SetLabelSize(0);
-    if (nMiniruns + 1 < 100)
-      g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
-    else 
-      g->GetXaxis()->SetNdivisions(-0);
+    g->GetXaxis()->SetNdivisions(-(nMiniruns+1));
     g->Draw("AP");
     p1->Update();
     st = (TPaveStats *) g->FindObject("stats");
@@ -712,37 +834,11 @@ void TCheckStat::DrawSlopes() {
     pull->SetLineColor(kGreen);
     pull->Draw("AB");
     TAxis * ax = pull->GetXaxis();
-
-    double labelSize = 0.05;
-    double labelY = 0.17*0.3;
-    double tickY = 0.17;
-    ax->SetNdivisions(-0);
+    ax->SetNdivisions(-(nMiniruns+1));
     ax->ChangeLabel(1, -1, 0);  // erase first label
     ax->ChangeLabel(-1, -1, 0); // erase last label
-    unsigned int nDivisions = nMiniruns + 1;
-    if (nDivisions < 100) {
-      ax->SetNdivisions(nDivisions);
-      // ax->SetLabelOffset(0.02);
-      for (int i=0; i<=nMiniruns; i++) {
-        ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
-      }
-    } else {
-      ax->SetLabelSize(0);  // remove old labels
-      for (int i=0; i<nMiniruns; i++) {
-        if (fMiniruns[i].second == 0) {
-          TText * label = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), labelY, Form("%d", fMiniruns[i].first));
-          label->SetNDC();
-          label->SetTextAngle(90);
-          label->SetTextSize(labelSize);
-          label->SetTextAlign(12);
-          label->Draw();
-          TText * tick = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), tickY*1.02, "|");
-          tick->SetNDC();
-          tick->SetTextAlign(21);
-          tick->SetTextSize(labelSize*0.8);
-          tick->Draw();
-        }
-      }
+    for (int i=0; i<=nMiniruns; i++) {
+      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
     }
     p2->Update();
 
@@ -760,17 +856,19 @@ void TCheckStat::DrawSlopes() {
 
 void TCheckStat::DrawComps() {
   int MarkerStyles[] = {29, 33, 34, 31};
-  for (pair<string, string> comp : fComps) {
+  for (pair<string, string> comp : fCompPlots) {
     string var1 = comp.first;
     string var2 = comp.second;
-    string branch1 = fVarName[var1].first;
-    string branch2 = fVarName[var2].first;
+    string branch1 = fVarNames[var1].first;
+    string branch2 = fVarNames[var2].first;
     string name1 = branch1.substr(branch1.find_last_of('_')+1);
     string name2 = branch2.substr(branch2.find_last_of('_')+1);
 
     const char * err_var1 = Form("%s.err", branch1.c_str());
     const char * err_var2 = Form("%s.err", branch2.c_str());
-    bool meanflag = fVarStatType[var1] == mean;
+    bool mean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[var1].second) != mean_leaves.cend());
+
+    string unit = GetUnit(var1);
 
     TGraphErrors * g1 = new TGraphErrors();
     TGraphErrors * g2 = new TGraphErrors();
@@ -796,11 +894,11 @@ void TCheckStat::DrawComps() {
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val1, err1=0;
       double val2, err2=0;
-      val1 = val_buff[var1][i];
-      val2 = val_buff[var2][i];
-      if (meanflag) {
-        err1 = val_buff[err_var1][i];
-        err2 = val_buff[err_var2][i];
+      val1 = fVarValues[var1][i];
+      val2 = fVarValues[var2][i];
+      if (mean) {
+        err1 = fVarValues[err_var1][i];
+        err2 = fVarValues[err_var2][i];
       }
       if (i==0) 
         min = max = val1;
@@ -814,11 +912,11 @@ void TCheckStat::DrawComps() {
       g1->SetPointError(i, 0, err1);
       g2->SetPoint(i, i+1, val2);
       g2->SetPointError(i, 0, err2);
-      int ipoint = g_flips1[fRunSign[fMiniruns[i].first]]->GetN();
-      g_flips1[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val1);
-      g_flips1[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err1);
-      g_flips2[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val2);
-      g_flips2[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err2);
+      int ipoint = g_flips1[fSigns[fMiniruns[i].first]]->GetN();
+      g_flips1[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val1);
+      g_flips1[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err1);
+      g_flips2[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val2);
+      g_flips2[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, 0, err2);
       h_diff->SetBinContent(i+1, val1-val2);
       
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
@@ -844,9 +942,9 @@ void TCheckStat::DrawComps() {
     h_diff->GetXaxis()->SetRangeUser(0, nMiniruns+1);
 
     if (sign)
-      g1->SetTitle(Form("%s & %s (sign corrected);;%s", var1.c_str(), var2.c_str(), fVarUnit[var1]));
+      g1->SetTitle(Form("%s & %s (sign corrected);;%s", var1.c_str(), var2.c_str(), unit.c_str()));
     else 
-      g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), fVarUnit[var1]));
+      g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), unit.c_str()));
     g_bold1->SetMarkerStyle(21);
     g_bold1->SetMarkerSize(1.3);
     g_bold1->SetMarkerColor(kBlue);
@@ -897,10 +995,7 @@ void TCheckStat::DrawComps() {
 
     p1->cd();
     g1->GetXaxis()->SetLabelSize(0);
-    if (nMiniruns + 1 < 100)
-      g1->GetXaxis()->SetNdivisions(-(nMiniruns+1));
-    else
-      g1->GetXaxis()->SetNdivisions(-0);
+    g1->GetXaxis()->SetNdivisions(-(nMiniruns+1));
     g1->Draw("AP");
     p1->Update();
     st1 = (TPaveStats *) g1->FindObject("stats");
@@ -960,37 +1055,12 @@ void TCheckStat::DrawComps() {
     h_diff->SetBarWidth(1);
     h_diff->Draw("B");
     TAxis * ax = h_diff->GetXaxis();
-
-    double labelSize = 0.05;
-    double labelY = 0.17*0.3;
-    double tickY = 0.17;
-    ax->SetNdivisions(-0);
+    ax->SetNdivisions(-(nMiniruns+1));
     ax->ChangeLabel(1, -1, 0);  // erase first label
     ax->ChangeLabel(-1, -1, 0); // erase last label
-    unsigned int nDivisions = nMiniruns + 1;
-    if (nDivisions < 100) {
-      ax->SetNdivisions(nDivisions);
-      // ax->SetLabelOffset(0.02);
-      for (int i=0; i<=nMiniruns; i++) {
-        ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
-      }
-    } else {
-      ax->SetLabelSize(0);  // remove old labels
-      for (int i=0; i<nMiniruns; i++) {
-        if (fMiniruns[i].second == 0) {
-          TText * label = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), labelY, Form("%d", fMiniruns[i].first));
-          label->SetNDC();
-          label->SetTextAngle(90);
-          label->SetTextSize(labelSize);
-          label->SetTextAlign(12);
-          label->Draw();
-          TText * tick = new TText(0.1 + (i+1)*0.85/(nMiniruns+1), tickY*1.02, "|");
-          tick->SetNDC();
-          tick->SetTextAlign(21);
-          tick->SetTextSize(labelSize*0.8);
-          tick->Draw();
-        }
-      }
+    // ax->SetLabelOffset(0.02);
+    for (int i=0; i<=nMiniruns; i++) {
+      ax->ChangeLabel(i+2, 90, -1, 32, -1, -1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
     }
     p2->Update();
 
@@ -1007,14 +1077,16 @@ void TCheckStat::DrawComps() {
 }
 
 void TCheckStat::DrawCors() {
-  for (pair<string, string> cor : fCors) {
+  for (pair<string, string> cor : fCorPlots) {
     string xvar = cor.second;
     string yvar = cor.first;
-    string xbranch = fVarName[xvar].first;
-    string ybranch = fVarName[yvar].first;
+    string xbranch = fVarNames[xvar].first;
+    string ybranch = fVarNames[yvar].first;
+    string xunit = GetUnit(xvar);
+    string yunit = GetUnit(yvar);
 
-    bool xmeanflag = fVarStatType[xvar] == mean;
-    bool ymeanflag = fVarStatType[yvar] == mean;
+    bool xmean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[xvar].second) != mean_leaves.cend());
+    bool ymean = (find(mean_leaves.cbegin(), mean_leaves.cend(), fVarNames[yvar].second) != mean_leaves.cend());
     const char * xerr_var = Form("%s.err", xbranch.c_str());
     const char * yerr_var = Form("%s.err", ybranch.c_str());
 
@@ -1029,21 +1101,21 @@ void TCheckStat::DrawCors() {
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double xval, xerr=0;
       double yval, yerr=0;
-      xval = val_buff[xvar][i];
-      yval = val_buff[yvar][i];
-      if (xmeanflag) {
-        xerr = val_buff[xerr_var][i];
+      xval = fVarValues[xvar][i];
+      yval = fVarValues[yvar][i];
+      if (xmean) {
+        xerr = fVarValues[xerr_var][i];
       }
-      if (ymeanflag) {
-        yerr = val_buff[yerr_var][i];
+      if (ymean) {
+        yerr = fVarValues[yerr_var][i];
       }
 
       g->SetPoint(i, xval, yval);
       g->SetPointError(i, xerr, yerr);
       
-      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
-      g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, xval, yval);
-      g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, xerr, yerr);
+      int ipoint = g_flips[fSigns[fMiniruns[i].first]]->GetN();
+      g_flips[fSigns[fMiniruns[i].first]]->SetPoint(ipoint, xval, yval);
+      g_flips[fSigns[fMiniruns[i].first]]->SetPointError(ipoint, xerr, yerr);
 
       if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
         g_bold->SetPoint(ibold, xval, yval);
@@ -1058,9 +1130,9 @@ void TCheckStat::DrawCors() {
     }
     // g->GetXaxis()->SetRangeUser(0, nMiniruns+1);
     if (sign)
-      g->SetTitle((cor.first + " vs " + cor.second + " (sign corrected);" + fVarUnit[xvar] + ";" + fVarUnit[yvar]).c_str());
+      g->SetTitle((cor.first + " vs " + cor.second + " (sign corrected);" + xunit + ";" + yunit).c_str());
     else
-      g->SetTitle((cor.first + " vs " + cor.second + ";" + fVarUnit[xvar] + ";" + fVarUnit[yvar]).c_str());
+      g->SetTitle((cor.first + " vs " + cor.second + ";" + xunit + ";" + yunit).c_str());
     g_bold->SetMarkerStyle(20);
     g_bold->SetMarkerSize(1.3);
     g_bold->SetMarkerColor(kBlue);
@@ -1130,18 +1202,20 @@ void TCheckStat::DrawCors() {
 }
 
 const char * TCheckStat::GetUnit (string var) {
-  string branch = fVarName[var].first;
-  string leaf   = fVarName[var].second;
+  string branch = fVarNames[var].first;
+  string leaf   = fVarNames[var].second;
   if (branch.find("asym") != string::npos) {
-    if (fVarStatType[var] == mean || fVarStatType[var] == err)
+    if (find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend())
       return "ppb";
-    else if (fVarStatType[var] == rms)
+    else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
       return "ppm";
   } else if (branch.find("diff") != string::npos) {
-    if (fVarStatType[var] == mean || fVarStatType[var] == err)
+    if (find(mean_leaves.cbegin(), mean_leaves.cend(), leaf) != mean_leaves.cend())
       return "nm";
-    else if (fVarStatType[var] == rms)
+    else if (find(rms_leaves.cbegin(), rms_leaves.cend(), leaf) != rms_leaves.cend())
       return "um";
+  } else {
+    return "";
   }
 	return "";
 }

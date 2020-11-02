@@ -3,7 +3,7 @@
 #include <set>
 
 #include "line.h"
-#include "TAggregate.h"
+#include "TBase.h"
 
 using namespace std;
 
@@ -11,15 +11,14 @@ void usage();
 set<int> parseRS(const char *);	// parse runs|slugs
 
 int main(int argc, char* argv[]) {
-  const char * config_file("conf/aggregate.conf");
+  const char * config_file("conf/check.conf");
   const char * run_list = NULL;
-  const char * out_dir = NULL;
-  bool dconf = true;
   set<int> runs;
   set<int> slugs;
+  bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:R:s:a:d:")) != -1)
+  while((opt = getopt(argc, argv, "hc:r:R:s:a:i:w:S")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -34,6 +33,8 @@ int main(int argc, char* argv[]) {
       case 'R':
         run_list = optarg;
         break;
+      // case 'l':
+      //   break;
       case 's':
         slugs = parseRS(optarg);
         break;
@@ -46,53 +47,81 @@ int main(int argc, char* argv[]) {
 					SetArmFlag(rightarm);
 				else if (strcmp(optarg, "all") == 0)
 					SetArmFlag(allarms);
-				else if (strcmp(optarg, "no") == 0)
-					SetArmFlag(noarm);
 				else {
 					cerr << ERROR << "Unknown arm flag: " << optarg << ENDL;
 					exit(4);
 				}
 				break;
-      case 'd':
-        out_dir = optarg;
-        break;
+			case 'i':
+				cout << INFO << "set required ihwp to " << optarg << ENDL;
+				if (strcmp(optarg, "in") == 0)
+					SetIHWP(in_hwp);
+				else if (strcmp(optarg, "out") == 0)
+					SetIHWP(out_hwp);
+				else if (strcmp(optarg, "both") == 0)
+					SetIHWP(both_hwp);
+				else {
+					cerr << ERROR << "Unknown IHWP state: " << optarg << ENDL;
+					exit(4);
+				}
+				break;
+			case 'w':
+				cout << INFO << "set required wien flip to " << optarg << ENDL;
+				if (strcmp(optarg, "left") == 0)
+					SetWienFlip(wienleft);
+				else if (strcmp(optarg, "right") == 0)
+					SetWienFlip(wienright);
+				else if (strcmp(optarg, "horizontal") == 0)
+					SetWienFlip(wienhorizontal);
+				else if (strcmp(optarg, "up") == 0)
+					SetWienFlip(wienup);
+				else if (strcmp(optarg, "down") == 0)
+					SetWienFlip(wiendown);
+				else if (strcmp(optarg, "vertical") == 0)
+					SetWienFlip(wienvertical);
+				else {
+					cerr << ERROR << "Unknown Wien state: " << optarg << ENDL;
+					exit(4);
+				}
+				break;
       default:
         usage();
         exit(1);
     }
 
-  if (dconf)
+  if (dconf) 
     cout << INFO << "use default config file: " << config_file << ENDL;
 
-  TAggregate fAgg(config_file, run_list);
-  if (out_dir)
-    fAgg.SetOutDir(out_dir);
+	TBase fCheck(config_file, run_list);
   if (runs.size() > 0)
-    fAgg.SetRuns(runs);
+    fCheck.SetRuns(runs);
   if (slugs.size() > 0)
-    fAgg.SetSlugs(slugs);
+    fCheck.SetSlugs(slugs);
 
-	fAgg.CheckOutDir();
-	fAgg.CheckRuns();
-	fAgg.CheckVars();
-  fAgg.Aggregate();
+  fCheck.CheckRuns();
+  fCheck.CheckVars();
+  fCheck.GetValues();
+	fCheck.PrintStatistics();
 
   return 0;
 }
 
 void usage() {
-  cout << "Aggregate (minirun) for specified runs/slugs" << endl
+  cout << "Check miniruns of specified runs/slugs" << endl
        << "  Options:" << endl
        << "\t -h: print this help message" << endl
-       << "\t -c: specify config file (default: conf/aggregate.conf)" << endl
-       << "\t -r: specify runs (seperate by comma, no space between them. ran range is supported: 5678,6666-6670,6688)" << endl
+       << "\t -c: specify config file (default: check.conf)" << endl
+       << "\t -r: specify runs (seperate by comma, no space between them. ran range is supportted: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-       << "\t -d: prefix of name of output dir" << endl
+			 << "\t -a: indicate arm flag you want (both, left, right, singlearm, all: default both): of course, single arm specification will also include both arms running, but not vice versa." << endl
+			 << "\t -i: set wanted ihwp state (in, out)" << endl
+			 << "\t -w: set wien flip (left, right, horizontal, up, down, vertical)" << endl
        << endl
        << "  Example:" << endl
-       << "\t ./aggregate -c myconf.conf -R slug123.list -n slug123" << endl
-       << "\t ./aggregate -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -d rootfiles" << endl;
+       << "\t ./check -c myconf.conf -l 6666" << endl
+       << "\t ./check -c myconf.conf -R slug123.lsit -p slug123" << endl
+       << "\t ./check -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -n test" << endl;
 }
 
 set<int> parseRS(const char * input) {
