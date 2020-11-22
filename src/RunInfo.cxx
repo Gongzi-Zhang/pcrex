@@ -35,16 +35,16 @@ map<string, int> rcdb_width = {
   {"arm_flag",	8},
 };
 map<string, int (*) (const int)> fd = {
-  {"slug",     &GetSlugNumber},
-  {"arm_flag", &GetArmFlag},
+  {"slug",     &GetRunSlugNumber},
+  {"arm_flag", &GetRunArmFlag},
 };
 map<string, char * (*) (const int)> fs = {
-  {"exp",       &GetExperiment},
+  {"exp",       &GetRunExperiment},
   {"type",      &GetRunType},
-  {"target",    &GetTarget},
+  {"target",    &GetRunTarget},
   {"run_flag",  &GetRunFlag},
-  {"ihwp",      &GetIHWP},
-  {"wien_flip", &GetWienFlip},
+  {"ihwp",      &GetRunIHWP},
+  {"wien_flip", &GetRunWienFlip},
 };
 map<string, float * (*) (const int)> ff = {
 };

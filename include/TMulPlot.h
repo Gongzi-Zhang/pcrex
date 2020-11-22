@@ -127,6 +127,12 @@ void TMulPlot::FillHistograms() {
 	}
 
   // initialize histogram
+	for (string var : fVars) {
+		double unit = UNITS[fVarUnit[var]];
+    for (int i=0; i<ok; i++)
+      vals[var][i] /= unit;
+	}
+
   for (string solo : fSolos) {
 		double unit = UNITS[fVarUnit[solo]];
 		double high = up[solo];
@@ -137,10 +143,8 @@ void TMulPlot::FillHistograms() {
       high = fSoloCut[solo].high/unit;
     
     fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), fVarUnit[solo]), 100, low, high);
-    for (int i=0; i<ok; i++) {
-      vals[solo][i] /= unit;
+    for (int i=0; i<ok; i++)
       fSoloHists[solo]->Fill(vals[solo][i]);
-		}
   }
 
   for (pair<string, string> comp : fComps) {
@@ -159,8 +163,6 @@ void TMulPlot::FillHistograms() {
     fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), fVarUnit[var2]), 100, low, high);
 
     for (int i=0; i<ok; i++) {
-			vals[var1][i] /= unit;
-			vals[var2][i] /= unit;
       fCompHists[comp].first->Fill(vals[var1][i]);
       fCompHists[comp].second->Fill(vals[var2][i]);
     }
@@ -186,11 +188,8 @@ void TMulPlot::FillHistograms() {
 				100, xlow, xhigh,
 				100, ylow, yhigh);
 
-    for (int i=0; i<ok; i++) {
-			vals[xvar][i] /= xunit;
-			vals[yvar][i] /= yunit;
+    for (int i=0; i<ok; i++)
       fCorHists[cor]->Fill(vals[xvar][i], vals[yvar][i]);
-    }
 	}
 }
 
