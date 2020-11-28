@@ -2,6 +2,7 @@
 #define rcdb_H
 
 #include <iostream>
+#include <algorithm>
 #include <glob.h>
 #include <assert.h>
 #include <cstring>
@@ -13,29 +14,72 @@
 #include "line.h"
 #include "const.h"
 
-enum ARMFLAG {botharms=0, rightarm=1, leftarm=2, singlearm=3, allarms=4, noarm=5};
-enum IHWP {in_hwp=1, out_hwp=2, both_hwp=3};
-enum WIENFLIP {wienleft=1, wienright=2, wienhorizontal=3, wienup=4, wiendown=8, wienvertical=12};
-map<ARMFLAG, const char *> afname = {
-	{botharms,	"both arms"},
-	{rightarm,	"right arm"},
-	{leftarm,		"left arm"},
-	{singlearm,	"single arm"},
-	{allarms,		"all arms"},
-	{noarm,			"no arm"},
+#define botharms 0
+#define rightarm 1
+#define leftarm  2
+
+vector<string> armflags = {
+	"both",
+	"right",
+	"left",
 };
-map<IHWP, const char *> ihwpname = {
-	{in_hwp,	"IN"},
-	{out_hwp,	"OUT"},
-	{both_hwp,"BOTH"},
+set<string> wienflips = {
+	"FLIP-LEFT",
+	"FLIP-RIGHT",
+	"Vertical(UP)",
+	"Vertical(DOWN)",
 };
-map<WIENFLIP, const char *> wfname = {
-	{wienleft,	"FLIP-LEFT"},
-	{wienright,	"FLIP-RIGHT"},
-	{wienhorizontal,	"FLIP-HORIZONTAL"},
-	{wienup,		"Vertical(UP)"},
-	{wiendown,	"Vertical(DOWN)"},
-	{wienvertical,		"FLIP-VERTICAL"},
+set<string> ihwps = {
+	"IN",
+	"OUT",
+};
+set<string> runflags = {
+	"Bad",
+	"Suspicious",
+	"Good",
+	"NeedCut",
+	"Suspicous",
+};
+set<string> runtypes = {
+	"Test",
+	"Junk",
+	"Harp",
+	"Calibration",
+	"Optics",
+	"Production",
+	"Parityscan",
+	"Cosmics",
+	"Pedestal",
+	"A_T",
+	"Q2scan",
+	"Production",
+};
+set<string> targets = {
+	"Home",
+	"Halo",
+	"Carbon Hole",
+	"Carbon 0.25%",
+	"WaterCell 2.77%",
+	"Carbon Hole (Cold)",
+	"D-Pb-D",
+	"C-Pb-C",
+	"40Ca 6%",
+	"Carbon 1%",
+	"D-208Pb2-D",
+	"D-208Pb3-D",
+	"D-208Pb4-D",
+	"D-208Pb5-D",
+	"D-208Pb6-D",
+	"D-208Pb7-D",
+	"D-208Pb8-D",
+	"D-208Pb9-D",
+	"D-208Pb10-D",
+	"40Ca",
+	"48Ca",
+};
+set<string> exps = {
+	"PREX2",
+	"CREX",
 };
 
 /* condition_type_id
@@ -77,19 +121,34 @@ map<WIENFLIP, const char *> wfname = {
 
 using namespace std;
 
-ARMFLAG garmflag = botharms;
-IHWP		gihwp		 = both_hwp;
-WIENFLIP gwienflip = wienhorizontal;
+string garmflag;
+string gihwp;
+string gwienflip;
+string gexp = "CREX";
+string gruntype = "Production";
+string grunflag = "Good";
+string gtarget = "48Ca";
 
 MYSQL *con;
 MYSQL_RES  *res;
 MYSQL_ROW   row;
 char query[256];
+static char rcdb_none[5] = "none";
 
-void    StartConnection();
-void		SetArmFlag(const ARMFLAG f)	{garmflag = f;}
-void		SetIHWP(const IHWP i) {gihwp = i;}
-void		SetWienFlip(const WIENFLIP w) {gwienflip = w;}
+void StartConnection();
+void EndConnection();
+
+void SetArmFlag(const char *f);
+void SetIHWP(const char *ip);
+void SetWienFlip(const char *wf);
+void SetExp(const char *exp);
+void SetRunType(const char *rt);
+void SetRunFlag(const char *rf);
+void SetTarget(const char *t);
+set<int>	GetRuns();
+set<int>  GetRunsFromSlug(const int slug);
+void    GetValidRuns(set<int> &runs);
+
 char *  GetRunExperiment(const int run);
 char *  GetRunType(const int run);
 // float   GetRunCurrent(const int run);
@@ -99,12 +158,12 @@ int     GetRunSlugNumber(const int run);
 int     GetRunArmFlag(const int run);
 char *  GetRunIHWP(const int run);
 char *  GetRunWienFlip(const int run);
-void    GetValidRuns(set<int> &runs);
-set<int>  GetRunsFromSlug(const int slug);
+float	  GetRunHelicityHz(const int run);
+char *  GetRunUserComment(const int run);
+char *  GetRunWacNote(const int run);
 int			GetRunSign(const int run);
-void    EndConnection();
-void    RunTests();
 
+void    RunTests();
 
 
 void StartConnection() {
@@ -115,11 +174,263 @@ void StartConnection() {
   }
   con = mysql_real_connect(con, "hallcdb.jlab.org", "rcdb", "", "a-rcdb", 3306, NULL, 0);
   if (con)
-    cout << INFO << "Connection to database succeeded" << ENDL;
+    cerr << INFO << "Connection to database succeeded" << ENDL;
   else {
     cerr << FATAL << "Connection to database failed" << ENDL;
     exit(11);
   }
+}
+
+void EndConnection() {
+  if (con) {
+    cerr << INFO << "Close Connection to database." << ENDL;
+    mysql_close(con);
+  }
+  con = NULL;
+  res = NULL;
+  row = NULL;
+}
+
+void SetArmFlag(const char *fs) {
+	if (!fs)
+		return;
+
+	garmflag.clear();
+	for (char *f : Split(fs, ',')) {
+		char af[Size(f) + 1];
+		strcpy(af, f);
+		StripSpaces(af);
+		string af_tmp(af);
+		vector<string>::iterator it = find(armflags.begin(), armflags.end(), af_tmp);
+		if (it == armflags.end()) {
+			cerr << FATAL << "Invalid arm flag: " << f << ENDL;
+			cerr << "Valid arm flag: " << endl;
+			for (string v : armflags)
+				cerr << "\t" << v << endl;
+			exit(25);
+		}
+		if (garmflag.size())
+			garmflag += "|";
+		garmflag += to_string(it - armflags.begin());
+	}
+}
+
+void SetWienFlip(const char *fs) {
+	if (!fs) 
+		return;
+
+	gwienflip.clear();
+	for (char *f : Split(fs, ',')) {
+		char wf[Size(f) + 1];
+		strcpy(wf, f);
+		StripSpaces(wf);
+		if (wienflips.find(wf) == wienflips.end()) {
+			cerr << FATAL << "Invalid wien flip: " << f << ENDL;
+			cerr << "Valid wien flip: " << endl;
+			for (string v : wienflips)
+				cerr << "\t" << v << endl;
+			exit(25);
+		}
+		if (gwienflip.size())
+			gwienflip += "|";
+		gwienflip += wf;
+	}
+}
+
+void SetIHWP(const char *ps) {
+	if (!ps)
+		return;
+
+	gihwp.clear();
+	for (char *p : Split(ps, ',')) {
+		char ip[Size(p) + 1];
+		strcpy(ip, p);
+		StripSpaces(ip);
+		if (ihwps.find(ip) == ihwps.end()) {
+			cerr << FATAL << "Invalid IHWP: " << p << ENDL;
+			cerr << "Valid IHWP: " << endl;
+			for (string v : ihwps)
+				cerr << "\t" << v << endl;
+			exit(25);
+		}
+		if (gihwp.size())
+			gihwp += "|";
+		gihwp += ip;
+	}
+}
+
+void SetExp(const char *es) {
+	if (!es)
+		return;
+
+	gexp.clear();
+	for (char *e : Split(es, ',')) {
+		char exp[Size(e) + 1];
+		strcpy(exp, e);
+		StripSpaces(exp);
+		if (exps.find(exp) == exps.end()) {
+			cerr << FATAL << "Invalid exp: " << e << ENDL;
+			cerr << "Valid exp: " << endl;
+			for (string v : exps)
+				cerr << "\t" << v << endl;
+			exit(25);
+		}
+		if (gexp.size())
+			gexp += "|";
+		gexp += exp;
+	}
+}
+
+void SetRunType(const char *ts) {
+	if (!ts) 
+		return;
+
+	gruntype.clear();
+	for (char *t : Split(ts, ',')) {
+		char tp[Size(t) + 1];
+		strcpy(tp, t);
+		StripSpaces(tp);
+		if (runtypes.find(tp) == runtypes.end()) {
+			cerr << FATAL << "Invalid run type: " << t << ENDL;
+			cerr << "Valid run type: " << endl;
+			for (string v : runtypes)
+				cerr << "\t" << v << endl;
+			exit(25);
+		}
+		if (gruntype.size())
+			gruntype += "|";
+		gruntype += tp;
+	}
+}
+
+void SetRunFlag(const char *fs) {
+	if (!fs)
+		return;
+
+	grunflag.clear();
+	for (char *f : Split(fs, ',')) {
+		char rf[Size(f) + 1];
+		strcpy(rf, f);
+		StripSpaces(rf);
+		if (runflags.find(rf) == runflags.end()) {
+			cerr << FATAL << "Invalid run flag: " << f << ENDL;
+			cerr << "Valid run flag: " << endl;
+			for (string v : runflags)
+				cerr << "\t" << v << endl;
+			exit(25);
+		}
+		if (grunflag.size())
+			grunflag += "|";
+		grunflag += rf;
+	}
+}
+
+void SetTarget(const char *ts) {
+	if (!ts)
+		return;
+
+	gtarget.clear();
+	for (char *t : Split(ts, ',')) {
+		char tg[Size(t) + 1];
+		strcpy(tg, t);
+		StripSpaces(tg);
+		if (runtypes.find(tg) == runtypes.end()) {
+			cerr << FATAL << "Invalid target: " << t << ENDL;
+			cerr << "Valid target: " << endl;
+			for (string v : targets)
+				cerr << "\t" << v << endl;
+			exit(25);
+		}
+		if (gtarget.size())
+			gtarget += "|";
+		gtarget += tg;
+	}
+}
+
+set<int> GetRuns() {
+  if (!con) {
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    return {};
+  }
+
+	cerr << BINFO << endl;
+		if (gexp.size())
+			fprintf(stderr, "\t%9s:\t%s\n", "exp", gexp.c_str());
+		if (gruntype.size())
+			fprintf(stderr, "\t%9s:\t%s\n", "run type", gruntype.c_str());
+		if (grunflag.size())
+			fprintf(stderr, "\t%9s:\t%s\n", "run flag", grunflag.c_str());
+		if (gtarget.size())
+			fprintf(stderr, "\t%9s:\t%s\n", "target", gtarget.c_str());
+		if (garmflag.size())
+			fprintf(stderr, "\t%9s:\t%s\n", "arm flag", garmflag.c_str());
+		if (gihwp.size())
+			fprintf(stderr, "\t%9s:\t%s\n", "ihwp", gihwp.c_str());
+		if (gwienflip.size())
+			fprintf(stderr, "\t%9s:\t%s\n", "wien flip", gwienflip.c_str());
+	cerr << ENDL;
+
+  set<int> runs;
+	char q_exp[128], q_runtype[128*2], q_runflag[128*3], q_target[128*4], q_armflag[128*5], q_ihwp[128*6], q_wienflip[128*7];
+	if (gexp.size())
+		sprintf(q_exp, "SELECT run_number FROM conditions WHERE condition_type_id=26 AND text_value regexp '%s'", gexp.c_str());
+
+	if (gruntype.size())
+		sprintf(q_runtype, "SELECT run_number FROM conditions WHERE condition_type_id=3 AND text_value regexp '%s' AND run_number in (%s)", gruntype.c_str(), q_exp);
+	else 
+		strcpy(q_runtype, q_exp);
+
+	if (grunflag.size())
+		sprintf(q_runflag, "SELECT run_number FROM conditions WHERE condition_type_id=28 AND text_value regexp '%s' AND run_number in (%s)", grunflag.c_str(), q_runtype);
+	else
+		strcpy(q_runflag, q_runtype);
+
+	if (gtarget.size())
+		sprintf(q_target, "SELECT run_number FROM conditions WHERE condition_type_id=18 AND text_value regexp '%s' AND run_number in (%s)", gtarget.c_str(), q_runflag);
+	else
+		strcpy(q_target, q_runflag);
+
+	if (garmflag.size()) 
+		sprintf(q_armflag, "SELECT run_number FROM conditions WHERE condition_type_id=39 AND int_value regexp '%s' AND run_number in (%s)", garmflag.c_str(), q_target);
+	else 
+		strcpy(q_armflag, q_target);
+
+	if (gihwp.size())
+		sprintf(q_ihwp, "SELECT run_number FROM conditions WHERE condition_type_id=20 AND text_value regexp '%s' AND run_number in (%s)", gihwp.c_str(), q_armflag);
+	else
+		strcpy(q_ihwp, q_armflag);
+
+	if (gwienflip.size())
+		sprintf(q_wienflip, "SELECT run_number FROM conditions WHERE condition_type_id=38 AND text_value regexp '%s' AND run_number in (%s)", gwienflip.c_str(), q_ihwp);
+	else
+		sprintf(q_wienflip, q_ihwp);
+	// cerr << DEBUG << q_wienflip << ENDL;
+
+  mysql_query(con, q_wienflip);
+  res = mysql_store_result(con);
+  while (row = mysql_fetch_row(res)) {
+    runs.insert(atoi(row[0]));
+  }
+  // GetValidRuns(runs);
+  return runs;
+}
+
+set<int> GetRunsFromSlug(const int slug) {
+  if (!con) {
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    return {};
+  }
+
+  set<int> runs;
+
+  sprintf(query, "SELECT run_number FROM conditions WHERE condition_type_id=34 AND int_value=%d", slug);
+  mysql_query(con, query);
+  res = mysql_store_result(con);
+  while (row = mysql_fetch_row(res)) {
+    runs.insert(atoi(row[0]));
+  }
+  // GetValidRuns(runs);
+  return runs;
 }
 
 char * GetRunExperiment(const int run) {
@@ -277,108 +588,68 @@ char * GetRunWienFlip(const int run) {
   return row[0];
 }
 
+float GetRunHelicityHz(const int run) {  // helicity frequency
+  if (!con) {
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    return -1;
+  }
+  sprintf(query, "SELECT float_value FROM conditions WHERE run_number=%d AND condition_type_id=25", run);
+  mysql_query(con, query);
+  res = mysql_store_result(con);
+  row = mysql_fetch_row(res);
+  if (row == NULL) {
+    cerr << WARNING << "can't fetch helicity frequency for run " << run << ENDL;
+    return -1;
+  }
+  return atof(row[0]);
+}
+
+char * GetRunUserComment(const int run) {
+  if (!con) {
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    return NULL;
+  }
+  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=6", run);
+  mysql_query(con, query);
+  res = mysql_store_result(con);
+  row = mysql_fetch_row(res);
+  if (row == NULL) {
+    return rcdb_none;
+  }
+  StripSpaces(row[0]);
+  return row[0];
+}
+
+char * GetRunWacNote(const int run) {
+  if (!con) {
+    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    return NULL;
+  }
+  sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=27", run);
+  mysql_query(con, query);
+  res = mysql_store_result(con);
+  row = mysql_fetch_row(res);
+  if (row == NULL) {
+    return rcdb_none;
+  }
+  StripSpaces(row[0]);
+  return row[0];
+}
+
 void GetValidRuns(set<int> &runs) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else" << ENDL;
     return;
   }
-	cout << INFO << "require arm flag:\t"		<< afname[garmflag] << ENDL;
-	cout << INFO << "require wien flip:\t"	<< wfname[gwienflip] << ENDL;
-	cout << INFO << "require ihwp state:\t" << ihwpname[gihwp] << ENDL;
 
+	set<int> vruns = GetRuns();
   for(set<int>::const_iterator it=runs.cbegin(); it!=runs.cend(); ) {
     int run = *it;
-
-		// check run type and run flag
-    const char * t = (PREX_AT_START_RUN <= run && run <= PREX_AT_END_RUN) ? "A_T" : "Production";
-    char * type = GetRunType(run);
-    char * flag = GetRunFlag(run);
-    if (!type || strcmp(type, t) != 0 || !flag || (strcmp(flag, "Good") != 0 /* && strcmp(flag, "NeedCut") != 0 */)) {
-      cerr << WARNING << "run " << run << " is not a good production run, ignore it." << ENDL;
-      it = runs.erase(it);
-			continue;
-    }
-
-		// check armflag
-		ARMFLAG af = static_cast<ARMFLAG>(GetRunArmFlag(run));
-		if (af != botharms && af != leftarm && af != rightarm) {
-			cerr << FATAL << "run-" << run << " ^^^^ unknown arm flag: " << afname[af] << ENDL;
-			exit(404);
-		}
-		if (garmflag != noarm) {
-			if (af != garmflag) {
-				if (   (garmflag == botharms)	
-						|| ((garmflag == leftarm || garmflag==rightarm) && af != botharms)	// left/right arm include both arms
-						|| (garmflag == singlearm && af != leftarm && af != rightarm)) {
-					cerr << WARNING << "run-" << run << " ^^^^ Unmatched run flag: " << afname[af] << ENDL;
-					it = runs.erase(it);
-					continue;
-				}
-			}
-		}
-
-		// check ihwp and wien_flip
-		const char * ihwp = GetRunIHWP(run);
-		const char * wien_flip = GetRunWienFlip(run);
-		if (!ihwp || !wien_flip) {
-      cerr << WARNING << "ignore run " << run << ENDL;
-      it = runs.erase(it);
-			continue;
-		}
-		IHWP is = both_hwp;
-		WIENFLIP wf = wienhorizontal;
-		if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
-			wf = wienleft;
-		else if (strcmp(wien_flip, "FLIP-RIGHT") == 0)
-			wf = wienright;
-		else if (strcmp(wien_flip, "Vertical(UP)") == 0)
-			wf = wienup;
-		else if (strcmp(wien_flip, "Vertical(DOWN)") == 0)
-			wf = wiendown;
-		else {
-			cerr << FATAL << "run-" << run << " ^^^^ unknown flip state: " << wien_flip << ENDL;
-			exit(404);
-		}
-    if ((wf & gwienflip) == 0) {
-			cout << WARNING << "run-" << run << " ^^^^ Unmatched wien flip: " << wfname[wf] << ENDL;
+		if (vruns.find(run) == vruns.end())
 			it = runs.erase(it);
-			continue;
-		}
-
-		if (strcmp(ihwp, "IN") == 0)
-			is = in_hwp;
-		else if (strcmp(ihwp, "OUT") == 0)
-			is = out_hwp;
-		else {
-			cerr << FATAL << "run-" << run << " ^^^^ unknown ihwp state: " << ihwp << ENDL;
-			exit(404);
-		}
-    if ((is & gihwp) == 0) {
-			cout << WARNING << "run-" << run << " ^^^^ Unmatched ihwp: " << ihwpname[is] << ENDL;
-			it = runs.erase(it);
-			continue;            
-		}
-
-		it++;
+		else 
+			it++;
   }
-}
-
-set<int> GetRunsFromSlug(const int slug) {
-  if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
-    return {};
-  }
-
-  set<int> runs;
-
-  sprintf(query, "SELECT run_number FROM conditions WHERE condition_type_id=34 AND int_value=%d", slug);
-  mysql_query(con, query);
-  res = mysql_store_result(con);
-  while (row = mysql_fetch_row(res)) {
-    runs.insert(atoi(row[0]));
-  }
-  // GetValidRuns(runs);
-  return runs;
 }
 
 int GetRunSign(const int run) {
@@ -434,17 +705,6 @@ int GetRunSign(const int run) {
 
   return sign;
 }
-
-void EndConnection() {
-  if (con) {
-    cout << INFO << "Close Connection to database." << ENDL;
-    mysql_close(con);
-  }
-  con = NULL;
-  res = NULL;
-  row = NULL;
-}
-
 
 void RunTests() {
   const int run = 6666;

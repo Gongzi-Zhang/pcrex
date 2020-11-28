@@ -22,17 +22,23 @@ vector<const char *> rcdb_options = {
   "ihwp",
   "wien_flip", 
   "arm_flag",
+  "helicity",	// helicity frequency
+	"user_comment",
+	"wac_note",
 };
 map<string, int> rcdb_width = {
   {"run",	      4},
-  {"exp",	      5},
   {"slug",	    4},
+  {"exp",	      5},
   {"type",	    11},
   {"target",	  10},
   {"run_flag",	8},
   {"ihwp",	    4},
   {"wien_flip",	11},
   {"arm_flag",	8},
+	{"helicity",  8},
+	{"user_comment", 14},
+	{"wac_note",	14},
 };
 map<string, int (*) (const int)> fd = {
   {"slug",     &GetRunSlugNumber},
@@ -45,8 +51,11 @@ map<string, char * (*) (const int)> fs = {
   {"run_flag",  &GetRunFlag},
   {"ihwp",      &GetRunIHWP},
   {"wien_flip", &GetRunWienFlip},
+	{"user_comment", &GetRunUserComment},
+	{"wac_note",	&GetRunWacNote},
 };
-map<string, float * (*) (const int)> ff = {
+map<string, float (*) (const int)> ff = {
+	{"helicity",		&GetRunHelicityHz},
 };
 map<string, double * (*) (const int)> fg = {
 };
@@ -75,6 +84,8 @@ int main(int argc, char* argv[]) {
       ftype[rcdb_options[i]] = d;
     else if (fs.find(rcdb_options[i]) != fs.end())
       ftype[rcdb_options[i]] = s;
+		else if (ff.find(rcdb_options[i]) != ff.end())
+			ftype[rcdb_options[i]] = f;
     else {
       cerr << "FATAL:\t Unsupported option " << rcdb_options[i] << endl
            << "\tIf it is an evt branch, please add it in evt.option" << ENDL;
@@ -101,7 +112,7 @@ int main(int argc, char* argv[]) {
 
   int option_index = 0;
   char opt;
-  while((opt = getopt_long(argc, argv, "hr:s:", long_options, &option_index)) != -1)
+  while((opt = getopt_long(argc, argv, "har:s:", long_options, &option_index)) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -112,6 +123,11 @@ int main(int argc, char* argv[]) {
       case 's':
         slugs = parseRS(optarg);
         break;
+			case 'a':
+				rcdb = true;
+				for (const char *r_opt : rcdb_options)
+					do_it[r_opt] = true;
+				break;
       case 0:
         rcdb = true;
         do_it[rcdb_options[option_index]] = true;
@@ -340,6 +356,8 @@ ENDREG:
             printf("%-*d | ", rcdb_width[rcdb_options[i]], fd[rcdb_options[i]](run));
           else if (ftype[rcdb_options[i]] == s)
             printf("%-*s | ", rcdb_width[rcdb_options[i]], fs[rcdb_options[i]](run));
+          else if (ftype[rcdb_options[i]] == f)
+            printf("%-*.4f | ", rcdb_width[rcdb_options[i]], ff[rcdb_options[i]](run));
       }
 
       // evt tree
@@ -498,6 +516,7 @@ void usage() {
        << "\t -h: print this help message" << endl
        << "\t -r: specify runs (seperate by comma, no space between them. run range is supportted: 5678,6666-6670,6688)" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
+			 << "\t -a: print all rcdb info (slug, exp, type, target, run_flag, ihwp, wine_flip, arm_flag, user_comment, wac_note)" << endl
        << "\t --slug: get slug number" << endl
        << "\t --exp: get experiment (PREXII or CREX)" << endl
        << "\t --type: get run type" << endl
@@ -506,6 +525,9 @@ void usage() {
        << "\t --ihwp: get ihwp state" << endl
        << "\t --wien_flip: get wien flip state" << endl
        << "\t --arm_flag: get arm flag" << endl
+			 << "\t --helicity: get helicity frequency" << endl
+			 << "\t --user_commnet: get user comment" << endl
+			 << "\t --wac_note: get wac note" << endl
        << "\t --cutfiles: get corresponding cutfiles" << endl
        << "\t --pedestals: get corresponding pedestals" << endl
        << "\t --charge: get charge" << endl

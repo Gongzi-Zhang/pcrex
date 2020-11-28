@@ -45,50 +45,13 @@ int main(int argc, char* argv[]) {
         slugs = parseRS(optarg);
         break;
 			case 'a':
-				if (strcmp(optarg, "both") == 0)
-					SetArmFlag(botharms);
-				else if (strcmp(optarg, "left") == 0)
-					SetArmFlag(leftarm);
-				else if (strcmp(optarg, "right") == 0)
-					SetArmFlag(rightarm);
-				else if (strcmp(optarg, "all") == 0)
-					SetArmFlag(allarms);
-				else {
-					cerr << ERROR << "Unknown arm flag: " << optarg << ENDL;
-					exit(4);
-				}
+				SetArmFlag(optarg);
 				break;
 			case 'i':
-				cout << INFO << "set required ihwp to " << optarg << ENDL;
-				if (strcmp(optarg, "in") == 0)
-					SetIHWP(in_hwp);
-				else if (strcmp(optarg, "out") == 0)
-					SetIHWP(out_hwp);
-				else if (strcmp(optarg, "both") == 0)
-					SetIHWP(both_hwp);
-				else {
-					cerr << ERROR << "Unknown IHWP state: " << optarg << ENDL;
-					exit(4);
-				}
+				SetIHWP(optarg);
 				break;
 			case 'w':
-				cout << INFO << "set required wien flip to " << optarg << ENDL;
-				if (strcmp(optarg, "left") == 0)
-					SetWienFlip(wienleft);
-				else if (strcmp(optarg, "right") == 0)
-					SetWienFlip(wienright);
-				else if (strcmp(optarg, "horizontal") == 0)
-					SetWienFlip(wienhorizontal);
-				else if (strcmp(optarg, "up") == 0)
-					SetWienFlip(wienup);
-				else if (strcmp(optarg, "down") == 0)
-					SetWienFlip(wiendown);
-				else if (strcmp(optarg, "vertical") == 0)
-					SetWienFlip(wienvertical);
-				else {
-					cerr << ERROR << "Unknown Wien state: " << optarg << ENDL;
-					exit(4);
-				}
+				SetWienFlip(optarg);
 				break;
       case 'f':
         out_format = optarg;

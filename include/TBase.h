@@ -304,7 +304,8 @@ void TBase::CheckVars() {
 	// add necessary variables
 	// for main avg/dd variables, if global armflag is all, there must be corresponding left/right arm data
 	// FIXME: what if us_avg_ds_avg_dd
-	if (garmflag == allarms) {
+	if (	 garmflag.find(rightarm) != string::npos 
+			|| garmflag.find(leftarm) != string::npos) { 
 		for (string var : fVars) {
 			if ( var.find("us_avg") != string::npos 
 				|| var.find("ds_avg") != string::npos 
@@ -838,7 +839,8 @@ void TBase::GetValues() {
 							val *= 0.6;
 
 						// avg/dd of single arm running
-						if (	  garmflag == allarms 
+						if (	 (	 garmflag.find(rightarm) != string::npos 
+									  || garmflag.find(leftarm)	 != string::npos )
 								&& (fRunArm[run] == leftarm || fRunArm[run] == rightarm)
 								&& (	 var.find("us_avg") != string::npos 
 										|| var.find("us_dd")	!= string::npos 

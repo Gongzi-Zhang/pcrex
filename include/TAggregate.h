@@ -57,9 +57,9 @@ void TAggregate::CheckOutDir()
 void TAggregate::Aggregate()
 {
 	unsigned int num_samples = 0;
-	map<string, double> sum;
-	map<string, double> sum2;
-	map<string, STAT> stat;
+	map<string, double> mini_sum, sum;
+	map<string, double> mini_sum2, sum2;
+	map<string, STAT> mini_stat, stat;
 	unsigned int mini;
 	unsigned int N;
 
@@ -143,43 +143,56 @@ void TAggregate::Aggregate()
         continue;
 
 			TFile fout(Form("%s/agg_minirun_%d_%03ld.root", out_dir, run, session), "update");
-			TTree * tout = (TTree*) fout.Get("mini");
+			TTree *tout_mini = (TTree *) fout.Get("mini");
+			TTree *tout_run	 = (TTree *) fout.Get("run");
 			bool update=true;	// update tree: add new branches
-			vector<TBranch *> brs;
-			if (!tout) {
-				tout = new TTree("mini", "mini");
-				tout->Branch("run", &run, "run/i");
-				tout->Branch("minirun", &mini, "minirun/i");
-				tout->Branch("num_samples", &num_samples, "num_samples/i");
+			vector<TBranch *> mini_brs, brs;
+			if (!tout_mini) {
+				tout_mini = new TTree("mini", "mini run average value");
+				tout_mini->Branch("run", &run, "run/i");
+				tout_mini->Branch("minirun", &mini, "minirun/i");
+				tout_mini->Branch("num_samples", &num_samples, "num_samples/i");
+
+				tout_run = new TTree("run", "run average value");
+				tout_run->Branch("run", &run, "run/i");
+				tout_run->Branch("minirun", &mini, "minirun/i");
+				tout_run->Branch("num_samples", &N, "num_samples/i");
+
 				update=false;
 			} 
 
 			for (string var : fVars) {
-				if (tout->GetBranch(var.c_str())) {
+				if (tout_mini->GetBranch(var.c_str())) {
 					fVars.erase(var);
 					continue;
 				} 
-				TBranch *b = tout->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
-				if (update)
-					brs.push_back(b);
+				TBranch *b = tout_mini->Branch(var.c_str(), &mini_stat[var], "mean/D:err/D:rms/D");
+				TBranch *b1 = tout_run->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
+				if (update) {
+					mini_brs.push_back(b);
+					brs.push_back(b1);
+				}
 			}
 			for (string custom : fCustoms) {
-				if (tout->GetBranch(custom.c_str())) {
+				if (tout_mini->GetBranch(custom.c_str())) {
 					fVars.erase(custom);
 					continue;
 				} 
-				TBranch *b = tout->Branch(custom.c_str(), &stat[custom], "mean/D:err/D:rms/D");
-				if (update)
-					brs.push_back(b);
+				TBranch *b = tout_mini->Branch(custom.c_str(), &mini_stat[custom], "mean/D:err/D:rms/D");
+				TBranch *b1 = tout_mini->Branch(custom.c_str(), &stat[custom], "mean/D:err/D:rms/D");
+				if (update) {
+					mini_brs.push_back(b);
+					brs.push_back(b1);
+				}
 			}
 
 			mini = 0;
 			N	= tin->Draw(">>elist", mCut, "entrylist");
 			TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
 			const int Nmini = N>9000 ? N/9000 : 1;
-			if (update && Nmini != tout->GetEntries()) {
+			if (update && Nmini != tout_mini->GetEntries()) {
 				cerr << ERROR << "Unmatch # of miniruns: "
-					<< "\told: " << tout->GetEntries() 
+					<< "\told: " << tout_mini->GetEntries() 
 					<< "\tnew: " << Nmini << ENDL;
 			}
 			for (mini=0; mini<Nmini; mini++) {
@@ -188,50 +201,61 @@ void TAggregate::Aggregate()
 				for (int n=0; n<num_samples; n++) {
 					const int en = elist->GetEntry(n+9000*mini);
 					for (string var : fVars) {
-						if (var.find("bpm11X") != string::npos && run < 3390)
+						if (var.find("bpm11X") != string::npos && run < 3390)	// for prex
 							continue;
 						fVarLeaf[var]->GetBranch()->GetEntry(en);
 						double val = fVarLeaf[var]->GetValue();
 						vars_buf[var] = val;
+						mini_sum[var] += val;
+						mini_sum2[var] += val * val;
 						sum[var] += val;
 						sum2[var] += val * val;
 					}
 					for (string custom : fCustoms) {
 						double val = get_custom_value(fCustomDef[custom]);
 						vars_buf[custom] = val;
+						mini_sum[custom] += val;
+						mini_sum2[custom] += val * val;
 						sum[custom] += val;
 						sum2[custom] += val * val;
 					}
 				}
 				for (string var : fVars) {
-					stat[var].mean = sum[var]/num_samples;
-					stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/num_samples)/(num_samples-1));
-					stat[var].err = stat[var].rms / sqrt(num_samples);
-					sum[var] = 0;
-					sum2[var] = 0;
+					mini_stat[var].mean = mini_sum[var]/num_samples;
+					mini_stat[var].rms = sqrt((mini_sum2[var] - mini_sum[var]*mini_sum[var]/num_samples)/(num_samples-1));
+					mini_stat[var].err = mini_stat[var].rms / sqrt(num_samples);
+					mini_sum[var] = 0;
+					mini_sum2[var] = 0;
 				}
 				for (string custom : fCustoms) {
-					stat[custom].mean = sum[custom]/num_samples;
-					stat[custom].rms = sqrt((sum2[custom] - sum[custom]*sum[custom]/num_samples)/(num_samples-1));
-					stat[custom].err = stat[custom].rms / sqrt(num_samples);
-					sum[custom] = 0;
-					sum2[custom] = 0;
+					mini_stat[custom].mean = mini_sum[custom]/num_samples;
+					mini_stat[custom].rms = sqrt((mini_sum2[custom] - mini_sum[custom]*mini_sum[custom]/num_samples)/(num_samples-1));
+					mini_stat[custom].err = mini_stat[custom].rms / sqrt(num_samples);
+					mini_sum[custom] = 0;
+					mini_sum2[custom] = 0;
 				}
 				if (update) {
-					for (TBranch * b : brs)
+					for (TBranch *b : mini_brs)
 						b->Fill();
 				} else 
-					tout->Fill();
+					tout_mini->Fill();
 			}
 
 			tin->Delete();
 			fin.Close();
 			fout.cd();
-			if (update)
-				tout->Write("", TObject::kOverwrite);
-			else 
-				tout->Write();
-			tout->Delete();
+			if (update) {
+				tout_mini->Write("", TObject::kOverwrite);
+				for (TBranch *b : brs)
+					b->Fill();
+				tout_run->Write("", TObject::kOverwrite);
+			} else {
+				tout_mini->Write();
+				tout_run->Fill();
+				tout_run->Write();
+			}
+			tout_mini->Delete();
+			tout_run->Delete();
 			fout.Close();
 		}
 	}

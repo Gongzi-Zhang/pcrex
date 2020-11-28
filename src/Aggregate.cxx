@@ -38,20 +38,7 @@ int main(int argc, char* argv[]) {
         slugs = parseRS(optarg);
         break;
 			case 'a':
-				if (strcmp(optarg, "both") == 0)
-					SetArmFlag(botharms);
-				else if (strcmp(optarg, "left") == 0)
-					SetArmFlag(leftarm);
-				else if (strcmp(optarg, "right") == 0)
-					SetArmFlag(rightarm);
-				else if (strcmp(optarg, "all") == 0)
-					SetArmFlag(allarms);
-				else if (strcmp(optarg, "no") == 0)
-					SetArmFlag(noarm);
-				else {
-					cerr << ERROR << "Unknown arm flag: " << optarg << ENDL;
-					exit(4);
-				}
+				SetArmFlag(optarg);
 				break;
       case 'd':
         out_dir = optarg;

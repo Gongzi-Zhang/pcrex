@@ -3,7 +3,7 @@
 #include <set>
 
 #include "line.h"
-#include "TRunWise.h"
+#include "TSctPlot.h"
 
 using namespace std;
 
@@ -11,7 +11,7 @@ void usage();
 set<int> parseSlugs(const char *);	// parse slugs
 
 int main(int argc, char* argv[]) {
-  const char * config_file("conf/runwise.conf");
+  const char * config_file("conf/sctplot.conf");
   const char * out_name = NULL;
   const char * out_format = NULL;
   set<int> slugs;
@@ -48,21 +48,21 @@ int main(int argc, char* argv[]) {
   if (dconf) 
     cout << INFO << "use default config file: " << config_file << ENDL;
 
-  TRunWise fRunWise(config_file);
+  TSctPlot fSctPlot(config_file);
   if (out_format)
-    fRunWise.SetOutFormat(out_format);
+    fSctPlot.SetOutFormat(out_format);
   if (out_name)
-    fRunWise.SetOutName(out_name);
+    fSctPlot.SetOutName(out_name);
   if (slugs.size() > 0)
-    fRunWise.SetSlugs(slugs);
+    fSctPlot.SetSlugs(slugs);
   if (cycle)
-    fRunWise.SetIV("cycle");
+    fSctPlot.SetIV("cycle");
 
-  fRunWise.CheckSlugs();
-  fRunWise.CheckVars();
-  fRunWise.GetValues();
-  fRunWise.CheckValues();
-  fRunWise.Draw();
+  fSctPlot.CheckSlugs();
+  fSctPlot.CheckVars();
+  fSctPlot.GetValues();
+  fSctPlot.CheckValues();
+  fSctPlot.Draw();
 
   return 0;
 }

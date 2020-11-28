@@ -43,16 +43,7 @@ int main(int argc, char* argv[]) {
         logy = true;
         break;
 			case 'a':
-				if (strcmp(optarg, "both") == 0)
-					SetArmFlag(botharms);
-				else if (strcmp(optarg, "left") == 0)
-					SetArmFlag(leftarm);
-				else if (strcmp(optarg, "right") == 0)
-					SetArmFlag(rightarm);
-				else {
-					cerr << ERROR << "Unknown arm flag: " << optarg << ENDL;
-					exit(4);
-				}
+				SetArmFlag(optarg);
 				break;
       case 'n':
         out_name = optarg;

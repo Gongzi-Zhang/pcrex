@@ -1,5 +1,5 @@
-#ifndef TRUNWISE_H
-#define TRUNWISE_H
+#ifndef TSCTPLOT_H
+#define TSCTPLOT_H
 
 #include <iostream>
 #include <fstream>
@@ -36,58 +36,28 @@
 #include "line.h"
 #include "TConfig.h"
 
-
-enum Format {pdf, png};
 enum IV {run, cycle}; // draw along eigher run number or cycle number
 
 using namespace std;
 
-class TRunWise {
+class TSctPlot : public TBase {
 
-    // ClassDe (TRunWise, 0) // check statistics
+    // ClassDe (TSctPlot, 0) // draw scattering plot
 
   private:
-    TConfig fConf;
-    Format format         = pdf;
     IV iv                 = run;  // default value: run
     const char *iv_name   = "run";
-    const char *out_name  = "runwise";
-    const char *dir	      = "/chafs2/work1/apar/BMODextractor/";
-    string pattern        = "dit_alldet_slopes_1X_slugxxxx.root";
-    const char *tree      = "dit";
     int	  nIvs;
-    int	  nSlugs;
-    int	  nVars;
-    int	  nSolos;
-    int	  nComps;
-    int	  nCors;
-    set<int> fSlugs;
-    set<string>	  fVars;
-    set<string>	  fSolos;
-    set< pair<string, string> >	fComps;
-    set< pair<string, string> >	fCors;
-    vector<string>	                fSoloPlots;
-    vector< pair<string, string> >	fCompPlots;
-    vector< pair<string, string> >	fCorPlots;
-    map<string, VarCut>			            fSoloCut;
-    map< pair<string, string>, VarCut>	fCompCut;
-    map< pair<string, string>, VarCut>  fCorCut;
 
-    map<int, string> fRootFile;
-    map<string, string> fUnits;
     vector<int> fIvs; // x variable: run or cyclenum
-    map<string, pair<string, string>> fVarName;
-    map<string, TLeaf *> fVarLeaf;
 
     map<string, set<int>>  fSoloBadIvs;
     map<pair<string, string>, set<int>>	  fCompBadIvs;
     map<pair<string, string>, set<int>>	  fCorBadIvs;
-    map<string, vector<double>> fVarValue;
 
-    TCanvas * c;
   public:
-     TRunWise(const char*);
-     ~TRunWise();
+     TSctPlot(const char*);
+     ~TSctPlot();
      void SetOutName(const char * name) {if (name) out_name = name;}
      void SetOutFormat(const char * f);
      // void SetFileType(const char * f);
@@ -108,9 +78,9 @@ class TRunWise {
      const char * GetUnit(string var);
 };
 
-// ClassImp(TRunWise);
+// ClassImp(TSctPlot);
 
-TRunWise::TRunWise(const char* config_file) :
+TSctPlot::TSctPlot(const char* config_file) :
   fConf(config_file)
 {
   fConf.ParseConfFile();
@@ -134,11 +104,11 @@ TRunWise::TRunWise(const char* config_file) :
   gROOT->SetBatch(1);
 }
 
-TRunWise::~TRunWise() {
-  cerr << INFO << "Release TRunWise" << ENDL;
+TSctPlot::~TSctPlot() {
+  cerr << INFO << "Release TSctPlot" << ENDL;
 }
 
-void TRunWise::SetDir(const char * d) {
+void TSctPlot::SetDir(const char * d) {
   struct stat info;
   if (stat( d, &info) != 0) {
     cerr << FATAL << "can't access specified dir: " << dir << ENDL;
@@ -150,7 +120,7 @@ void TRunWise::SetDir(const char * d) {
   dir = d;
 }
 
-void TRunWise::SetOutFormat(const char * f) {
+void TSctPlot::SetOutFormat(const char * f) {
   if (strcmp(f, "pdf") == 0) {
     format = pdf;
   } else if (strcmp(f, "png") == 0) {
@@ -161,7 +131,7 @@ void TRunWise::SetOutFormat(const char * f) {
   }
 }
 
-void TRunWise::SetSlugs(set<int> slugs) {
+void TSctPlot::SetSlugs(set<int> slugs) {
   for(int slug : slugs) {
     if (   (CREX_AT_START_SLUG <= slug && slug <= CREX_AT_END_SLUG)
         || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
@@ -175,7 +145,7 @@ void TRunWise::SetSlugs(set<int> slugs) {
   nSlugs = fSlugs.size();
 }
 
-void TRunWise::CheckSlugs() {
+void TSctPlot::CheckSlugs() {
   for (set<int>::const_iterator it = fSlugs.cbegin(); it != fSlugs.cend(); ) {
     int slug = *it;
     string p_buf(pattern);
@@ -206,7 +176,7 @@ void TRunWise::CheckSlugs() {
   }
 }
 
-void TRunWise::CheckVars() {
+void TSctPlot::CheckVars() {
   srand(time(NULL));
   int s = rand() % nSlugs;
   set<int>::const_iterator it_s=fSlugs.cbegin();
@@ -364,7 +334,7 @@ void TRunWise::CheckVars() {
   }
 }
 
-bool TRunWise::CheckVar(string var) {
+bool TSctPlot::CheckVar(string var) {
   if (fVars.find(var) == fVars.cend()) {
     cerr << WARNING << "Unknown variable in: " << var << ENDL;
     return false;
@@ -373,7 +343,7 @@ bool TRunWise::CheckVar(string var) {
   return true;
 }
 
-void TRunWise::GetValues() {
+void TSctPlot::GetValues() {
   for (int slug : fSlugs) {
     const char * file_name = fRootFile[slug].c_str();
     TFile f_rootfile(file_name, "read");
@@ -472,7 +442,7 @@ void TRunWise::GetValues() {
   nIvs = fIvs.size();
 }
 
-void TRunWise::CheckValues() {
+void TSctPlot::CheckValues() {
   for (string solo : fSolos) {
     const double low_cut  = fSoloCut[solo].low;
     const double high_cut = fSoloCut[solo].high;
@@ -551,7 +521,7 @@ void TRunWise::CheckValues() {
   cout << INFO << "done with checking values" << ENDL;
 }
 
-void TRunWise::Draw() {
+void TSctPlot::Draw() {
   c = new TCanvas("c", "c", 800, 600);
   c->SetGridy();
   gStyle->SetOptFit(111);
@@ -573,7 +543,7 @@ void TRunWise::Draw() {
   cout << INFO << "done with drawing plots" << ENDL;
 }
 
-void TRunWise::DrawSolos() {
+void TSctPlot::DrawSolos() {
   for (string solo : fSoloPlots) {
     string unit = GetUnit(solo);
 
@@ -632,7 +602,7 @@ void TRunWise::DrawSolos() {
   cout << INFO << "Done with drawing Solos." << ENDL;
 }
 
-void TRunWise::DrawComps() {
+void TSctPlot::DrawComps() {
   int MarkerStyles[] = {29, 33, 34, 31};
   int color1 = 48, color2 = 38;
   for (pair<string, string> comp : fCompPlots) {
@@ -776,7 +746,7 @@ void TRunWise::DrawComps() {
   cout << INFO << "Done with drawing Comparisons." << ENDL;
 }
 
-void TRunWise::DrawCors() {
+void TSctPlot::DrawCors() {
   for (pair<string, string> cor : fCorPlots) {
     string xvar = cor.second;
     string yvar = cor.first;
@@ -830,7 +800,7 @@ void TRunWise::DrawCors() {
   cout << INFO << "Done with drawing Correlations." << ENDL;
 }
 
-const char * TRunWise::GetUnit (string var) {
+const char * TSctPlot::GetUnit (string var) {
   string branch = fVarName[var].first;
   string leaf   = fVarName[var].second;
   if (branch.find("asym") != string::npos) {

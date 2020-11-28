@@ -28,6 +28,7 @@
 #define OUTPUT	__PRETTY_FUNCTION__ << BOLDBLUE << "--OUTPUT\t"
 #define DEBUG   __PRETTY_FUNCTION__ << GREEN << "--DEBUG\t"
 #define INFO    __PRETTY_FUNCTION__ << "--INFO\t"
+#define BINFO   __PRETTY_FUNCTION__ << BOLD << "--INFO\t"
 #define WARNING __PRETTY_FUNCTION__ << YELLOW << "--WARNING\t"
 #define ALERT   __PRETTY_FUNCTION__ << BOLDYELLOW << "--ALERT\t"
 #define OUTLIER __PRETTY_FUNCTION__ << BOLDYELLOW << "--OUTLIER\t"
