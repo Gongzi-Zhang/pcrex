@@ -353,21 +353,21 @@ set<int> GetRuns() {
     return {};
   }
 
-	cerr << BINFO << endl;
+	cerr << BINFO;
 		if (gexp.size())
-			fprintf(stderr, "\t%9s:\t%s\n", "exp", gexp.c_str());
+			fprintf(stderr, "\n\t%9s:\t%s", "exp", gexp.c_str());
 		if (gruntype.size())
-			fprintf(stderr, "\t%9s:\t%s\n", "run type", gruntype.c_str());
+			fprintf(stderr, "\n\t%9s:\t%s", "run type", gruntype.c_str());
 		if (grunflag.size())
-			fprintf(stderr, "\t%9s:\t%s\n", "run flag", grunflag.c_str());
+			fprintf(stderr, "\n\t%9s:\t%s", "run flag", grunflag.c_str());
 		if (gtarget.size())
-			fprintf(stderr, "\t%9s:\t%s\n", "target", gtarget.c_str());
+			fprintf(stderr, "\n\t%9s:\t%s", "target", gtarget.c_str());
 		if (garmflag.size())
-			fprintf(stderr, "\t%9s:\t%s\n", "arm flag", garmflag.c_str());
+			fprintf(stderr, "\n\t%9s:\t%s", "arm flag", garmflag.c_str());
 		if (gihwp.size())
-			fprintf(stderr, "\t%9s:\t%s\n", "ihwp", gihwp.c_str());
+			fprintf(stderr, "\n\t%9s:\t%s", "ihwp", gihwp.c_str());
 		if (gwienflip.size())
-			fprintf(stderr, "\t%9s:\t%s\n", "wien flip", gwienflip.c_str());
+			fprintf(stderr, "\n\t%9s:\t%s", "wien flip", gwienflip.c_str());
 	cerr << ENDL;
 
   set<int> runs;

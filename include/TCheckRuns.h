@@ -45,6 +45,7 @@ class TCheckRuns : public TBase {
     // ClassDe (TCheckRuns, 0) // check statistics
 
   private:
+    vector<TCut> hCuts; // highlight cuts
 
     map<string, set<int>>									fSoloBadPoints;
     map<string, set<int>>									fCustomBadPoints;
@@ -52,6 +53,7 @@ class TCheckRuns : public TBase {
     map<pair<string, string>, set<int>>	  fCorBadPoints;
 
     TCanvas * c;
+
   public:
      TCheckRuns(const char* config_file, const char * run_list = NULL);
      ~TCheckRuns();
@@ -75,6 +77,10 @@ TCheckRuns::TCheckRuns(const char* config_file, const char* run_list) :
 	// pattern = "prexPrompt_pass2_xxxx.???.root";
 	// tree = "evt";
 	// mCut = "ErrorFlag == 0";
+  // ecuts = fConf.GetEntryCut();
+  hCuts = fConf.GetHighlightCut();
+  for (const char * cut : hCuts)
+    allCuts.push_back(cut);
 }
 
 TCheckRuns::~TCheckRuns() {

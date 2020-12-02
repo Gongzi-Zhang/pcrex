@@ -103,10 +103,6 @@ void TMulPlot::Draw() {
 }
 
 void TMulPlot::FillHistograms() {
-	map<string, vector<double>>& vals = fVarValue[mCut];
-	const vector<long>& entrynumber = fEntryNumber[mCut];
-	int ok = nOk[mCut];
-
 	map<string, double> up;
 	for (string var : fVars) {
 		fVarUnit[var] = GetUnit(var);
@@ -119,18 +115,20 @@ void TMulPlot::FillHistograms() {
 		// default sign correction
 		int iok = 0;
 		for (int run : fRuns) {
-			while (iok < ok && entrynumber[iok] < fRunEntries[run]) {
-				vals[var][iok] *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0));
-				iok++;
-			}
+      int s = fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0);
+      const size_t sessions = fRootFile[run].size();
+      for (size_t session=0; session < sessions; session++) {
+        for (int i = 0; i < fEntryNumber[run][session].size(); i++, iok++)
+        fVarValue[var][iok] *= s;
+      }
 		}
 	}
 
   // initialize histogram
 	for (string var : fVars) {
 		double unit = UNITS[fVarUnit[var]];
-    for (int i=0; i<ok; i++)
-      vals[var][i] /= unit;
+    for (int i=0; i<nOk; i++)
+      fVarValue[var][i] /= unit;
 	}
 
   for (string solo : fSolos) {
@@ -143,8 +141,8 @@ void TMulPlot::FillHistograms() {
       high = fSoloCut[solo].high/unit;
     
     fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), fVarUnit[solo]), 100, low, high);
-    for (int i=0; i<ok; i++)
-      fSoloHists[solo]->Fill(vals[solo][i]);
+    for (int i=0; i<nOk; i++)
+      fSoloHists[solo]->Fill(fVarValue[solo][i]);
   }
 
   for (pair<string, string> comp : fComps) {
@@ -162,9 +160,9 @@ void TMulPlot::FillHistograms() {
     fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), fVarUnit[var1]), 100, low, high);
     fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), fVarUnit[var2]), 100, low, high);
 
-    for (int i=0; i<ok; i++) {
-      fCompHists[comp].first->Fill(vals[var1][i]);
-      fCompHists[comp].second->Fill(vals[var2][i]);
+    for (int i=0; i<nOk; i++) {
+      fCompHists[comp].first->Fill(fVarValue[var1][i]);
+      fCompHists[comp].second->Fill(fVarValue[var2][i]);
     }
   }
 
@@ -188,8 +186,8 @@ void TMulPlot::FillHistograms() {
 				100, xlow, xhigh,
 				100, ylow, yhigh);
 
-    for (int i=0; i<ok; i++)
-      fCorHists[cor]->Fill(vals[xvar][i], vals[yvar][i]);
+    for (int i=0; i<nOk; i++)
+      fCorHists[cor]->Fill(fVarValue[xvar][i], fVarValue[yvar][i]);
 	}
 }
 
@@ -385,12 +383,14 @@ void TMulPlot::GetOutliers() {
 			}
 			long iok = 0;
 			for (int run : fRuns) {
-				const long N = fRunEntries[run];
-				for (; iok<N; iok++) {
-					double val = fVarValue[mCut][solo][iok];
-					if ((lout && val < lval) || (hout && val > hval)) {
-						cout << ALERT << "Outlier in run: " << run << "\tvariable: " << solo << "\tvalue: " << val << ENDL;
-					}
+        const size_t sessions = fRootFile[run].size();
+        for (size_t session=0; session < sessions; session++) {
+          for (int i = 0; i < fEntryNumber[run][session].size(); i++, iok++) {
+            double val = fVarValue[solo][iok];
+            if ((lout && val < lval) || (hout && val > hval)) {
+              cout << ALERT << "Outlier in run: " << run << "\tvariable: " << solo << "\tvalue: " << val << ENDL;
+            }
+          }
 				}
 			}
 		}

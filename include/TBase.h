@@ -57,11 +57,11 @@ class TBase {
     const char *dir   = "/adaqfs/home/apar/PREX/prompt/results/";
     string pattern    = "prexPrompt_xxxx_???_regress_postpan.root";
     const char *tree  = "reg";
-		const char *mCut	= "";	// main cut
+		const char *cut	  = "";
     // bool logy         = false;
 		map<string, const char*> ftrees;	// friend trees: tree, file_name
     vector<pair<long, long>> ecuts;
-    vector<TCut> allCuts;	// including highlight cuts, only for TCheckRuns
+    vector<TCut> allCuts;	
 
     TConfig fConf;
     int     nSlugs;
@@ -93,29 +93,26 @@ class TBase {
     vector<pair<string, string>>      fCors;
     map<pair<string, string>, VarCut> fCorCut;
 
-    // double slopes_buf[ROWS][COLS];
-    // double slopes_err_buf[ROWS][COLS];
     map<pair<string, string>, pair<int, int>>	  fSlopeIndex;
-    int      rows, cols;
-    double * slopes_buf;
-    double * slopes_err_buf;
+    int     rows, cols;
+    double *slope_buf = NULL;
+    double *slope_err_buf = NULL;
 
     map<int, vector<string>> fRootFile;
     map<string, pair<string, string>> fVarName;
     map<string, TLeaf *> fVarLeaf;
-		long nTotal;
-		map<string, long> nOk;  // total number of ok events for each cut
-		map<string, vector<long>> fEntryNumber;		// for each cut
-		map<int, int> fRunEntries;     // number of entries for each run
+		long nTotal = 0;
+		long nOk = 0;  // total number of ok events 
+		map<int, map<int, vector<long>>> fEntryNumber; // entry number of good entry
+		map<int, map<int, int>> fRunEntries;  // number of entries for each session of each run
     map<int, int> fRunSign;
 		map<int, int> fRunArm;
 		map<string, const char *> fVarUnit;
     map<string, double>  vars_buf;	// temp. value storage
-		map<string, map<string, vector<double>>> fVarValue;	// real value storage; for each cut
-    map<string, map<pair<string, string>, vector<double>>> fSlopeValue;
-    map<string, map<pair<string, string>, vector<double>>> fSlopeErr;
+		map<string, vector<double>> fVarValue;	// real value storage;
+    map<pair<string, string>, vector<double>> fSlopeValue;
+    map<pair<string, string>, vector<double>> fSlopeErr;
 
-		// some statistics: not for every cut, only for the main Cut
 		map<string, double> fVarSum;
 		map<string, double> fVarSum2;
 		map<string, double> fVarMax;
@@ -136,7 +133,7 @@ class TBase {
      void CheckVars();
      bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
-     void GetValues();
+     int GetValues();
      bool CheckEntryCut(const long entry);
 
 		 double get_custom_value(Node * node);
@@ -180,19 +177,19 @@ TBase::TBase(const char* config_file, const char* run_list) :
   if (fConf.GetDir())       SetDir(fConf.GetDir());
   if (fConf.GetPattern())   pattern = fConf.GetPattern();
   if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
-  if (fConf.GetTreeCut())   mCut		= fConf.GetTreeCut();
-	allCuts.push_back(mCut);	// mCut should always be the first cut of allCuts
+  if (fConf.GetTreeCut())   cut		  = fConf.GetTreeCut();
+	allCuts.push_back(cut);	
 	ftrees = fConf.GetFriendTrees();
   // logy  = fConf.GetLogy();
   ecuts = fConf.GetEntryCut();
-	for(const char* c : fConf.GetHighlightCut())
-		allCuts.push_back(c);
 
   gROOT->SetBatch(1);
 }
 
 TBase::~TBase() {
-  cout << INFO << "End of TBase" << ENDL;
+  if (slope_buf) delete slope_buf;
+  if (slope_err_buf) delete slope_err_buf;
+  cerr << INFO << "End of TBase" << ENDL;
 }
 
 void TBase::SetDir(const char * d) {
@@ -346,12 +343,14 @@ void TBase::CheckVars() {
   
 		// slope
     vector<TString> *l_iv, *l_dv;
-		l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
-		l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
-    if (nSlopes > 0 && (l_iv == NULL || l_dv == NULL)){
-      cerr << WARNING << "run-" << run << " ^^^^ can't read IVNames or DVNames in root file: " 
-           << file_name << ", skip this run." << ENDL;
-      goto next_run;
+    if (nSlopes > 0) {
+      l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
+      l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
+      if (l_iv == NULL || l_dv == NULL){
+        cerr << WARNING << "run-" << run << " ^^^^ can't read IVNames or DVNames in root file: " 
+             << file_name << ", skip this run." << ENDL;
+        goto next_run;
+      }
     }
 
     TTree * tin;
@@ -407,8 +406,8 @@ void TBase::CheckVars() {
 
 		{	// this brace is needed for compilation because I use goto
 		 	// so that I can limit new defined node in this local scope
-			for (const char * cut : allCuts) {	// check all cuts
-				Node * node = ParseExpression(cut);
+			for (const char * c : allCuts) {	// check all cuts: checkruns may have multiple cuts
+				Node * node = ParseExpression(c);
 				for (string var : GetVariables(node))
 					tmp_vars.insert(var);
 				DeleteNode(node);
@@ -526,12 +525,8 @@ void TBase::CheckVars() {
 		if (nSlopes>0) {
 			rows = l_dv->size();
 			cols = l_iv->size();
-			slopes_buf = new double[rows*cols];
-			slopes_err_buf = new double[rows*cols];
-			// if (rows != ROWS || cols != COLS) {
-			//   cerr << FATAL << "Unmatched slope array size: " << rows << "x" << cols << " in run: " << run << ENDL;
-			//   exit(20);
-			// }
+			slope_buf = new double[rows*cols];
+			slope_err_buf = new double[rows*cols];
 			bool error_dv_flag = false;
 			bool error_iv_flag = false;
 			for (vector<pair<string, string>>::iterator it=fSlopes.begin(); it != fSlopes.end(); ) {
@@ -704,7 +699,7 @@ bool TBase::CheckCustomVar(Node * node) {
  * 5. special variables: bpm11X
  * 7. provide some statistical features of the values
  */
-void TBase::GetValues() {
+int TBase::GetValues() {  // return accepted number of entries
 
 	map<string, double> unit;
 	// initialization
@@ -756,12 +751,6 @@ void TBase::GetValues() {
 				tin->AddFriend(ftree.first.c_str(), file_name.c_str());	// FIXME: what if the friend tree doesn't exist
 			}
 
-			if (Contain(mCut, "ok_cut") && tin->GetEntries("ok_cut") < 4500) {
-				// FIXME; only for checkruns and mulplots
-				cerr << WARNING << "run-" << run << " ^^^^ too short (< 4500 patterns), ignore it" <<ENDL;
-				continue;
-			}
-
       bool error = false;
       for (string var : fVars) {
         string branch = fVarName[var].first;
@@ -804,109 +793,98 @@ void TBase::GetValues() {
       if (error)
         continue;
 
-      if (nSlopes > 0) {
-        tin->SetBranchAddress("coeff", slopes_buf);
-        tin->SetBranchAddress("err_coeff", slopes_err_buf);
+      // if (nSlopes > 0) {
+      //   tin->SetBranchAddress("coeff", slope_buf);
+      //   tin->SetBranchAddress("err_coeff", slope_err_buf);
+      // }
+
+      const int N = tin->Draw(">>elist", cut, "entrylist");
+      TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
+      cout << INFO << "use cut: " << cut << ENDL;
+      if (N == 0) {
+        cerr << WARNING << "run-" << run << " session-" << session << " fails cut: " << cut << ENDL;
+        continue;
+      }
+      for(int n=0; n<N; n++) { // loop through the events
+        if (n % 50000 == 49999) 
+          cout << INFO << "read " << n+1 << " entries!" << ENDL;
+
+        const int en = elist->GetEntry(n);
+        if (CheckEntryCut(nTotal+en))
+          continue;
+
+        nOk++;
+        fEntryNumber[run][session].push_back(en);
+        for (string var : fVars) {
+          double val;
+          fVarLeaf[var]->GetBranch()->GetEntry(en);
+          val = fVarLeaf[var]->GetValue();
+          // leave sign correction to separated programs
+          // if (program == mulplot || program == checkstatistics)	// FIXME: is there a better way to do sign correction
+          // 	val *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0)); 
+
+          if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
+            val *= 0.6;
+
+          // avg/dd of single arm running
+          if (	 (	 garmflag.find(rightarm) != string::npos 
+                  || garmflag.find(leftarm)	 != string::npos )
+              && (fRunArm[run] == leftarm || fRunArm[run] == rightarm)
+              && (	 var.find("us_avg") != string::npos 
+                  || var.find("us_dd")	!= string::npos 
+                  || var.find("ds_avg") != string::npos 
+                  || var.find("ds_dd")	!= string::npos)) 
+          {
+            string rvar = var;
+            const char * replaced = "_avg";
+            int l = 4;
+            if (var.find("_dd") != string::npos) {
+              replaced = "_dd";
+              l = 3;
+            }
+            const char * replacement = (fRunArm[run] == leftarm ? "l" : "r");
+            rvar.replace(rvar.find(replaced), l, replacement);
+            fVarLeaf[rvar]->GetBranch()->GetEntry(en);
+            val = fVarLeaf[rvar]->GetValue();
+          }
+          val *= unit[var];	// normalized to standard units
+          vars_buf[var] = val;
+          fVarValue[var].push_back(val);
+          fVarSum[var]	+= val;
+          fVarSum2[var] += val * val;
+
+          if (abs(val) > fVarMax[var])
+            fVarMax[var] = abs(val);
+        }
+        for (string custom : fCustoms) {	// FIXME: this may be incorrect while doing calculation before sign and unit corrections
+          double val = get_custom_value(fCustomDef[custom]);
+          vars_buf[custom] = val;
+          fVarValue[custom].push_back(val);
+          fVarSum[custom]	+= val;
+          fVarSum2[custom]  += val * val;
+
+          if (abs(val) > fVarMax[custom]) 
+            fVarMax[custom] = abs(val);
+        }
       }
 
-			for (const char * cut : allCuts) {
-				const int N = tin->Draw(">>elist", cut, "entrylist");
-				TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
-				cout << INFO << "use cut: " << cut << ENDL;
-				if (N == 0) {
-					cerr << WARNING << "run-" << run << " fails cut: " << cut << ENDL;
-					continue;
-				}
-				for(int n=0; n<N; n++) { // loop through the events
-					if (n % 50000 == 49999) 
-						cout << INFO << "read " << n+1 << " entries!" << ENDL;
+      // slope
+      // for (pair<string, string> slope : fSlopes) {
+      //   // double unit = ppm/(um/mm);
+      //   fSlopeValue[slope].push_back(slope_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
+      //   fSlopeErr[slope].push_back(slope_err_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
+      // }
 
-					const int en = elist->GetEntry(n);
-					if (CheckEntryCut(nTotal+en))
-					 	continue;
-
-					nOk[cut]++;
-					fEntryNumber[cut].push_back(nTotal+en);
-					for (string var : fVars) {
-						double val;
-						fVarLeaf[var]->GetBranch()->GetEntry(en);
-						val = fVarLeaf[var]->GetValue();
-						// leave sign correction to separated programs
-						// if (program == mulplot || program == checkstatistics)	// FIXME: is there a better way to do sign correction
-						// 	val *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0)); 
-
-						if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
-							val *= 0.6;
-
-						// avg/dd of single arm running
-						if (	 (	 garmflag.find(rightarm) != string::npos 
-									  || garmflag.find(leftarm)	 != string::npos )
-								&& (fRunArm[run] == leftarm || fRunArm[run] == rightarm)
-								&& (	 var.find("us_avg") != string::npos 
-										|| var.find("us_dd")	!= string::npos 
-										|| var.find("ds_avg") != string::npos 
-										|| var.find("ds_dd")	!= string::npos)) 
-						{
-							string rvar = var;
-							const char * replaced = "_avg";
-							int l = 4;
-							if (var.find("_dd") != string::npos) {
-								replaced = "_dd";
-								l = 3;
-							}
-							const char * replacement = (fRunArm[run] == leftarm ? "l" : "r");
-							rvar.replace(rvar.find(replaced), l, replacement);
-							fVarLeaf[rvar]->GetBranch()->GetEntry(en);
-							val = fVarLeaf[rvar]->GetValue();
-						}
-						val *= unit[var];	// normalized to standard units
-						vars_buf[var] = val;
-						fVarValue[cut][var].push_back(val);
-						fVarSum[var]	+= val;
-						fVarSum2[var] += val * val;
-
-						if (abs(val) > fVarMax[var])
-							fVarMax[var] = abs(val);
-					}
-					for (string custom : fCustoms) {	// FIXME: this may be incorrect while doing calculation before sign and unit corrections
-						double val = get_custom_value(fCustomDef[custom]);
-						vars_buf[custom] = val;
-						fVarValue[cut][custom].push_back(val);
-						fVarSum[custom]	+= val;
-						fVarSum2[custom]  += val * val;
-
-						if (abs(val) > fVarMax[custom]) 
-							fVarMax[custom] = abs(val);
-					}
-				}
-
-				// slope
-        for (pair<string, string> slope : fSlopes) {
-          // double unit = ppm/(um/mm);
-          fSlopeValue[cut][slope].push_back(slopes_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
-          fSlopeErr[cut][slope].push_back(slopes_err_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
-        }
-			}
-			nTotal += tin->GetEntries();
-			fRunEntries[run] = nTotal;
+			fRunEntries[run][session] = tin->GetEntries();
+			nTotal += fRunEntries[run][session];
 
       tin->Delete();
       f_rootfile.Close();
     }
   }
 
-	for (int i=0; i<allCuts.size(); i++) {
-		const char * cut = allCuts[i];
-		if (nOk[cut] == 0) {
-			if (i==0) {
-				cerr << FATAL << "No valid entry for main cut: " << cut << ENDL;
-				exit(44);
-			} else {
-				cerr << ERROR << "No valid entry for cut: " << cut << ENDL;
-			}
-		}
-		cout << INFO << "with cut: " << cut <<  "--read " << nOk[cut] << "/" << nTotal << " good entries." << ENDL;
-	}
+  cout << INFO << "with cut: " << cut <<  "--read " << nOk << "/" << nTotal << " good entries." << ENDL;
+  return nOk;
 }
 
 double TBase::get_custom_value(Node *node) {

@@ -62,6 +62,7 @@ int main(int argc, char* argv[]) {
 	fAgg.CheckOutDir();
 	fAgg.CheckRuns();
 	fAgg.CheckVars();
+  fAgg.GetValues();
   fAgg.Aggregate();
 
   return 0;

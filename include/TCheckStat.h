@@ -72,8 +72,6 @@ class TCheckStat : public TBase {
     map<pair<string, string>, set<pair<int, int>>>	  fSlopeBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fCorBadMiniruns;
 
-		map<string, vector<double>>& val_buff = fVarValue[mCut];
-
   public:
      TCheckStat(const char*, const char* run_list = NULL);
      ~TCheckStat();
@@ -126,36 +124,34 @@ void TCheckStat::ProcessValues() {
 			flips.push_back(it->second);
 	}
 
-	const vector<long>& entrynumber = fEntryNumber[mCut];
-	nMiniruns = entrynumber.size();
-
+	nMiniruns = fEntryNumber.size();
 	{
-		int m = 0;
-		int pre = 0;	// previous run entries
 		for (int run : fRuns) {
-			while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
-				fMiniruns.push_back(make_pair(run, entrynumber[m]-pre));
-				m++;
-			}
-			pre = fRunEntries[run];
+      const size_t sessions = fRootFile[run].size();
+      for (size_t session=0; session < sessions; session++) {
+        for (int m=0; m<fEntryNumber[run][session].size(); m++)
+          fMiniruns.push_back(make_pair(run, fEntryNumber[run][session][m]));
+      }
 		}
 	}
 	for (string var : fVars) {
 		// unit correction
 		fVarUnit[var] = GetUnit(var);
 		for (int m=0; m<nMiniruns; m++) {
-			val_buff[var][m] /= UNITS[fVarUnit[var]];
+			fVarValue[var][m] /= UNITS[fVarUnit[var]];
 		}
 
 		// sign correction: only for mean value
 		if (sign && fVarStatType[var] == mean) {
-			int m = 0;
+      int m = 0;
 			for (int run : fRuns) {
-				while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
-					val_buff[var][m] *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0));
-					m++;
-				}
-			}
+        int s = fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0);
+        const size_t sessions = fRootFile[run].size();
+        for (size_t session=0; session < sessions; session++) {
+          for (int i = 0; i < fEntryNumber[run][session].size(); i++, m++)
+            fVarValue[var][m] *= s;
+        }
+      }
 		}
 	}
 
@@ -170,10 +166,11 @@ void TCheckStat::ProcessValues() {
 		{
       int m = 0;
 			for (int run : fRuns) {
-				while (m < nMiniruns && entrynumber[m] < fRunEntries[run]) {
-					val_buff[var][m] = val_buff["lagr_asym_us_avg.err"][m];	// weighted by lagr_asym_us_avg err bar
-					m++;
-				}
+        const size_t sessions = fRootFile[run].size();
+        for (size_t session=0; session < sessions; session++) {
+          for (int i = 0; i < fEntryNumber[run][session].size(); i++, m++)
+            fVarValue[var][m] = fVarValue["lagr_asym_us_avg.err"][m];	// weighted by lagr_asym_us_avg err bar
+        }
 			}
 		}
 	}
@@ -196,7 +193,7 @@ void TCheckStat::CheckValues() {
     double sum2 = 0;  // sum of square
     double mean, sigma = 0;
     for (int i=0; i<nMiniruns; i++) {
-      double val = val_buff[solo][i];
+      double val = fVarValue[solo][i];
 
       if (i == 0) {
         mean = val;
@@ -230,8 +227,8 @@ void TCheckStat::CheckValues() {
       high_cut /= unit;
 
     for (int i=0; i<nMiniruns; i++) {
-      double val1 = val_buff[var1][i];
-      double val2 = val_buff[var1][i];
+      double val1 = fVarValue[var1][i];
+      double val2 = fVarValue[var1][i];
 			double diff = abs(val1 - val2);
 
       if ( (low_cut  != 1024 && diff < low_cut)
@@ -261,10 +258,10 @@ void TCheckStat::CheckValues() {
 
     double sum  = 0;
     double sum2 = 0;  // sum of square
-    double mean = fSlopeValue[mCut][slope][0];
-    double sigma = fSlopeErr[mCut][slope][0];
+    double mean = fSlopeValue[slope][0];
+    double sigma = fSlopeErr[slope][0];
     for (int i=0; i<nMiniruns; i++) {
-      double val = fSlopeValue[mCut][slope][i];
+      double val = fSlopeValue[slope][i];
       if ( (low_cut  != 1024 && val < low_cut)
         || (high_cut != 1024 && val > high_cut)
         || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
@@ -293,8 +290,8 @@ void TCheckStat::CheckValues() {
       high_cut /= (yunit/xunit);
     // const double 
     for (int i=0; i<nMiniruns; i++) {
-      double xval = val_buff[xvar][i];
-      double yval = val_buff[yvar][i];
+      double xval = fVarValue[xvar][i];
+      double yval = fVarValue[yvar][i];
 
 			/*
       if () {
@@ -389,9 +386,9 @@ void TCheckStat::DrawSolos() {
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err=0;
-      val = val_buff[solo][i];
+      val = fVarValue[solo][i];
       if (meanflag) {
-        err = val_buff[err_var][i];
+        err = fVarValue[err_var][i];
       }
       g->SetPoint(i, i+1, val);
       g->SetPointError(i, 0, err);
@@ -447,8 +444,8 @@ void TCheckStat::DrawSolos() {
 
       for (int i=0; i<nMiniruns; i++) {
         double ratio = 0;
-        if (val_buff[err_var][i]!= 0)
-          ratio = (val_buff[solo][i]-mean_value)/val_buff[err_var][i];
+        if (fVarValue[err_var][i]!= 0)
+          ratio = (fVarValue[solo][i]-mean_value)/fVarValue[err_var][i];
 
         pull->SetPoint(i, i+1, ratio);
       }
@@ -595,8 +592,8 @@ void TCheckStat::DrawSlopes() {
 
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err;
-      val = fSlopeValue[mCut][slope][i];
-      err = fSlopeErr[mCut][slope][i];
+      val = fSlopeValue[slope][i];
+      err = fSlopeErr[slope][i];
       g->SetPoint(i, i+1, val);
       g->SetPointError(i, 0, err);
 
@@ -644,8 +641,8 @@ void TCheckStat::DrawSlopes() {
     TGraph * pull = new TGraph;
     for (int i=0; i<nMiniruns; i++) {
       double ratio = 0;
-      if (fSlopeErr[mCut][slope][i] != 0)
-        ratio = (fSlopeValue[mCut][slope][i]-mean_value)/fSlopeErr[mCut][slope][i];
+      if (fSlopeErr[slope][i] != 0)
+        ratio = (fSlopeValue[slope][i]-mean_value)/fSlopeErr[slope][i];
 
       pull->SetPoint(i, i+1, ratio);
     }
@@ -796,11 +793,11 @@ void TCheckStat::DrawComps() {
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val1, err1=0;
       double val2, err2=0;
-      val1 = val_buff[var1][i];
-      val2 = val_buff[var2][i];
+      val1 = fVarValue[var1][i];
+      val2 = fVarValue[var2][i];
       if (meanflag) {
-        err1 = val_buff[err_var1][i];
-        err2 = val_buff[err_var2][i];
+        err1 = fVarValue[err_var1][i];
+        err2 = fVarValue[err_var2][i];
       }
       if (i==0) 
         min = max = val1;
@@ -1029,13 +1026,13 @@ void TCheckStat::DrawCors() {
     for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double xval, xerr=0;
       double yval, yerr=0;
-      xval = val_buff[xvar][i];
-      yval = val_buff[yvar][i];
+      xval = fVarValue[xvar][i];
+      yval = fVarValue[yvar][i];
       if (xmeanflag) {
-        xerr = val_buff[xerr_var][i];
+        xerr = fVarValue[xerr_var][i];
       }
       if (ymeanflag) {
-        yerr = val_buff[yerr_var][i];
+        yerr = fVarValue[yerr_var][i];
       }
 
       g->SetPoint(i, xval, yval);
