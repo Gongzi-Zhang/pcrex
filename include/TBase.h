@@ -41,18 +41,32 @@
 
 
 enum Format {pdf, png};
-enum Program {mulplot, checkstatistics, checkruns};
+// enum Program {mulplot, checkstatistics, checkruns};
 
 using namespace std;
+
+Format format     = pdf; // default pdf output
+const char *out_name = "out";
+
+void SetOutName(const char *name) {if (name) out_name = name;}
+void SetOutFormat(const char * f) {
+  if (strcmp(f, "pdf") == 0) {
+    format = pdf;
+  } else if (strcmp(f, "png") == 0) {
+    format = png;
+  } else {
+    cerr << FATAL << "Unknow output format: " << f << ENDL;
+    exit(40);
+  }
+}
+
 
 class TBase {
 
     // ClassDe (TBase, 0) // mul plots
 
   protected:
-		Program program		= mulplot;
-    Format format     = pdf; // default pdf output
-    const char *out_name = "out";
+		// Program program		= mulplot;
     // root file: $dir/$pattern
     const char *dir   = "/adaqfs/home/apar/PREX/prompt/results/";
     string pattern    = "prexPrompt_xxxx_???_regress_postpan.root";
@@ -61,11 +75,9 @@ class TBase {
     // bool logy         = false;
 		map<string, const char*> ftrees;	// friend trees: tree, file_name
     vector<pair<long, long>> ecuts;
-    vector<TCut> allCuts;	
 
-    TConfig fConf;
-    int     nSlugs;
-    int	    nRuns;
+    // TConfig fConf;
+    int	    nGrans;	// granularity: can be run, slug or pit
     int	    nVars;
     int	    nSolos;
 		int		  nCustoms;
@@ -73,9 +85,9 @@ class TBase {
     int	    nSlopes;
     int	    nCors;
 
-    set<int>    fRuns;
-    set<int>    fSlugs;
+    set<int>    fGrans;	// FIXME how to use reference here
     set<string> fVars;
+		set<string> fCutVars;
 
     vector<string>      fSolos;
     map<string, VarCut> fSoloCut;	// use the low and high cut as x range
@@ -104,9 +116,7 @@ class TBase {
 		long nTotal = 0;
 		long nOk = 0;  // total number of ok events 
 		map<int, map<int, vector<long>>> fEntryNumber; // entry number of good entry
-		map<int, map<int, int>> fRunEntries;  // number of entries for each session of each run
-    map<int, int> fRunSign;
-		map<int, int> fRunArm;
+		map<int, map<int, int>> fEntries;  // number of entries for each session of each granularity
 		map<string, const char *> fVarUnit;
     map<string, double>  vars_buf;	// temp. value storage
 		map<string, vector<double>> fVarValue;	// real value storage;
@@ -121,35 +131,41 @@ class TBase {
     TCanvas * c;
 
   public:
-     TBase(const char* config_file, const char* run_list = NULL);
+     TBase();
      ~TBase();
-     void SetOutName(const char * name) {if (name) out_name = name;}
-     void SetOutFormat(const char * f);
-     void SetDir(const char * d);
-     // void SetLogy(bool log) {logy = log;}
-     void SetSlugs(set<int> slugs);
-     void SetRuns(set<int> runs);
-     void CheckRuns();
+     virtual void GetConfig(const TConfig fConf);
+     void SetDir(const char *d);
+     void CheckGrans();
      void CheckVars();
      bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
-     int GetValues();
+     virtual void GetValues();
      bool CheckEntryCut(const long entry);
 
-		 double get_custom_value(Node * node);
-		 virtual const char * GetUnit(string var);
+		 double get_custom_value(Node *node);
+		 virtual const char *GetUnit(string var);
 
 		 void PrintStatistics();	// auxiliary functions
 };
 
 // ClassImp(TBase);
 
-TBase::TBase(const char* config_file, const char* run_list) :
-  fConf(config_file, run_list)
+TBase::TBase() 
 {
-  fConf.ParseConfFile();
-  fRuns = fConf.GetRuns();
-  nRuns = fRuns.size();
+	gROOT->SetBatch(1);	// FIXME: maybe move to something as gsetting.h
+}
+
+TBase::~TBase() {
+  if (slope_buf) 
+		delete slope_buf;
+  if (slope_err_buf) 
+		delete slope_err_buf;
+  cerr << INFO << "End of TBase" << ENDL;
+}
+
+void TBase::GetConfig(const TConfig fConf)
+{
+  // fConf.ParseConfFile();
   fVars	= fConf.GetVars();
   nVars = fVars.size();
 
@@ -177,19 +193,16 @@ TBase::TBase(const char* config_file, const char* run_list) :
   if (fConf.GetDir())       SetDir(fConf.GetDir());
   if (fConf.GetPattern())   pattern = fConf.GetPattern();
   if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
-  if (fConf.GetTreeCut())   cut		  = fConf.GetTreeCut();
-	allCuts.push_back(cut);	
+  if (fConf.GetTreeCut()) {
+		cut	= fConf.GetTreeCut();
+		Node *node = ParseExpression(cut);
+		for (string var : GetVariables(node))
+			fCutVars.insert(var);
+		DeleteNode(node);
+	}
+
 	ftrees = fConf.GetFriendTrees();
-  // logy  = fConf.GetLogy();
   ecuts = fConf.GetEntryCut();
-
-  gROOT->SetBatch(1);
-}
-
-TBase::~TBase() {
-  if (slope_buf) delete slope_buf;
-  if (slope_err_buf) delete slope_err_buf;
-  cerr << INFO << "End of TBase" << ENDL;
 }
 
 void TBase::SetDir(const char * d) {
@@ -204,96 +217,42 @@ void TBase::SetDir(const char * d) {
   dir = d;
 }
 
-void TBase::SetOutFormat(const char * f) {
-  if (strcmp(f, "pdf") == 0) {
-    format = pdf;
-  } else if (strcmp(f, "png") == 0) {
-    format = png;
-  } else {
-    cerr << FATAL << "Unknow output format: " << f << ENDL;
-    exit(40);
-  }
-}
-
-void TBase::SetSlugs(set<int> slugs) {
-  for(int slug : slugs) {
-    if (   (CREX_AT_START_SLUG <= slug && slug <= CREX_AT_END_SLUG)
-        || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
-        || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
-      fSlugs.insert(slug);
-    } else {
-      cerr << ERROR << "Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << ENDL;
-      continue;
-    }
-  }
-  nSlugs = fSlugs.size();
-}
-
-void TBase::SetRuns(set<int> runs) {
-  for(int run : runs) {
-    if (run < START_RUN || run > END_RUN) {
-      cerr << ERROR << "Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << ENDL;
-      continue;
-    }
-    fRuns.insert(run);
-  }
-  nRuns = fRuns.size();
-}
-
-void TBase::CheckRuns() {
+void TBase::CheckGrans() {
   StartConnection();
+  nGrans = fGrans.size();
 
-  if (nSlugs > 0) {
-    set<int> runs;
-    for(int slug : fSlugs) {
-      runs = GetRunsFromSlug(slug);
-      for (int run : runs) {
-        fRuns.insert(run);
-      }
-    }
-  }
-  nRuns = fRuns.size();
-
-  // check runs against database
-  GetValidRuns(fRuns);
-  nRuns = fRuns.size();
-
-  for (set<int>::const_iterator it = fRuns.cbegin(); it != fRuns.cend(); ) {
-    int run = *it;
+  for (set<int>::const_iterator it = fGrans.cbegin(); it != fGrans.cend(); ) {
+    int g = *it;
     string p_buf(pattern);
-    p_buf.replace(p_buf.find("xxxx"), 4, to_string(run));
+    p_buf.replace(p_buf.find("xxxx"), 4, to_string(g));
     const char * p = Form("%s/%s", dir, p_buf.c_str());
 
     glob_t globbuf;
     glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
-      cout << ALERT << "no root file for run " << run << ". Ignore it." << ENDL;
-      it = fRuns.erase(it);
+      cout << ALERT << "no root file for granularity " << g << ". Ignore it." << ENDL;
+      it = fGrans.erase(it);
       continue;
     }
     for (int i=0; i<globbuf.gl_pathc; i++)
-      fRootFile[run].push_back(globbuf.gl_pathv[i]);
+      fRootFile[g].push_back(globbuf.gl_pathv[i]);
 
     globfree(&globbuf);
     it++;
   }
 
-  nRuns = fRuns.size();
-  if (nRuns == 0) {
-    cerr << FATAL << "No valid runs specified!" << ENDL;
+  nGrans = fGrans.size();
+  if (nGrans == 0) {
+    cerr << FATAL << "No valid granularity specified!" << ENDL;
     EndConnection();
     exit(10);
   }
 
-  cout << INFO << "" << nRuns << " valid runs specified:" << ENDL;
-  for(int run : fRuns) {
-    cout << "\t" << run << endl;
+  cout << INFO << "" << nGrans << " valid granularities specified:" << ENDL;
+  for(int g : fGrans) {
+    cout << "\t" << g << endl;
   }
 
-	for (int run : fRuns) {
-		fRunSign[run] = GetRunSign(run);
-		fRunArm[run]	= GetRunArmFlag(run);
-	}
   EndConnection();
 }
 
@@ -301,44 +260,44 @@ void TBase::CheckVars() {
 	// add necessary variables
 	// for main avg/dd variables, if global armflag is all, there must be corresponding left/right arm data
 	// FIXME: what if us_avg_ds_avg_dd
-	if (	 garmflag.find(rightarm) != string::npos 
-			|| garmflag.find(leftarm) != string::npos) { 
-		for (string var : fVars) {
-			if ( var.find("us_avg") != string::npos 
-				|| var.find("ds_avg") != string::npos 
-				|| var.find("us_dd") != string::npos 
-			  || var.find("ds_dd")  != string::npos ) {
-				string lvar = var;
-				string rvar = var;
-				if ( var.find("_avg") != string::npos ) {
-					fVars.insert(lvar.replace(lvar.find("_avg"), 4, "l"));
-					fVars.insert(rvar.replace(rvar.find("_avg"), 4, "r"));
-				} else {
-					fVars.insert(lvar.replace(lvar.find("_dd"), 3, "l"));
-					fVars.insert(rvar.replace(rvar.find("_dd"), 3, "r"));
-				}
-			}
-		}
-	}
+	// if (	 garmflag.find(rightarm) != string::npos 
+	// 		|| garmflag.find(leftarm) != string::npos) { 
+	// 	for (string var : fVars) {
+	// 		if ( var.find("us_avg") != string::npos 
+	// 			|| var.find("ds_avg") != string::npos 
+	// 			|| var.find("us_dd") != string::npos 
+	// 		  || var.find("ds_dd")  != string::npos ) {
+	// 			string lvar = var;
+	// 			string rvar = var;
+	// 			if ( var.find("_avg") != string::npos ) {
+	// 				fVars.insert(lvar.replace(lvar.find("_avg"), 4, "l"));
+	// 				fVars.insert(rvar.replace(rvar.find("_avg"), 4, "r"));
+	// 			} else {
+	// 				fVars.insert(lvar.replace(lvar.find("_dd"), 3, "l"));
+	// 				fVars.insert(rvar.replace(rvar.find("_dd"), 3, "r"));
+	// 			}
+	// 		}
+	// 	}
+	// }
 
   srand(time(NULL));
-  int s = rand() % nRuns;
-  set<int>::const_iterator it_r=fRuns.cbegin();
+  int s = rand() % nGrans;
+  set<int>::const_iterator it_g=fGrans.cbegin();
   for(int i=0; i<s; i++)
-    it_r++;
+    it_g++;
 
-  while (it_r != fRuns.cend()) {
+  while (it_g != fGrans.cend()) {
 		set<string> tmp_vars;
 		set<string> used_ftrees;
 		map<string, const char*> real_trees;	// real tree expression for alias
 
-    int run = *it_r;
-    const char * file_name = fRootFile[run][0].c_str();
+    int g = *it_g;
+    const char * file_name = fRootFile[g][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
     if (!f_rootfile->IsOpen()) {
-      cerr << WARNING << "run-" << run << " ^^^^ can't read root file: " << file_name 
-           << ", skip this run." << ENDL;
-      goto next_run;
+      cerr << WARNING << "granularity-" << g << " ^^^^ can't read root file: " << file_name 
+           << ", skip this granularity." << ENDL;
+      goto next;
     }
   
 		// slope
@@ -347,32 +306,32 @@ void TBase::CheckVars() {
       l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
       l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
       if (l_iv == NULL || l_dv == NULL){
-        cerr << WARNING << "run-" << run << " ^^^^ can't read IVNames or DVNames in root file: " 
+        cerr << WARNING << "run-" << g << " ^^^^ can't read IVNames or DVNames in root file: " 
              << file_name << ", skip this run." << ENDL;
-        goto next_run;
+        goto next;
       }
     }
 
     TTree * tin;
 		tin = (TTree*) f_rootfile->Get(tree);
     if (tin == NULL) {
-      cerr << WARNING << "run-" << run << " ^^^^ can't read tree: " << tree << " in root file: "
-           << file_name << ", skip this run." << ENDL;
-      goto next_run;
+      cerr << WARNING << "granularity-" << g << " ^^^^ can't read tree: " << tree << " in root file: "
+           << file_name << ", skip it." << ENDL;
+      goto next;
     }
 
     for (auto const ftree : ftrees) {
       const char *texp = ftree.first.c_str();
       string file_name = ftree.second;
 			if (file_name.find("xxxx") != string::npos)
-				file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+				file_name.replace(file_name.find("xxxx"), 4, to_string(g));
       if (file_name.size()) {
         glob_t globbuf;
         glob(file_name.c_str(), 0, NULL, &globbuf);
         if (globbuf.gl_pathc == 0) {
-          cerr << WARNING << "run-" << run << " ^^^^ can't read friend tree: " << texp
-							 << " in root file: " << file_name << ", skip this run." << ENDL; 
-					goto next_run;
+          cerr << WARNING << "granularity-" << g << " ^^^^ can't read friend tree: " << texp
+							 << " in root file: " << file_name << ", skip it." << ENDL; 
+					goto next;
 				}
 				file_name = globbuf.gl_pathv[0];
 				globfree(&globbuf);
@@ -403,16 +362,8 @@ void TBase::CheckVars() {
 		tmp_vars.clear();
 		for (string var : fVars)
 			tmp_vars.insert(var);
-
-		{	// this brace is needed for compilation because I use goto
-		 	// so that I can limit new defined node in this local scope
-			for (const char * c : allCuts) {	// check all cuts: checkruns may have multiple cuts
-				Node * node = ParseExpression(c);
-				for (string var : GetVariables(node))
-					tmp_vars.insert(var);
-				DeleteNode(node);
-			}
-		}
+		for (string var : fCutVars)
+			tmp_vars.insert(var);
 
 		for (string var : tmp_vars) {
       size_t n = count(var.begin(), var.end(), '.');
@@ -449,16 +400,16 @@ void TBase::CheckVars() {
 					}
 				}
 				// special branches -- stupid
-				if (branch.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
-					// no bpm11X in early runs, replace with bpm12X
-					cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
-					string b = branch;
-					bbuf = tin->GetBranch(b.replace(b.find("bpm11X"), 6, "bpm12X").c_str());
-				} else if (branch.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
-					cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
-					string b = branch;
-					bbuf = tin->GetBranch(b.replace(b.find("bpmE"), 4, "bpm12X").c_str());
-				} 
+				// if (branch.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
+				// 	// no bpm11X in early runs, replace with bpm12X
+				// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
+				// 	string b = branch;
+				// 	bbuf = tin->GetBranch(b.replace(b.find("bpm11X"), 6, "bpm12X").c_str());
+				// } else if (branch.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
+				// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
+				// 	string b = branch;
+				// 	bbuf = tin->GetBranch(b.replace(b.find("bpmE"), 4, "bpm12X").c_str());
+				// } 
 
 				if (!bbuf) {
 					cerr << ERROR << "no branch (leaf): " << branch << " as in var: " << var << ENDL;
@@ -486,11 +437,11 @@ void TBase::CheckVars() {
 				exit(24);
 			}
 			// special var -- stupid
-			if (branch.find("diff_bpm11X") != string::npos && run < 3390 && leaf.find("diff_bpm12X") != string::npos) {		// lagrange tree
-				leaf = "diff_bpm11X";
-			} else if (branch.find("diff_bpmE") != string::npos && run < 3390	&& leaf.find("diff_bpm12X") != string::npos) {	// reg tree		
-				leaf = "diff_bpmE";
-			} 
+			// if (branch.find("diff_bpm11X") != string::npos && run < 3390 && leaf.find("diff_bpm12X") != string::npos) {		// lagrange tree
+			// 	leaf = "diff_bpm11X";
+			// } else if (branch.find("diff_bpmE") != string::npos && run < 3390	&& leaf.find("diff_bpm12X") != string::npos) {	// reg tree		
+			// 	leaf = "diff_bpmE";
+			// } 
 
 			fVarName[var] = make_pair(branch, leaf);
 			used_ftrees.insert(bbuf->GetTree()->GetName());
@@ -567,21 +518,21 @@ void TBase::CheckVars() {
 		f_rootfile->Close();
 		break;
       
-next_run:
+next:
 		f_rootfile->Close();
 		if (tin) {
 			tin->Delete();
 			tin = NULL;
 		}
-    it_r = fRuns.erase(it_r);
+    it_g = fGrans.erase(it_g);
 
-    if (it_r == fRuns.cend())
-      it_r = fRuns.cbegin();
+    if (it_g == fGrans.cend())
+      it_g = fGrans.cbegin();
   }
 
-  nRuns = fRuns.size();
-  if (nRuns == 0) {
-    cerr << FATAL << "no valid runs, aborting." << ENDL;
+  nGrans = fGrans.size();
+  if (nGrans == 0) {
+    cerr << FATAL << "no valid runs/slugs, aborting." << ENDL;
     exit(10);
   }
 
@@ -618,7 +569,7 @@ next_run:
 
   for (vector<pair<string, string>>::iterator it=fComps.begin(); it!=fComps.end(); ) {
     if (!CheckVar(it->first) || !CheckVar(it->second)) {
-				// || strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) {
+				// || strcmp(GetUnit(it->first), GetUnit(it->second)) != 0 ) 
 			map<pair<string, string>, VarCut>::const_iterator it_c = fCompCut.find(*it);
 			if (it_c != fCompCut.cend())
 				fCompCut.erase(it_c);
@@ -699,7 +650,7 @@ bool TBase::CheckCustomVar(Node * node) {
  * 5. special variables: bpm11X
  * 7. provide some statistical features of the values
  */
-int TBase::GetValues() {  // return accepted number of entries
+void TBase::GetValues() {  // return accepted number of entries
 
 	map<string, double> unit;
 	// initialization
@@ -713,17 +664,17 @@ int TBase::GetValues() {  // return accepted number of entries
 		fVarMax[custom] = 0;
 
 	nTotal = 0;
-  for (int run : fRuns) {
-    const size_t sessions = fRootFile[run].size();
-    for (size_t session=0; session < sessions; session++) {
-      const char *file_name = fRootFile[run][session].c_str();
+  for (int g : fGrans) {
+    const int sessions = fRootFile[g].size();
+    for (int session=0; session < sessions; session++) {
+      const char *file_name = fRootFile[g][session].c_str();
       TFile f_rootfile(file_name, "read");
       if (!f_rootfile.IsOpen()) {
-        cerr << ERROR << "run-" << run << " ^^^^ Can't open root file: " << file_name << ENDL;
+        cerr << ERROR << "granularity-" << g << " ^^^^ Can't open root file: " << file_name << ENDL;
         continue;
       }
 
-      cout << INFO << Form("Read run: %d, session: %03d\t", run, session)
+      cout << INFO << Form("Read granularity: %d, session: %03d\t", g, session)
            << file_name << ENDL;
       TTree * tin = (TTree*) f_rootfile.Get(tree);
       if (! tin) {
@@ -735,12 +686,12 @@ int TBase::GetValues() {  // return accepted number of entries
 			for (auto const ftree : ftrees) {
 				string file_name = ftree.second;
 				if (file_name.find("xxxx") != string::npos)
-					file_name.replace(file_name.find("xxxx"), 4, to_string(run));
+					file_name.replace(file_name.find("xxxx"), 4, to_string(g));
 				if (file_name.size()) {
 					glob_t globbuf;
 					glob(file_name.c_str(), 0, NULL, &globbuf);
 					if (globbuf.gl_pathc != sessions) {
-						cerr << ERROR << "run-" << run << " ^^^^ unmatched friend tree root files: " << endl 
+						cerr << ERROR << "granularity-" << g << " ^^^^ unmatched friend tree root files: " << endl 
 								 << "\t" << sessions << "main root files vs " 
 								 << globbuf.gl_pathc << " friend tree root files" << ENDL; 
 						continue;
@@ -758,28 +709,26 @@ int TBase::GetValues() {  // return accepted number of entries
         TBranch * br = tin->GetBranch(branch.c_str());
         if (!br) {
 					// special branches -- stupid
-					if (branch.find("diff_bpm11X") != string::npos && run < 3390) {	
-						// no bpm11X in early runs, replace with bpm12X
-						cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
-						br = tin->GetBranch(branch.replace(branch.find("bpm11X"), 6, "bpm12X").c_str());
-					} else if (branch.find("diff_bpmE") != string::npos && run < 3390) {	
-						cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
-						br = tin->GetBranch(branch.replace(branch.find("bpmE"), 4, "bpm12X").c_str());
-					} 
-					if (!br) {
-						cerr << ERROR << "no branch: " << branch << " in tree: " << tree
-							<< " of file: " << file_name << ENDL;
-						error = true;
-						break;
-					}
+					// if (branch.find("diff_bpm11X") != string::npos && run < 3390) {	
+					// 	// no bpm11X in early runs, replace with bpm12X
+					// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
+					// 	br = tin->GetBranch(branch.replace(branch.find("bpm11X"), 6, "bpm12X").c_str());
+					// } else if (branch.find("diff_bpmE") != string::npos && run < 3390) {	
+					// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
+					// 	br = tin->GetBranch(branch.replace(branch.find("bpmE"), 4, "bpm12X").c_str());
+					// } 
+					cerr << ERROR << "no branch: " << branch << " in tree: " << tree
+						<< " of file: " << file_name << ENDL;
+					error = true;
+					break;
         }
         TLeaf * l = br->GetLeaf(leaf.c_str());
         if (!l) {
-					if (leaf.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
-						l = br->GetLeaf(leaf.replace(leaf.find("bpm11X"), 6, "bpm12X").c_str());
-					} else if (leaf.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
-						l = br->GetLeaf(leaf.replace(leaf.find("bpmE"), 4, "bpm12X").c_str());
-					} 
+					// if (leaf.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
+					// 	l = br->GetLeaf(leaf.replace(leaf.find("bpm11X"), 6, "bpm12X").c_str());
+					// } else if (leaf.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
+					// 	l = br->GetLeaf(leaf.replace(leaf.find("bpmE"), 4, "bpm12X").c_str());
+					// } 
 					if (!l) {
 						cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch  << "in var: " << var
 							<< " in tree: " << tree << " of file: " << file_name << ENDL;
@@ -802,7 +751,7 @@ int TBase::GetValues() {  // return accepted number of entries
       TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
       cout << INFO << "use cut: " << cut << ENDL;
       if (N == 0) {
-        cerr << WARNING << "run-" << run << " session-" << session << " fails cut: " << cut << ENDL;
+        cerr << WARNING << "granularity-" << g << " session-" << session << " fails cut: " << cut << ENDL;
         continue;
       }
       for(int n=0; n<N; n++) { // loop through the events
@@ -814,7 +763,7 @@ int TBase::GetValues() {  // return accepted number of entries
           continue;
 
         nOk++;
-        fEntryNumber[run][session].push_back(en);
+        fEntryNumber[g][session].push_back(en);
         for (string var : fVars) {
           double val;
           fVarLeaf[var]->GetBranch()->GetEntry(en);
@@ -823,31 +772,31 @@ int TBase::GetValues() {  // return accepted number of entries
           // if (program == mulplot || program == checkstatistics)	// FIXME: is there a better way to do sign correction
           // 	val *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0)); 
 
-          if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
-            val *= 0.6;
+          // if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
+          //   val *= 0.6;
 
           // avg/dd of single arm running
-          if (	 (	 garmflag.find(rightarm) != string::npos 
-                  || garmflag.find(leftarm)	 != string::npos )
-              && (fRunArm[run] == leftarm || fRunArm[run] == rightarm)
-              && (	 var.find("us_avg") != string::npos 
-                  || var.find("us_dd")	!= string::npos 
-                  || var.find("ds_avg") != string::npos 
-                  || var.find("ds_dd")	!= string::npos)) 
-          {
-            string rvar = var;
-            const char * replaced = "_avg";
-            int l = 4;
-            if (var.find("_dd") != string::npos) {
-              replaced = "_dd";
-              l = 3;
-            }
-            const char * replacement = (fRunArm[run] == leftarm ? "l" : "r");
-            rvar.replace(rvar.find(replaced), l, replacement);
-            fVarLeaf[rvar]->GetBranch()->GetEntry(en);
-            val = fVarLeaf[rvar]->GetValue();
-          }
-          val *= unit[var];	// normalized to standard units
+          // if (	 (	 garmflag.find(rightarm) != string::npos 
+          //         || garmflag.find(leftarm)	 != string::npos )
+          //     && (fRunArm[run] == leftarm || fRunArm[run] == rightarm)
+          //     && (	 var.find("us_avg") != string::npos 
+          //         || var.find("us_dd")	!= string::npos 
+          //         || var.find("ds_avg") != string::npos 
+          //         || var.find("ds_dd")	!= string::npos)) 
+          // {
+          //   string rvar = var;
+          //   const char * replaced = "_avg";
+          //   int l = 4;
+          //   if (var.find("_dd") != string::npos) {
+          //     replaced = "_dd";
+          //     l = 3;
+          //   }
+          //   const char * replacement = (fRunArm[run] == leftarm ? "l" : "r");
+          //   rvar.replace(rvar.find(replaced), l, replacement);
+          //   fVarLeaf[rvar]->GetBranch()->GetEntry(en);
+          //   val = fVarLeaf[rvar]->GetValue();
+          // }
+          // val *= unit[var];	// FIXME normalized to standard units
           vars_buf[var] = val;
           fVarValue[var].push_back(val);
           fVarSum[var]	+= val;
@@ -875,8 +824,8 @@ int TBase::GetValues() {  // return accepted number of entries
       //   fSlopeErr[slope].push_back(slope_err_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
       // }
 
-			fRunEntries[run][session] = tin->GetEntries();
-			nTotal += fRunEntries[run][session];
+			fEntries[g][session] = tin->GetEntries();
+			nTotal += fEntries[g][session];
 
       tin->Delete();
       f_rootfile.Close();
@@ -884,7 +833,6 @@ int TBase::GetValues() {  // return accepted number of entries
   }
 
   cout << INFO << "with cut: " << cut <<  "--read " << nOk << "/" << nTotal << " good entries." << ENDL;
-  return nOk;
 }
 
 double TBase::get_custom_value(Node *node) {

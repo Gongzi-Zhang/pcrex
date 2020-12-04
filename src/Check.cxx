@@ -8,13 +8,10 @@
 using namespace std;
 
 void usage();
-set<int> parseRS(const char *);	// parse runs|slugs
 
 int main(int argc, char* argv[]) {
   const char * config_file("conf/check.conf");
   const char * run_list = NULL;
-  const char * out_name = NULL;
-  const char * out_format = NULL;
   set<int> runs;
   set<int> slugs;
   bool sign = false;
@@ -34,7 +31,7 @@ int main(int argc, char* argv[]) {
         dconf = false;
         break;
       case 'r':
-        runs = parseRS(optarg);
+        runs = ParseRS(optarg);
         break;
       case 'R':
         run_list = optarg;
@@ -42,7 +39,7 @@ int main(int argc, char* argv[]) {
       // case 'l':
       //   break;
       case 's':
-        slugs = parseRS(optarg);
+        slugs = ParseRS(optarg);
         break;
 			case 'a':
 				SetArmFlag(optarg);
@@ -54,24 +51,34 @@ int main(int argc, char* argv[]) {
 				SetWienFlip(optarg);
 				break;
       case 'f':
-        out_format = optarg;
+				if (optarg)
+					SetOutFormat(optarg);
+				else 
+					cerr << WARNING << "no format specified for -f option" << ENDL;
         break;
       case 'n':
-        out_name = optarg;
+				if (optarg)
+					out_name = optarg;
+				else
+					cerr << WARNING << "no name specified for -n option" << ENDL;
         break;
       default:
         usage();
         exit(1);
     }
 
+	if (!(runs.size() + slugs.size())) {
+		cerr << FATAL << "no runs or slugs specified" << ENDL;
+		exit(4);
+	}
+
   if (dconf) 
     cout << INFO << "use default config file: " << config_file << ENDL;
+	TConfig fConf(config_file, run_list);
+	fConf.ParseConfFile();
 
-  TCheckStat fCheckStat(config_file, run_list);
-  if (out_format)
-    fCheckStat.SetOutFormat(out_format);
-  if (out_name)
-    fCheckStat.SetOutName(out_name);
+  TCheckStat fCheckStat;
+	fCheckStat.GetConfig(fConf);
   if (runs.size() > 0)
     fCheckStat.SetRuns(runs);
   if (slugs.size() > 0)
@@ -107,40 +114,5 @@ void usage() {
        << "\t ./check -c myconf.conf -l 6666" << endl
        << "\t ./check -c myconf.conf -R slug123.lsit -p slug123" << endl
        << "\t ./check -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -n test" << endl;
-}
-
-set<int> parseRS(const char * input) {
-  if (!input) {
-    cerr << ERROR << "empty input for -r or -s" << ENDL;
-    return {};
-  }
-  set<int> vals;
-  vector<char*> fields = Split(input, ',');
-  for(int i=0; i<fields.size(); i++) {
-    char * val = fields[i];
-    if (Contain(val, "-")) {
-      vector<char*> range = Split(val, '-');
-      if (!IsInteger(range[0]) || !IsInteger(range[1])) {
-        cerr << FATAL << "invalid range input" << ENDL;
-        exit(3);
-      }
-      const int start = atoi(range[0]);
-      const int end   = atoi(range[1]);
-      if (start > end) {
-        cerr << FATAL << "for range input: start must less than end" << ENDL;
-        exit(4);
-      }
-      for (int j=start; j<=end; j++) {
-        vals.insert(j);
-      }
-    } else {
-      if (!IsInteger(val)) {
-        cerr << FATAL << "run/slug must be an integer number" << ENDL;
-        exit(4);
-      }
-      vals.insert(atoi(val));
-    }
-  }
-  return vals;
 }
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

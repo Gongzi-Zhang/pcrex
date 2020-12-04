@@ -38,13 +38,13 @@
 #include "line.h"
 #include "rcdb.h"
 #include "TConfig.h"
-#include "TBase.h"
+#include "TRunBase.h"
 
 
 
 using namespace std;
 
-class TMulPlot : public TBase {
+class TMulPlot : public TRunBase {
 
     // ClassDe (TMulPlot, 0) // mul plots
 
@@ -57,7 +57,7 @@ class TMulPlot : public TBase {
     map<pair<string, string>, TH2F *>    fCorHists;
 
   public:
-     TMulPlot(const char* confif_file, const char* run_list = NULL);
+     TMulPlot();
      ~TMulPlot();
      void SetLogy(bool log) {logy = log;}
      void Draw();
@@ -68,15 +68,14 @@ class TMulPlot : public TBase {
 
 // ClassImp(TMulPlot);
 
-TMulPlot::TMulPlot(const char* config_file, const char* run_list) :
-	TBase(config_file, run_list)
+TMulPlot::TMulPlot() :
+	TRunBase()
 {
-	TBase::out_name = "mulplot";
+	out_name = "mulplot";
 	// dir = "/adaqfs/home/apar/PREX/prompt/results/";
 	// pattern = "prexPrompt_xxxx_???_regress_postpan.root";
 	// tree = "reg";
 	// cut = "ok_cut";
-  logy  = fConf.GetLogy();
 }
 
 TMulPlot::~TMulPlot() {

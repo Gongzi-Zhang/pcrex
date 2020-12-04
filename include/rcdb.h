@@ -403,7 +403,7 @@ set<int> GetRuns() {
 	if (gwienflip.size())
 		sprintf(q_wienflip, "SELECT run_number FROM conditions WHERE condition_type_id=38 AND text_value regexp '%s' AND run_number in (%s)", gwienflip.c_str(), q_ihwp);
 	else
-		sprintf(q_wienflip, q_ihwp);
+		strcpy(q_wienflip, q_ihwp);
 	// cerr << DEBUG << q_wienflip << ENDL;
 
   mysql_query(con, q_wienflip);

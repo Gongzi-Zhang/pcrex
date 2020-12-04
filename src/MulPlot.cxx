@@ -8,8 +8,6 @@
 using namespace std;
 
 void usage();
-set<int> parseRS(const char *);	// parse runs|slugs
-
 int main(int argc, char* argv[]) {
   const char * config_file("conf/mul_plot.conf");
   const char * run_list = NULL;
@@ -31,13 +29,13 @@ int main(int argc, char* argv[]) {
         dconf = false;
         break;
       case 'r':
-        runs = parseRS(optarg);
+        runs = ParseRS(optarg);
         break;
       case 'R':
         run_list = optarg;
         break;
       case 's':
-        slugs = parseRS(optarg);
+        slugs = ParseRS(optarg);
         break;
       case 'l':
         logy = true;
@@ -56,14 +54,24 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+	if (!(runs.size() + slugs.size())) {
+		cerr << FATAL << "no runs or slugs specified" << ENDL;
+		exit(4);
+	}
+
+  if (out_name)
+    SetOutName(out_name);
+  if (out_format)
+    SetOutFormat(out_format);
+
   if (dconf)
     cout << INFO << "use default config file: " << config_file << ENDL;
+	TConfig fConf(config_file, run_list);
+	fConf.ParseConfFile();
 
-  TMulPlot fMulPlot(config_file, run_list);
-  if (out_name)
-    fMulPlot.SetOutName(out_name);
-  if (out_format)
-    fMulPlot.SetOutFormat(out_format);
+  TMulPlot fMulPlot;
+	fMulPlot.GetConfig(fConf);
+	logy = logy || fConf.GetLogy();
   if (logy)
     fMulPlot.SetLogy(logy);
   if (runs.size() > 0)
@@ -93,40 +101,5 @@ void usage() {
        << "  Example:" << endl
        << "\t ./mulplot -c myconf.conf -R slug123.list -n slug123" << endl
        << "\t ./mulplot -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -l -n test -f png" << endl;
-}
-
-set<int> parseRS(const char * input) {
-  if (!input) {
-    cerr << ERROR << "empty input for -r or -s" << ENDL;
-    return {};
-  }
-  set<int> vals;
-  vector<char*> fields = Split(input, ',');
-  for(int i=0; i<fields.size(); i++) {
-    char * val = fields[i];
-    if (Contain(val, "-")) {
-      vector<char*> range = Split(val, '-');
-      if (!IsInteger(range[0]) || !IsInteger(range[1])) {
-        cerr << FATAL << "invalid range input" << ENDL;
-        exit(3);
-      }
-      const int start = atoi(range[0]);
-      const int end   = atoi(range[1]);
-      if (start > end) {
-        cerr << FATAL << "for range input: start must less than end" << ENDL;
-        exit(4);
-      }
-      for (int j=start; j<=end; j++) {
-        vals.insert(j);
-      }
-    } else {
-      if (!IsInteger(val)) {
-        cerr << FATAL << "run/slug must be an integer number" << ENDL;
-        exit(4);
-      }
-      vals.insert(atoi(val));
-    }
-  }
-  return vals;
 }
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

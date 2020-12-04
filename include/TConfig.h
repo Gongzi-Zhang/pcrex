@@ -2,6 +2,7 @@
 #define TCONFIG_H
 
 #include <iostream>
+#include <algorithm>
 #include <stdio.h>
 #include <fstream>
 #include <map>
@@ -20,46 +21,47 @@ typedef struct { double low, high, burplevel; } VarCut;
 typedef VarCut CompCut;
 typedef VarCut CorCut;
 
+set<int> ParseRS(char *line);
 class TConfig {
 
   // ClassDef(TConfig, 0)  // config file parser
 
 public:
   TConfig();
-  TConfig(const char *conf_file, const char *run_list = NULL);
+  TConfig(const char *conf_file, const char *RSlist=NULL);
   virtual ~TConfig();
-  const char*	GetConfFile()	  {return fConfFile;}
-  const char*	GetDir()	      {return dir;}
-  const char* GetPattern()    {return pattern;}
-  const char*	GetTreeName()	  {return tree;}
-  const char* GetTreeCut()    {return tcut;}
-  bool		    GetLogy()	      {return logy;}
-  set<int>	  GetRuns()	      {return fRuns;}			// for ChectStat
-  set<int>	  GetBoldRuns()	  {return fBoldRuns;}	// for ChectStat
-  set<string> GetVars()	      {return fVars;}
-	map<string, const char*> GetFriendTrees()	{return ftrees;}
-  vector<pair<long, long>> GetEntryCut() {return ecuts;}
-	vector<const char *>		 GetHighlightCut() {return hcuts;}
+  const char*	GetConfFile()	  const {return fConfFile;}
+  const char*	GetDir()	      const {return dir;}
+  const char* GetPattern()    const {return pattern;}
+  const char*	GetTreeName()	  const {return tree;}
+  const char* GetTreeCut()    const {return tcut;}
+  bool		    GetLogy()	      const {return logy;}
+  set<int>	  GetRS()					const {return fRS;}			// for ChectStat
+  set<string> GetVars()	      const {return fVars;}
+	map<string, const char*> GetFriendTrees()		const {return ftrees;}
+  vector<pair<long, long>> GetEntryCut()			const {return ecuts;}
+	vector<const char *>		 GetHighlightCut()	const {return hcuts;}
 
-  vector<string>							GetSolos()	    {return fSolos;}
-  map<string, VarCut>         GetSoloCut()   {return fSoloCut;}
+  vector<string>					 GetSolos()	    const {return fSolos;}
+  map<string, VarCut>      GetSoloCut()		const {return fSoloCut;}
 
 	// custom variables: for CheckRun
-  vector<string>							GetCustoms()    {return fCustoms;}	
-  map<string, VarCut>					GetCustomCut() {return fCustomCut;}
-	map<string, Node *>					GetCustomDef()	{return fCustomDef;}
+  vector<string>					 GetCustoms()   const {return fCustoms;}	
+  map<string, VarCut>			 GetCustomCut()	const {return fCustomCut;}
+	map<string, Node *>			 GetCustomDef()	const {return fCustomDef;}
 
 	// slope: for CheckStat
-  vector<pair<string, string>>			GetSlopes()			{return fSlopes;}	
-  map<pair<string, string>, VarCut> GetSlopeCut()  {return fSlopeCut;}
+  vector<pair<string, string>>			GetSlopes()			const {return fSlopes;}	
+  map<pair<string, string>, VarCut> GetSlopeCut()		const {return fSlopeCut;}
 
-  vector<pair<string, string>>				GetComps()			{return fComps;}
-  map<pair<string, string>, VarCut>		GetCompCut()   {return fCompCut;}
+  vector<pair<string, string>>				GetComps()			const {return fComps;}
+  map<pair<string, string>, VarCut>		GetCompCut()		const {return fCompCut;}
 
-  vector<pair<string, string>>			GetCors()			{return fCors;}
-  map<pair<string, string>, VarCut> GetCorCut()  {return fCorCut;}
+  vector<pair<string, string>>			GetCors()			const {return fCors;}
+  map<pair<string, string>, VarCut> GetCorCut()		const {return fCorCut;}
 
-  bool ParseRun(char *line);
+	void SetRS(const char *rs_list) {fRSfile = rs_list;}
+
   bool ParseSolo(char *line);
   bool ParseComp(char *line);
   bool ParseSlope(char *line);
@@ -68,12 +70,12 @@ public:
   bool ParseEntryCut(char *line);
   bool ParseOtherCommands(char *line);
   void ParseConfFile();
-  void ParseRunFile();
+  void ParseRSfile();
   double ExtractValue(Node *node); // parse mathematical expression to extract value
 
 private:
   const char *fConfFile;
-  const char *fRunFile; // run list file
+  const char *fRSfile;	// run/slug list file
   const char *dir     = NULL;
   const char *pattern = NULL;
   const char *tree    = NULL;
@@ -83,9 +85,7 @@ private:
   map<string, const char *> ftrees; // friend trees
   
   bool logy = false;
-  set<int> fRuns;	      // all runs that are going to be checked
-  // set<int> fSlugs;   // FIXME slugs? -- not now
-  set<int> fBoldRuns;	  // runs that will be emphasized in plots
+  set<int> fRS;					// all runs/slugs that are going to be checked
   set<string> fVars;    // all variables that are going to be checked.
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
@@ -109,14 +109,13 @@ private:
 // ClassImp(TConfig);
 
 TConfig::TConfig() : fConfFile(0) {}
-TConfig::TConfig(const char* conf_file, const char * run_list) :
+TConfig::TConfig(const char *conf_file, const char *RSlist) :
   fConfFile(conf_file),
-  fRunFile(run_list)
+  fRSfile(RSlist)
 {}
 
 TConfig::~TConfig() {
-  fRuns.clear();
-  fBoldRuns.clear();
+  fRS.clear();
   fVars.clear();
   fSolos.clear();
   fSoloCut.clear();
@@ -126,7 +125,7 @@ TConfig::~TConfig() {
   fSlopeCut.clear();
   fCors.clear();
   fCorCut.clear();
-  cout << INFO << "End of TConfig" << ENDL;
+  cerr << INFO << "End of TConfig" << ENDL;
 }
 
 void TConfig::ParseConfFile() {
@@ -145,7 +144,7 @@ void TConfig::ParseConfFile() {
 
   // parse config file
   /*  session number:
-   *  1: runs
+   *  1: Runs/Slugs
    *  2: solos
    *  4: comparisons
    *  8: slopes
@@ -165,7 +164,8 @@ void TConfig::ParseConfFile() {
     if (current_line[0] == '\0') continue;  // blank line after removing comment and spaces
 
     if (current_line[0] == '@') {
-      if (strcmp(current_line, "@runs") == 0)
+      if (strcmp(current_line, "@runs") == 0 || strcmp(current_line, "@slugs") == 0)	
+				// FIXME: detect collision between @runs and @slugs, they can't appear at the same time
         session = 1;
       else if (strcmp(current_line, "@solos") == 0)
         session = 2;
@@ -189,8 +189,11 @@ void TConfig::ParseConfFile() {
     }
 
     bool parsed = false;
-    if (session & 1) {  // runs
-      parsed = ParseRun(current_line);
+    if (session & 1) {  // runs/slugs
+      for (int i : ParseRS(current_line)) {
+				fRS.insert(i);
+				parsed = true;
+			}
     } else if (session & 2) {
       parsed = ParseSolo(current_line);
     } else if (session & 4) {
@@ -213,11 +216,11 @@ void TConfig::ParseConfFile() {
   }
   ifs.close();
 
-  if (fRunFile)
-    ParseRunFile();
+  if (fRSfile)
+    ParseRSfile();
 
   cout << INFO << "Configuration in config file: " << fConfFile << ENDL;
-  if (fRuns.size() > 0)     cout << "\t" << fRuns.size() << " Runs\n";
+  if (fRS.size() > 0)				cout << "\t" << fRS.size() << " Runs/Slugs\n";
   if (fSolos.size() > 0)    cout << "\t" << fSolos.size() << " Solo variables\n";
   if (fCustoms.size() > 0)  cout << "\t" << fCustoms.size() << " Custom variables\n";
   if (fComps.size() > 0)    cout << "\t" << fComps.size() << " Comparison pairs\n";
@@ -228,8 +231,7 @@ void TConfig::ParseConfFile() {
   if (pattern)
     cout << "\t" << "file name pattern: " << pattern << endl;
   if (tree)
-    cout << "\t" << "read tree: " << tree << endl;
-  if (ecuts.size()) {
+    cout << "\t" << "read tree: " << tree << endl; if (ecuts.size()) {
     cout << "\t" << "entry cuts: (-1 means the end entry)" << endl;
     for (pair<long, long> cut : ecuts)
       cout << "\t\t" << cut.first << "\t" << cut.second << endl;
@@ -242,15 +244,15 @@ void TConfig::ParseConfFile() {
 	}
 }
 
-void TConfig::ParseRunFile() {
-  if (!fRunFile) {
-    cerr << WARNING << "No run list file specified." << ENDL;
+void TConfig::ParseRSfile() {
+  if (!fRSfile) {
+    cerr << WARNING << "No list file specified." << ENDL;
     return;
   }
 
-  ifstream ifs(fRunFile);
+  ifstream ifs(fRSfile);
   if (! ifs.is_open()) {
-    cerr << FATAL << "run list file " << fRunFile << " doesn't exist or can't be read." << ENDL;
+    cerr << FATAL << "list file " << fRSfile << " doesn't exist or can't be read." << ENDL;
     exit(2);
   }
 
@@ -263,54 +265,9 @@ void TConfig::ParseRunFile() {
     StripSpaces(line);
     if (line[0] == '\0') continue;
 
-    ParseRun(line);
+    for (int i:ParseRS(line))
+			fRS.insert(i);
   }
-}
-
-bool TConfig::ParseRun(char *line) {
-  if (!line) {
-    cerr << ERROR << "empty input" << ENDL;
-    return false;
-  }
-
-  bool bold = false;
-  if (Contain(line, "+") && Contain(line, "-")) {
-    cerr << ":WARNING\t bold sign (+) can only be applied to single run, not run range" << ENDL;
-    return false;
-  }
-
-  if (line[Size(line)-1] == '+') {  // bold runs
-    bold = true;
-    line[Size(line)-1] = '\0';
-    StripSpaces(line);
-  }
-
-  int start=-1, end=-1;
-  vector<char*> fields = Split(line, '-');
-  switch (fields.size()) {
-    case 2:
-      if (!IsInteger(fields[1])) {
-        cerr << WARNING << "invalid end run in range: " << line << ENDL;
-        return false;
-      }
-      end = atoi(fields[1]);
-    case 1:
-      if (!IsInteger(fields[0])) {
-        cerr << WARNING << "invalid (start) run in line: " << line << ENDL;
-        return false;
-      }
-      start = atoi(fields[0]);
-      if (end == -1)
-        end = start;
-  }
-
-  for (int run=start; run<=end; run++) {
-    fRuns.insert(run); 
-    if (bold)
-      fBoldRuns.insert(run);
-  }
-
-  return true;
 }
 
 bool TConfig::ParseSolo(char *line) {
@@ -785,6 +742,39 @@ double TConfig::ExtractValue(Node * node) {
       return -9999;
   }
 	return -9999;
+}
+
+set<int> ParseRS(char *line) {
+  if (!line) {
+    cerr << ERROR << "empty input" << ENDL;
+    return {};
+  }
+
+	set<int> vals;
+  int start=-1, end=-1;
+  vector<char*> fields = Split(line, '-');
+  switch (fields.size()) {
+    case 2:
+      if (!IsInteger(fields[1])) {
+        cerr << WARNING << "invalid end value in range: " << line << ENDL;
+        return {};
+      }
+      end = atoi(fields[1]);
+    case 1:
+      if (!IsInteger(fields[0])) {
+        cerr << WARNING << "invalid (start) value in line: " << line << ENDL;
+        return {};
+      }
+      start = atoi(fields[0]);
+      if (end == -1)
+        end = start;
+  }
+
+  for (int v=start; v<=end; v++) {
+    vals.insert(v); 
+  }
+
+  return vals;
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

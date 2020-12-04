@@ -2,57 +2,23 @@
 #define TAGGREGATE_H
 
 #include <iostream>
-#include "TBase.h"
+#include "TRunBase.h"
 
 struct STAT { double mean, err, rms; };
 
-class TAggregate : public TBase 
+class TAggregate : public TRunBase 
 {
 	private:
-		const char * out_dir = "rootfiles";
 		// const char * out_pattern = "agg_minirun_xxxx_???";
 	public:
-		TAggregate(const char * config_file, const char * run_list = NULL);
+		TAggregate();
 		~TAggregate() { cout << INFO << "end of TAggregate" << ENDL; };
-		void SetOutDir(const char *dir);
-		void CheckOutDir();
 		void Aggregate();
 };
 
-TAggregate::TAggregate(const char * config_file, const char * run_list) :
-	TBase(config_file, run_list)
+TAggregate::TAggregate() :
+	TRunBase()
 {}
-
-void TAggregate::SetOutDir(const char *dir) 
-{
-	if (!dir) {
-		cerr << FATAL << "Null out dir value!" << ENDL;
-		exit(104);
-	}
-	out_dir = dir;
-}
-
-void TAggregate::CheckOutDir() 
-{
-	struct stat info;
-	if (stat(out_dir, &info) != 0) {
-		cerr << FATAL << "can't access specified dir: " << out_dir << ENDL;
-		exit(104);
-	} else if ( !(info.st_mode & S_IFDIR)) {
-		cerr << FATAL << "not a dir: " << out_dir << ENDL;
-		exit(104);
-	}
-	/*
-	if (stat(out_dir, &info) != 0) {
-		cerr << WARNING << "Out dir doesn't exist, create it." << ENDL;
-		int status = mkdir(out_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-		if (status != 0) {
-			cerr << ERROR << "Can't create specified dir: " << out_dir << ENDL;
-			exit(44);
-		}
-	}
-	*/
-}
 
 void TAggregate::Aggregate()
 {
@@ -100,12 +66,12 @@ void TAggregate::Aggregate()
       }
     }
 
-    const size_t sessions = fRootFile[run].size();
-    for (size_t session=0; session < sessions; session++) {
+    const int sessions = fRootFile[run].size();
+    for (int session=0; session < sessions; session++) {
       bool update=true;	// update tree: add new branches
       vector<TBranch *> mini_brs, run_brs;
 
-      TFile fout(Form("%s/agg_minirun_%d_%03ld.root", out_dir, run, session), "update");
+      TFile fout(Form("%s/agg_minirun_%d_%03d.root", out_dir, run, session), "update");
       TTree *tout_mini = (TTree *) fout.Get("mini");
       TTree *tout_run	 = (TTree *) fout.Get("run");
       if (!tout_mini) {
