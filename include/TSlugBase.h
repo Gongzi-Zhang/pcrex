@@ -15,6 +15,7 @@ class TSlugBase : public TBase {
 };
 
 TSlugBase::TSlugBase() : TBase() {
+  granularity = "slug";
 }
 
 void TSlugBase::SetSlugs(set<int> slugs) {

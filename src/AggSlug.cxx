@@ -47,18 +47,24 @@ int main(int argc, char* argv[]) {
 	TConfig fConf(config_file);
 	fConf.ParseConfFile();
 
-  TAggSlug fAgg;
-	fAgg.GetConfig(fConf);
+  for (int slug : fConf.GetRS())
+    slugs.insert(slug);
   if (slugs.size() == 0) {
-		cerr << FATAL << "no slug specified" << ENDL;
-		usage();
-		exit(4);
-	}
-	fAgg.SetSlug(*slugs.begin());
-	fAgg.CheckRuns();
+    cerr << FATAL << "no valid slug specified" << ENDL;
+    usage();
+    exit(4);
+  }
+  cerr << INFO << slugs.size() << " slugs specified" << ENDL;
+
+  TAggSlug fAgg = TAggSlug();
+	fAgg.GetConfig(fConf);
+  fAgg.SetSlugs(slugs);
+  fAgg.CheckRuns();
 	fAgg.CheckVars();
-	for (int slug : slugs) {
-    fAgg.SetSlug(slug);
+	for (int s : slugs) {
+    cerr << INFO << "agg slug: " << s << ENDL;
+    fAgg.SetSlug(s);
+    fAgg.CheckRuns();
 		fAgg.GetValues();
 		fAgg.AggSlug();
 	}

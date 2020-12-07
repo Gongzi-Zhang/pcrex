@@ -16,7 +16,6 @@
 #include <libgen.h>
 
 #include "TROOT.h"
-#include "TStyle.h"
 #include "TFile.h"
 #include "TTree.h"
 #include "TBranch.h"
@@ -24,21 +23,12 @@
 #include "TCut.h"
 #include "TEntryList.h"
 #include "TCollection.h"
-#include "TGraphErrors.h"
-#include "TH1F.h"
-#include "TH2F.h"
-#include "TPaveStats.h"
 #include "TList.h"
-#include "TF1.h"
-#include "TCanvas.h"
-#include "TPad.h"
-#include "TColor.h"
 
 #include "const.h"
 #include "line.h"
 #include "rcdb.h"
 #include "TConfig.h"
-
 
 enum Format {pdf, png};
 // enum Program {mulplot, checkstatistics, checkruns};
@@ -49,7 +39,7 @@ Format format     = pdf; // default pdf output
 const char *out_name = "out";
 
 void SetOutName(const char *name) {if (name) out_name = name;}
-void SetOutFormat(const char * f) {
+void SetOutFormat(const char *f) {
   if (strcmp(f, "pdf") == 0) {
     format = pdf;
   } else if (strcmp(f, "png") == 0) {
@@ -76,6 +66,8 @@ class TBase {
 		map<string, const char*> ftrees;	// friend trees: tree, file_name
     vector<pair<long, long>> ecuts;
 
+		map<string, const char*> real_trees;	// real tree expression for alias
+
     // TConfig fConf;
     int	    nGrans;	// granularity: can be run, slug or pit
     int	    nVars;
@@ -85,8 +77,10 @@ class TBase {
     int	    nSlopes;
     int	    nCors;
 
+    const char *granularity = "run";
     set<int>    fGrans;	// FIXME how to use reference here
     set<string> fVars;
+    map<string, string> fVarAlt;
 		set<string> fCutVars;
 
     vector<string>      fSolos;
@@ -112,6 +106,8 @@ class TBase {
 
     map<int, vector<string>> fRootFile;
     map<string, pair<string, string>> fVarName;
+    map<string, string> fBrAlt;
+    map<string, vector<int>> fVarUseAlt;
     map<string, TLeaf *> fVarLeaf;
 		long nTotal = 0;
 		long nOk = 0;  // total number of ok events 
@@ -128,15 +124,14 @@ class TBase {
 		map<string, double> fVarMax;
 		map<string, double> fVarMin;
 
-    TCanvas * c;
-
   public:
      TBase();
      ~TBase();
      virtual void GetConfig(const TConfig fConf);
      void SetDir(const char *d);
      void CheckGrans();
-     void CheckVars();
+     pair<string, string> ParseVar(const string var);
+     virtual void CheckVars();
      bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
      virtual void GetValues();
@@ -168,6 +163,7 @@ void TBase::GetConfig(const TConfig fConf)
   // fConf.ParseConfFile();
   fVars	= fConf.GetVars();
   nVars = fVars.size();
+  fVarAlt = fConf.GetVarAlts();
 
   fSolos    = fConf.GetSolos();
   fSoloCut = fConf.GetSoloCut();
@@ -223,6 +219,11 @@ void TBase::CheckGrans() {
 
   for (set<int>::const_iterator it = fGrans.cbegin(); it != fGrans.cend(); ) {
     int g = *it;
+    if (fRootFile[g].size()) {  // already checked
+      it++;
+      continue;
+    }
+
     string p_buf(pattern);
     p_buf.replace(p_buf.find("xxxx"), 4, to_string(g));
     const char * p = Form("%s/%s", dir, p_buf.c_str());
@@ -230,7 +231,7 @@ void TBase::CheckGrans() {
     glob_t globbuf;
     glob(p, 0, NULL, &globbuf);
     if (globbuf.gl_pathc == 0) {
-      cout << ALERT << "no root file for granularity " << g << ". Ignore it." << ENDL;
+      cout << ALERT << "no root file for " << granularity << " " << g << ". Ignore it." << ENDL;
       it = fGrans.erase(it);
       continue;
     }
@@ -243,17 +244,43 @@ void TBase::CheckGrans() {
 
   nGrans = fGrans.size();
   if (nGrans == 0) {
-    cerr << FATAL << "No valid granularity specified!" << ENDL;
+    cerr << FATAL << "No valid " << granularity << " specified!" << ENDL;
     EndConnection();
     exit(10);
   }
 
-  cout << INFO << "" << nGrans << " valid granularities specified:" << ENDL;
+  cout << INFO << "" << nGrans << " valid " << granularity << " specified:" << ENDL;
   for(int g : fGrans) {
     cout << "\t" << g << endl;
   }
 
   EndConnection();
+}
+
+pair<string, string> TBase::ParseVar(const string var) {
+  string branch, leaf;
+  size_t n = count(var.begin(), var.end(), '.');
+  if (n==0) {
+    branch = var;
+  } else if (n==1) {
+    size_t pos = var.find_first_of('.');
+    if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
+      // FIXME: is it possible something like: tree.leaf ??? without branch name ???
+      // ignore it right now
+      branch = var;
+    } else {
+      branch = var.substr(0, pos);
+      leaf = var.substr(pos+1);
+    }
+  } else if (n==2) {
+    size_t pos = var.find_last_of('.');
+    branch = var.substr(0, pos);
+    leaf = var.substr(pos+1);
+  } else {
+    cerr << ERROR << "Invalid variable expression: " << var << endl;
+    exit(24);
+  }
+  return make_pair(branch, leaf);
 }
 
 void TBase::CheckVars() {
@@ -280,6 +307,23 @@ void TBase::CheckVars() {
 	// 	}
 	// }
 
+  for (pair<string, string> var : fVarAlt) {
+    string ori = var.first;
+    string alt = var.second;
+    pair<string, string> bl1 = ParseVar(ori);
+    pair<string, string> bl2 = ParseVar(alt);
+    string b1 = bl1.first;
+    string l1 = bl1.second;
+    string b2 = bl2.first;
+    string l2 = bl2.second;
+    if (l1.size() && l2.size() && l1 != l2) {
+      cerr << ERROR << "different leave in original variable: " << ori
+        << " and alternative: " << alt << ENDL;
+      exit(84);
+    }
+    fBrAlt[b1] = b2;
+  }
+
   srand(time(NULL));
   int s = rand() % nGrans;
   set<int>::const_iterator it_g=fGrans.cbegin();
@@ -289,14 +333,13 @@ void TBase::CheckVars() {
   while (it_g != fGrans.cend()) {
 		set<string> tmp_vars;
 		set<string> used_ftrees;
-		map<string, const char*> real_trees;	// real tree expression for alias
 
     int g = *it_g;
     const char * file_name = fRootFile[g][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
     if (!f_rootfile->IsOpen()) {
-      cerr << WARNING << "granularity-" << g << " ^^^^ can't read root file: " << file_name 
-           << ", skip this granularity." << ENDL;
+      cerr << WARNING << granularity << "-" << g << ": can't read root file: " << file_name 
+           << ", skip it." << ENDL;
       goto next;
     }
   
@@ -315,8 +358,8 @@ void TBase::CheckVars() {
     TTree * tin;
 		tin = (TTree*) f_rootfile->Get(tree);
     if (tin == NULL) {
-      cerr << WARNING << "granularity-" << g << " ^^^^ can't read tree: " << tree << " in root file: "
-           << file_name << ", skip it." << ENDL;
+      cerr << WARNING << granularity << "-" << g << ": can't read tree: " << tree 
+        << " in root file: " << file_name << ", skip it." << ENDL;
       goto next;
     }
 
@@ -329,7 +372,7 @@ void TBase::CheckVars() {
         glob_t globbuf;
         glob(file_name.c_str(), 0, NULL, &globbuf);
         if (globbuf.gl_pathc == 0) {
-          cerr << WARNING << "granularity-" << g << " ^^^^ can't read friend tree: " << texp
+          cerr << WARNING << granularity << "-" << g << ": can't read friend tree: " << texp
 							 << " in root file: " << file_name << ", skip it." << ENDL; 
 					goto next;
 				}
@@ -366,32 +409,14 @@ void TBase::CheckVars() {
 			tmp_vars.insert(var);
 
 		for (string var : tmp_vars) {
-      size_t n = count(var.begin(), var.end(), '.');
       string branch, leaf;
-      if (n==0) {
-        branch = var;
-      } else if (n==1) {
-        size_t pos = var.find_first_of('.');
-        if (real_trees.find(var.substr(0, pos)) != real_trees.end()) {
-					// FIXME: is it possible something like: tree.leaf ??? without branch name ???
-					// ignore it right now
-          branch = var;
-        } else {
-          branch = var.substr(0, pos);
-          leaf = var.substr(pos+1);
-        }
-      } else if (n==2) {
-        size_t pos = var.find_last_of('.');
-        branch = var.substr(0, pos);
-        leaf = var.substr(pos+1);
-      } else {
-        cerr << ERROR << "Invalid variable expression: " << var << endl;
-        exit(24);
-      }
+      pair<string, string> names = ParseVar(var);
+      branch = names.first;
+      leaf = names.second;
 
       TBranch * bbuf = tin->GetBranch(branch.c_str());
-			if (!bbuf) {
-				if (Count(var.c_str(), '.') == 0) {	// try leaf directly
+			if (!bbuf) {  // try leaf directly
+				if (Count(var.c_str(), '.') == 0) {	
 					TLeaf *l = tin->GetLeaf(branch.c_str());	
 					if (l != NULL) {
 						leaf = branch;
@@ -399,25 +424,20 @@ void TBase::CheckVars() {
 						branch = bbuf->GetName();
 					}
 				}
-				// special branches -- stupid
-				// if (branch.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
-				// 	// no bpm11X in early runs, replace with bpm12X
-				// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
-				// 	string b = branch;
-				// 	bbuf = tin->GetBranch(b.replace(b.find("bpm11X"), 6, "bpm12X").c_str());
-				// } else if (branch.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
-				// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
-				// 	string b = branch;
-				// 	bbuf = tin->GetBranch(b.replace(b.find("bpmE"), 4, "bpm12X").c_str());
-				// } 
-
-				if (!bbuf) {
-					cerr << ERROR << "no branch (leaf): " << branch << " as in var: " << var << ENDL;
-					tin->Delete();
-					f_rootfile->Close();
-					exit(24);
-				}
-			}
+      }
+      if (!bbuf) {  // try alternatvie, if there is one
+        if (fBrAlt.find(branch) != fBrAlt.end()) {
+          // Note: we don't replace leaf here, so leaf must be specified 
+          // in original variable if you want a specific leaf 
+          bbuf = tin->GetBranch(fBrAlt[branch].c_str());
+        }
+      }
+      if (!bbuf) {
+        cerr << ERROR << "no branch (leaf): " << branch << " as in var: " << var << ENDL;
+        tin->Delete();
+        f_rootfile->Close();
+        exit(24);
+      }
 
 			TObjArray * l_leaf = bbuf->GetListOfLeaves();
 			if (leaf.size() == 0) {
@@ -436,13 +456,6 @@ void TBase::CheckVars() {
 				f_rootfile->Close();
 				exit(24);
 			}
-			// special var -- stupid
-			// if (branch.find("diff_bpm11X") != string::npos && run < 3390 && leaf.find("diff_bpm12X") != string::npos) {		// lagrange tree
-			// 	leaf = "diff_bpm11X";
-			// } else if (branch.find("diff_bpmE") != string::npos && run < 3390	&& leaf.find("diff_bpm12X") != string::npos) {	// reg tree		
-			// 	leaf = "diff_bpmE";
-			// } 
-
 			fVarName[var] = make_pair(branch, leaf);
 			used_ftrees.insert(bbuf->GetTree()->GetName());
 		}
@@ -487,12 +500,22 @@ void TBase::CheckVars() {
 				vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
 				if (it_dv == l_dv->cend() || it_iv == l_iv->cend()) {
 					if (it_dv == l_dv->cend()) {
-						cerr << WARNING << "Invalid dv name for slope: " << dv << ENDL;
-						error_dv_flag = true;
+            if (fVarAlt.find(dv) != fVarAlt.end()) {
+              it_dv = find(l_dv->cbegin(), l_dv->cend(), fVarAlt[dv]);
+              if (it_dv == l_dv->cend()) {
+                cerr << WARNING << "Invalid dv name for slope: " << dv << ENDL;
+                error_dv_flag = true;
+              }
+            }
 					}
 					if (it_iv == l_iv->cend()) {
-						cerr << WARNING << "Invalid iv name for slope: " << iv << ENDL;
-						error_iv_flag = true;
+            if (fVarAlt.find(iv) != fVarAlt.end()) {
+              it_iv = find(l_iv->cbegin(), l_iv->cend(), fVarAlt[iv]);
+              if (it_iv == l_iv->cend()) {
+                cerr << WARNING << "Invalid iv name for slope: " << iv << ENDL;
+                error_iv_flag = true;
+              }
+            }
 					}
 					map<pair<string, string>, VarCut>::const_iterator it_c = fSlopeCut.find(*it);
 					if (it_c != fSlopeCut.cend())
@@ -652,29 +675,40 @@ bool TBase::CheckCustomVar(Node * node) {
  */
 void TBase::GetValues() {  // return accepted number of entries
 
+  // make sure multi-calling return the same results
+
 	map<string, double> unit;
 	// initialization
   for (string var : fVars) {
+    fVarValue[var].clear();
+    fVarSum[var] = 0;
+    fVarSum2[var] = 0;
     fVarMax[var] = 0;
 		unit[var] = 1;
 		if (var.find("diff") != string::npos)
 			unit[var] = mm;
   }
-  for (string custom : fCustoms)
+  for (string custom : fCustoms) {
+    fVarValue[custom].clear();
+		fVarSum[custom] = 0;
+		fVarSum2[custom] = 0;
 		fVarMax[custom] = 0;
+  }
 
 	nTotal = 0;
+  nOk = 0;
   for (int g : fGrans) {
     const int sessions = fRootFile[g].size();
     for (int session=0; session < sessions; session++) {
+      fEntryNumber[g][session].clear(); // initialization
       const char *file_name = fRootFile[g][session].c_str();
       TFile f_rootfile(file_name, "read");
       if (!f_rootfile.IsOpen()) {
-        cerr << ERROR << "granularity-" << g << " ^^^^ Can't open root file: " << file_name << ENDL;
+        cerr << ERROR << granularity << "-" << g << ": Can't open root file: " << file_name << ENDL;
         continue;
       }
 
-      cout << INFO << Form("Read granularity: %d, session: %03d\t", g, session)
+      cout << INFO << Form("Read %s: %d, session: %03d\t", granularity, g, session)
            << file_name << ENDL;
       TTree * tin = (TTree*) f_rootfile.Get(tree);
       if (! tin) {
@@ -691,7 +725,7 @@ void TBase::GetValues() {  // return accepted number of entries
 					glob_t globbuf;
 					glob(file_name.c_str(), 0, NULL, &globbuf);
 					if (globbuf.gl_pathc != sessions) {
-						cerr << ERROR << "granularity-" << g << " ^^^^ unmatched friend tree root files: " << endl 
+						cerr << ERROR << granularity << "-" << g << ": unmatched friend tree root files: " << endl 
 								 << "\t" << sessions << "main root files vs " 
 								 << globbuf.gl_pathc << " friend tree root files" << ENDL; 
 						continue;
@@ -706,17 +740,16 @@ void TBase::GetValues() {  // return accepted number of entries
       for (string var : fVars) {
         string branch = fVarName[var].first;
         string leaf   = fVarName[var].second;
-        TBranch * br = tin->GetBranch(branch.c_str());
+        TBranch *br = tin->GetBranch(branch.c_str());
         if (!br) {
-					// special branches -- stupid
-					// if (branch.find("diff_bpm11X") != string::npos && run < 3390) {	
-					// 	// no bpm11X in early runs, replace with bpm12X
-					// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpm11X, replace with 0.6*diff_bpm12X" << ENDL;
-					// 	br = tin->GetBranch(branch.replace(branch.find("bpm11X"), 6, "bpm12X").c_str());
-					// } else if (branch.find("diff_bpmE") != string::npos && run < 3390) {	
-					// 	cout << WARNING << "run-" << run << " ^^^^ No branch diff_bpmE, replace with diff_bpm12X" << ENDL;
-					// 	br = tin->GetBranch(branch.replace(branch.find("bpmE"), 4, "bpm12X").c_str());
-					// } 
+          if (fBrAlt.find(branch) != fBrAlt.end()) {
+            br = tin->GetBranch(fBrAlt[branch].c_str());
+            fVarUseAlt[branch].push_back(g);
+            cerr << WARNING << "use alternative branch: " << fBrAlt[branch] 
+              << " for branch: " << branch << " in var: " << var << ENDL;
+          }
+        }
+        if (!br) {
 					cerr << ERROR << "no branch: " << branch << " in tree: " << tree
 						<< " of file: " << file_name << ENDL;
 					error = true;
@@ -724,17 +757,10 @@ void TBase::GetValues() {  // return accepted number of entries
         }
         TLeaf * l = br->GetLeaf(leaf.c_str());
         if (!l) {
-					// if (leaf.find("diff_bpm11X") != string::npos && run < 3390) {		// lagrange tree
-					// 	l = br->GetLeaf(leaf.replace(leaf.find("bpm11X"), 6, "bpm12X").c_str());
-					// } else if (leaf.find("diff_bpmE") != string::npos && run < 3390) {		// reg tree
-					// 	l = br->GetLeaf(leaf.replace(leaf.find("bpmE"), 4, "bpm12X").c_str());
-					// } 
-					if (!l) {
-						cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch  << "in var: " << var
-							<< " in tree: " << tree << " of file: " << file_name << ENDL;
-						error = true;
-						break;
-					}
+          cerr << ERROR << "no leaf: " << leaf << " in branch: " << branch  << "in var: " << var
+            << " in tree: " << tree << " of file: " << file_name << ENDL;
+          error = true;
+          break;
         }
         fVarLeaf[var] = l;
       }
@@ -751,7 +777,7 @@ void TBase::GetValues() {  // return accepted number of entries
       TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
       cout << INFO << "use cut: " << cut << ENDL;
       if (N == 0) {
-        cerr << WARNING << "granularity-" << g << " session-" << session << " fails cut: " << cut << ENDL;
+        cerr << WARNING << granularity << "-" << g << " session-" << session << " fails cut: " << cut << ENDL;
         continue;
       }
       for(int n=0; n<N; n++) { // loop through the events

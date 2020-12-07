@@ -38,6 +38,7 @@ public:
   bool		    GetLogy()	      const {return logy;}
   set<int>	  GetRS()					const {return fRS;}			// for ChectStat
   set<string> GetVars()	      const {return fVars;}
+  map<string, string> GetVarAlts()  const {return fVarAlts;}
 	map<string, const char*> GetFriendTrees()		const {return ftrees;}
   vector<pair<long, long>> GetEntryCut()			const {return ecuts;}
 	vector<const char *>		 GetHighlightCut()	const {return hcuts;}
@@ -89,6 +90,7 @@ private:
   set<string> fVars;    // all variables that are going to be checked.
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
+  map<string, string> fVarAlts;
   vector<string>      fSolos;
   map<string, VarCut>	fSoloCut;
 
@@ -273,7 +275,7 @@ void TConfig::ParseRSfile() {
 bool TConfig::ParseSolo(char *line) {
   vector<char*> fields = Split(line, ';');
   VarCut cut = {1024, 1024, 1024};
-  char* var;
+  char *var=NULL, *alt=NULL;
   switch (fields.size()) {
     case 4:
       StripSpaces(fields[3]);
@@ -313,14 +315,27 @@ bool TConfig::ParseSolo(char *line) {
       return false;
   }
 
+  // alternative
+  if (Contain(var, "(") && Contain(var, ")") &&
+      Index(var, "(") < Index(var, ")")) {
+    fields = Split(var, "(");
+    var = fields[0];
+    alt = fields[1];
+    alt[Index(alt, ")")] = '\0';  // remove closing )
+    StripSpaces(alt);
+  }
+
+  StripSpaces(var);
   if (IsEmpty(var)) {
-    cerr << ERROR << "Empty variable for solo. " << ENDL;
+    cerr << ERROR << "Empty variable or alternative. " << ENDL;
     return false;
   }
   if (find(fSolos.cbegin(), fSolos.cend(), var) != fSolos.cend()) {
     cerr << WARNING << "repeated solo variable, ignore it. " << ENDL;
     return false;
   }
+  if (alt)
+    fVarAlts[var] = alt;
 
   fSolos.push_back(var);
   fSoloCut[var] = cut;
@@ -328,6 +343,8 @@ bool TConfig::ParseSolo(char *line) {
   return true;
 }
 
+// no alternative in custom definition right now, if you want alternative for a variable 
+// in custom definition, then define it in solo (or other) part
 bool TConfig::ParseCustom(char *line) {
   vector<char*> fields = Split(line, ';');
   VarCut cut = {1024, 1024, 1024};
@@ -492,6 +509,21 @@ bool TConfig::ParseComp(char *line) {
     return false;
   }
 
+  char *alts[2];
+  for (int i=0; i<2; i++) {
+    alts[i] = NULL;
+    char *var = vars[i];
+    if (Contain(var, "(") && Contain(var, ")") &&
+        Index(var, "(") < Index(var, ")")) {
+      fields = Split(var, "(");
+      vars[i] = fields[0];
+      char *alt = fields[1];
+      alt[Index(alt, ")")] = '\0';  // remove closing )
+      StripSpaces(alt);
+      alts[i] = alt;
+    }
+  }
+
   StripSpaces(vars[0]);
   StripSpaces(vars[1]);
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
@@ -502,6 +534,10 @@ bool TConfig::ParseComp(char *line) {
     cerr << WARNING << "repeated comparison variables, ignore it. " << ENDL;
     return false;
   }
+
+  for (int i=0; i<2; i++)
+    if (alts[i])
+      fVarAlts[vars[i]] = alts[i];
 
   fComps.push_back(make_pair(vars[0], vars[1]));
   fCompCut[make_pair(vars[0], vars[1])] = cut;
@@ -560,6 +596,21 @@ bool TConfig::ParseSlope(char *line) {
     return false;
   }
 
+  char *alts[2];
+  for (int i=0; i<2; i++) {
+    alts[i] = NULL;
+    char *var = vars[i];
+    if (Contain(var, "(") && Contain(var, ")") &&
+        Index(var, "(") < Index(var, ")")) {
+      fields = Split(var, "(");
+      vars[i] = fields[0];
+      char *alt = fields[1];
+      alt[Index(alt, ")")] = '\0';  // remove closing )
+      StripSpaces(alt);
+      alts[i] = alt;
+    }
+  }
+
   StripSpaces(vars[0]);
   StripSpaces(vars[1]);
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
@@ -570,6 +621,10 @@ bool TConfig::ParseSlope(char *line) {
     cerr << WARNING << "repeated Slope variables, ignore it. " << ENDL;
     return false;
   }
+
+  for (int i=0; i<2; i++) 
+    if (alts[i])
+      fVarAlts[vars[i]] = alts[i];
 
   fSlopes.push_back(make_pair(vars[0], vars[1]));
   fSlopeCut[make_pair(vars[0], vars[1])] = cut;
@@ -624,6 +679,21 @@ bool TConfig::ParseCor(char *line) {
     return false;
   }
 
+  char *alts[2];
+  for (int i=0; i<2; i++) {
+    alts[i] = NULL;
+    char *var = vars[i];
+    if (Contain(var, "(") && Contain(var, ")") &&
+        Index(var, "(") < Index(var, ")")) {
+      fields = Split(var, "(");
+      vars[i] = fields[0];
+      char *alt = fields[1];
+      alt[Index(alt, ")")] = '\0';  // remove closing )
+      StripSpaces(alt);
+      alts[i] = alt;
+    }
+  }
+
   StripSpaces(vars[0]);
   StripSpaces(vars[1]);
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
@@ -634,6 +704,10 @@ bool TConfig::ParseCor(char *line) {
     cerr << WARNING << "repeated correlation variables, ignore it. " << ENDL;
     return false;
   }
+
+  for (int i=0; i<2; i++)
+    if (alts[i])
+      fVarAlts[vars[i]] = alts[i];
 
   fCors.push_back(make_pair(vars[0], vars[1]));
   fCorCut[make_pair(vars[0], vars[1])] = cut;

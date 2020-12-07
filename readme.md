@@ -13,10 +13,8 @@ github: https://github.com/Gongzi-Zhang/pcrex.git
 
   e.x.
     > ./check   # use the default configuration: conf/check.conf
-    > ./check -c myconf.conf -l 6666    # check 'latest' run: which will compared it to previous 10 production runs
     > ./check -c myconf.conf -R runs.list   # specified runs in seperated run list file, instead of in config file
-  all runs specified with different approaches will be checked together, unless you use '-l' option, which will
-  ignore all other runs, and check only 'latest' run and previous 10 runs
+  all runs specified with different approaches will be checked together
 
 
 ### plot explanation:
@@ -47,14 +45,20 @@ github: https://github.com/Gongzi-Zhang/pcrex.git
 
 # todo
 * run 6366: how much good data there? should we recover it?
+* single arm slug
 * how to cut on slow tree? e.g.  IGL1I00OD16_16 (row 83) in /chafs2/work1/apar/japanOutput/prexPrompt_pass2_6400.000.root is wrong
 * TCheckStat: how to deal with slope in reg result and dit result?
+* TCheckRuns: bold point cut
 * TCheckRuns: should be able to fetch glitch
 * TCheckRuns: sudden change in a run? (glitch, gain change, trip, ...)
 * TCheckRuns: check the diff between bcms and bpms, maybe one see something while others not
 * TCheckRuns: cor? how to use it?
-* correlation plot: two plots, one is two pads along Entry$, another is vs plot
-* consider number of data points
+* TCheckRuns: Correlation, two (more) variables along time
+
+# idea
+* aggregation
+  > keep only one rootfile (merge sessions) for one run
+    >> run-level slope will be calculated as average of each session (weighted by 1/err²)
 
 # problem
 * munmap_chunk(): invalid pointer

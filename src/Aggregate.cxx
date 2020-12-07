@@ -56,11 +56,12 @@ int main(int argc, char* argv[]) {
     SetOutDir(out_dir);
 	CheckOutDir();
 
-  TAggregate fAgg;
+  TAggregate fAgg = TAggregate();
 	fAgg.GetConfig(fConf);
-  if (runs.size() > 0)
+  if (runs.size())
     fAgg.SetRuns(runs);
-  if (slugs.size() > 0)
+  fAgg.SetRuns(fConf.GetRS());
+  if (slugs.size())
     fAgg.SetSlugs(slugs);
 
 	fAgg.CheckRuns();

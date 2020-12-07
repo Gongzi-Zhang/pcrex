@@ -25,8 +25,9 @@ void TAggregate::Aggregate()
 	unsigned int num_samples = 0;
 	map<string, double> mini_sum, sum;
 	map<string, double> mini_sum2, sum2;
+  map<string, double> sum_weight;
 	map<string, STAT> mini_stat, stat;
-	unsigned int mini;
+	unsigned int minirun;
 	unsigned int N;
 
   char hostname[32];
@@ -66,74 +67,88 @@ void TAggregate::Aggregate()
       }
     }
 
+    bool update=true;	// update tree: add new branches
+    vector<TBranch *> mini_brs, run_brs;
+
+    TFile fout(Form("%s/agg_minirun_%d.root", out_dir, run), "update");
+    TTree *tout_mini = (TTree *) fout.Get("mini");
+    TTree *tout_run	 = (TTree *) fout.Get("run");
+    if (!tout_mini) {
+      tout_mini = new TTree("mini", "mini run average value");
+      tout_mini->Branch("run", &run, "run/i");
+      tout_mini->Branch("minirun", &minirun, "minirun/i");
+      tout_mini->Branch("num_samples", &num_samples, "num_samples/i");
+
+      tout_run = new TTree("run", "run average value");
+      tout_run->Branch("run", &run, "run/i");
+      tout_run->Branch("minirun", &minirun, "minirun/i");
+      tout_run->Branch("num_samples", &N, "num_samples/i");
+
+      update=false;
+    } 
+
+    for (string custom : fCustoms)  // combine solo variables
+      fVars.insert(custom);
+
+    for (string var : fVars) {
+      if (tout_mini->GetBranch(var.c_str())) {
+        fVars.erase(var);
+        continue;
+      } 
+      TBranch *b = tout_mini->Branch(var.c_str(), &mini_stat[var], "mean/D:err/D:rms/D");
+      TBranch *b1 = tout_run->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
+      if (update) {
+        mini_brs.push_back(b);
+        run_brs.push_back(b1);
+      }
+    }
+    for (vector<pair<string, string>>::iterator it=fSlopes.begin(); it != fSlopes.end(); ) { // slope
+      string var = it->first + '_' + it->second;
+      if (tout_mini->GetBranch(var.c_str())) {
+        it = fSlopes.erase(it);
+        continue;
+      }
+      string mini_var = "reg_" + var;
+      string burst_var = "burst_" + var;
+      TBranch *b_mini = tout_mini->Branch(mini_var.c_str(), &mini_stat[mini_var], "mean/D:err/D:rms/D");
+      TBranch *b_burst = tout_mini->Branch(burst_var.c_str(), &mini_stat[burst_var], "mean/D:err/D:rms/D");
+      TBranch *b1 = tout_run->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
+      if (update) {
+        mini_brs.push_back(b_mini);
+        mini_brs.push_back(b_burst);
+        run_brs.push_back(b1);
+      }
+      it++;
+    }
+    if (update && fVars.size() == 0 && fSlopes.size() == 0) {
+      cerr << ERROR << "no new variables in update mode" << ENDL;
+      exit(0);
+    }
+
+    int Nmini = 0;
     const int sessions = fRootFile[run].size();
     for (int session=0; session < sessions; session++) {
-      bool update=true;	// update tree: add new branches
-      vector<TBranch *> mini_brs, run_brs;
+      int n	= fEntryNumber[run][session].size();
+      if (n == 0) 
+        continue;
+      Nmini += n>9000 ? n/9000 : 1;
+      N += n;
+    }
 
-      TFile fout(Form("%s/agg_minirun_%d_%03d.root", out_dir, run, session), "update");
-      TTree *tout_mini = (TTree *) fout.Get("mini");
-      TTree *tout_run	 = (TTree *) fout.Get("run");
-      if (!tout_mini) {
-        tout_mini = new TTree("mini", "mini run average value");
-        tout_mini->Branch("run", &run, "run/i");
-        tout_mini->Branch("minirun", &mini, "minirun/i");
-        tout_mini->Branch("num_samples", &num_samples, "num_samples/i");
+    if (update && Nmini != tout_mini->GetEntries()) {
+      cerr << ERROR << "Unmatch # of miniruns: "
+        << "\told: " << tout_mini->GetEntries() 
+        << "\tnew: " << Nmini << ENDL;
+    }
 
-        tout_run = new TTree("run", "run average value");
-        tout_run->Branch("run", &run, "run/i");
-        tout_run->Branch("minirun", &mini, "minirun/i");
-        tout_run->Branch("num_samples", &N, "num_samples/i");
-
-        update=false;
-      } 
-
-      for (string custom : fCustoms)  // combine solo variables
-        fVars.insert(custom);
-
-      for (string var : fVars) {
-        if (tout_mini->GetBranch(var.c_str())) {
-          fVars.erase(var);
-          continue;
-        } 
-        TBranch *b = tout_mini->Branch(var.c_str(), &mini_stat[var], "mean/D:err/D:rms/D");
-        TBranch *b1 = tout_run->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
-        if (update) {
-          mini_brs.push_back(b);
-          run_brs.push_back(b1);
-        }
+    minirun = 0;
+    for (int session=0; session < sessions; session++) {
+      int n	= fEntryNumber[run][session].size();
+      if (n == 0) {
+        cerr << WARNING << "no valid minirun in run: " << run << ", session: " << session << ENDL;
+        continue;
       }
-      for (vector<pair<string, string>>::iterator it=fSlopes.begin(); it != fSlopes.end(); ) { // slope
-        string var = it->first + '_' + it->second;
-        if (tout_mini->GetBranch(var.c_str())) {
-          it = fSlopes.erase(it);
-          continue;
-        }
-        string mini_var = "reg_" + var;
-        string burst_var = "burst_" + var;
-        TBranch *b_mini = tout_mini->Branch(mini_var.c_str(), &mini_stat[mini_var], "mean/D:err/D:rms/D");
-        TBranch *b_burst = tout_mini->Branch(burst_var.c_str(), &mini_stat[burst_var], "mean/D:err/D:rms/D");
-        TBranch *b1 = tout_run->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
-        if (update) {
-          mini_brs.push_back(b_mini);
-          mini_brs.push_back(b_burst);
-          run_brs.push_back(b1);
-        }
-        it++;
-      }
-      if (update && fVars.size() == 0 && fSlopes.size() == 0) {
-        cerr << ERROR << "no new variables in update mode" << ENDL;
-        exit(0);
-      }
-
-      mini = 0;
-      N	= fEntryNumber[run][session].size();
-      const int Nmini = N>9000 ? N/9000 : 1;
-      if (update && Nmini != tout_mini->GetEntries()) {
-        cerr << ERROR << "Unmatch # of miniruns: "
-          << "\told: " << tout_mini->GetEntries() 
-          << "\tnew: " << Nmini << ENDL;
-      }
+      int Smini = n>9000 ? n/9000 : 1; // number of miniruns in a session
       TFile *frun_slope, *fmini_slope; 
       TTree *trun_slope, *tmini_slope, *tburst_slope; // FIXME somehow, mini slope is different from burst slope
       if (nSlopes > 0) {
@@ -167,10 +182,11 @@ void TAggregate::Aggregate()
         tburst_slope->SetBranchAddress("|statA", burst_slope);
         tburst_slope->SetBranchAddress("|statdA", burst_slope_err);
       }
-      for (mini=0; mini<Nmini; mini++) {
+
+      for (int mini=0; mini<Smini; mini++, minirun++) {
         cout << INFO << "aggregate minirun: " << mini << " of run: " << run << " session: " << session << ENDL;
-        num_samples = (mini == Nmini-1) ? N-9000*mini : 9000;
-        for (int n=0; n<num_samples; n++, iok++) {
+        num_samples = (mini == Smini-1) ? n-9000*mini : 9000;
+        for (int i=0; i<num_samples; i++, iok++) {
           for (string var : fVars) {
             // FIXME: unit
             double val = fVarValue[var][iok];
@@ -209,45 +225,53 @@ void TAggregate::Aggregate()
         } else 
           tout_mini->Fill();
       }
-
-      for (string var : fVars) {
-        stat[var].mean = sum[var]/N;
-        stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/N)/(N-1));
-        stat[var].err = stat[var].rms / sqrt(N);
-        sum[var] = 0;
-        sum2[var] = 0;
-      }
-      if (nSlopes > 0) {
+      if (nSlopes > 0) {  // average session-level slope values, weighted by 1/err²
         trun_slope->GetEntry(0);
         for (pair<string, string> slope : fSlopes) {
           string var = slope.first + '_' + slope.second;
-          stat[var].mean = run_slope[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
-          stat[var].err = run_slope_err[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
-          stat[var].rms = 0;
+          double mean = run_slope[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
+          double err = run_slope_err[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
+          double weight = 1/pow(err, 2);
+          sum[var] += weight*mean;
+          sum_weight[var] += weight;
         }
-      }
-      fout.cd();
-      if (update) {
-        tout_mini->Write("", TObject::kOverwrite);
-        for (TBranch *b : run_brs)
-          b->Fill();
-        tout_run->Write("", TObject::kOverwrite);
-      } else {
-        tout_mini->Write();
-        tout_run->Fill();
-        tout_run->Write();
-      }
-      tout_mini->Delete();
-      tout_run->Delete();
-      if (nSlopes > 0) {
         trun_slope->Delete();
         tmini_slope->Delete();
         tburst_slope->Delete();
         frun_slope->Close();
         fmini_slope->Close();
       }
-      fout.Close();
     }
+
+    for (string var : fVars) {
+      stat[var].mean = sum[var]/N;
+      stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/N)/(N-1));
+      stat[var].err = stat[var].rms / sqrt(N);
+      sum[var] = 0;
+      sum2[var] = 0;
+    }
+    if (nSlopes > 0) {
+      for (pair<string, string> slope : fSlopes) {
+        string var = slope.first + '_' + slope.second;
+        stat[var].mean = sum[var]/sum_weight[var];
+        stat[var].err = sqrt(1/sum_weight[var]);
+        stat[var].rms = 0;
+      }
+    }
+    fout.cd();
+    if (update) {
+      tout_mini->Write("", TObject::kOverwrite);
+      for (TBranch *b : run_brs)
+        b->Fill();
+      tout_run->Write("", TObject::kOverwrite);
+    } else {
+      tout_mini->Write();
+      tout_run->Fill();
+      tout_run->Write();
+    }
+    tout_mini->Delete();
+    tout_run->Delete();
+    fout.Close();
   }
 }
 #endif

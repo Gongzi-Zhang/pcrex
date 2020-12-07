@@ -10,7 +10,7 @@ using namespace std;
 void usage();
 
 int main(int argc, char* argv[]) {
-  const char * config_file("conf/check.conf");
+  const char * config_file("conf/checkslug.conf");
   const char * out_name = NULL;
   const char * out_format = NULL;
   set<int> slugs;
@@ -66,6 +66,7 @@ int main(int argc, char* argv[]) {
 	fConf.ParseConfFile();
 
   TCheckSlug fCheckSlug;
+  fCheckSlug.GetConfig(fConf);
 	fCheckSlug.SetSlugs(slugs);
   // if (sign)
   //   fCheckSlug.SetSign();

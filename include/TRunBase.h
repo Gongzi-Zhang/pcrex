@@ -52,7 +52,7 @@ class TRunBase : public TBase {
 };
 
 TRunBase::TRunBase() : TBase() {
-	gROOT->SetBatch(1);
+  granularity = "run";
 }
 
 void TRunBase::SetSlugs(set<int> slugs) {
@@ -62,7 +62,7 @@ void TRunBase::SetSlugs(set<int> slugs) {
         || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
         || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
       fSlugs.insert(slug);
-      for (int run : GetRunsFromSlug(slug)) 
+      for (int run : GetRunsFromSlug(slug))
         fRuns.insert(run);
     } else {
       cerr << ERROR << "Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << ENDL;

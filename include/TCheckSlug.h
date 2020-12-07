@@ -46,10 +46,16 @@ class TCheckSlug : public TSlugBase {
     // ClassDe (TCheckSlug, 0) // check statistics
 
   private:
+    set<string> fBrVars;
+    map<string, string> fVarInUnit;
+    map<string, string> fVarOutUnit;
+    TCanvas *c;
 
   public:
      TCheckSlug();
      ~TCheckSlug();
+     void GetConfig(const TConfig fConf);
+     void CheckVars();
 		 void ProcessValues();
      void CheckValues();
      void Draw();
@@ -58,7 +64,8 @@ class TCheckSlug : public TSlugBase {
      void DrawCors();
 
      // auxiliary funcitons
-     const char * GetUnit(string var);
+     const char * GetInUnit(string var);
+     const char * GetOutUnit(string var);
 };
 
 // ClassImp(TCheckSlug);
@@ -66,23 +73,66 @@ class TCheckSlug : public TSlugBase {
 TCheckSlug::TCheckSlug() :
   TSlugBase()
 {
-	out_name	= "check";
-	// dir       = "/chafs2/work1/apar/postpan-outputs/";
-	// pattern   = "prexPrompt_xxxx_???_regress_postpan.root"; 
-	// tree      = "mini";
+	out_name	= "checkslug";
+	dir       = "rootfiles/";
+	pattern   = "agg_slug_xxxx.root"; 
+	tree      = "slug";
 }
 
 TCheckSlug::~TCheckSlug() {
   cout << INFO << "Release TCheckSlug" << ENDL;
 }
 
+void TCheckSlug::GetConfig(const TConfig fConf) {
+  TBase::GetConfig(fConf);
+  for (string var : fSolos) {
+    if (var.find('.') != string::npos) {  // FIXME: what's the format should be
+      cerr << ERROR << "branch only, no leaf allowed, in var: " << var << ENDL;
+      exit(14);
+    }
+		fVars.insert(var + ".mean");
+		fVars.insert(var + ".err");
+		fVars.insert(var + ".rms");
+		fBrVars.insert(var);
+  }
+  vector<pair<string, string>> pairs = fComps;
+  for (pair<string, string> cor : fCors)
+    pairs.push_back(cor);
+
+  for (pair<string, string> p : pairs) {
+    string var1 = p.first;
+    string var2 = p.second;
+    if (var1.find('.') != string::npos 
+        || var2.find('.') != string::npos ) {  // FIXME: what's the format should be
+      cerr << ERROR << "branch only, no leaf allowed, in var: " << var1 << "/" << var2 << ENDL;
+      exit(14);
+    }
+		fVars.insert(var1 + ".mean");
+		fVars.insert(var1 + ".err");
+		fVars.insert(var1 + ".rms");
+		fBrVars.insert(var1);
+		fVars.insert(var2 + ".mean");
+		fVars.insert(var2 + ".err");
+		fVars.insert(var2 + ".rms");
+		fBrVars.insert(var2);
+  }
+}
+
+void TCheckSlug::CheckVars() {
+  TBase::CheckVars();
+  for (string var : fBrVars) 
+    fVars.erase(var);
+}
+
 void TCheckSlug::ProcessValues() {
-	// for (string var : fVars) {
-	// 	// unit correction
-	// 	fVarUnit[var] = GetUnit(var);
-	// 	for (int m=0; m<nOk; m++) {
-	// 		fVarValue[var][m] /= UNITS[fVarUnit[var]];
-	// 	}
+  for (string var : fVars) {
+    fVarInUnit[var] = GetInUnit(var);
+    fVarOutUnit[var] = GetOutUnit(var);
+
+    for (int i=0; i<nOk; i++) {
+      fVarValue[var][i] *= (UNITS[fVarInUnit[var]] / UNITS[fVarOutUnit[var]]);
+    }
+	}
 
 	// 	// sign correction: only for mean value
 	// 	if (sign && fVarStatType[var] == mean) {
@@ -97,15 +147,14 @@ void TCheckSlug::ProcessValues() {
   //     }
 	// 	}
 	// }
-
 }
 
-void TCheckSlug::CheckValues() {
-  for (string solo : fSolos) {
+void TCheckSlug::CheckValues() {  // FIXME: do i need it?
+  for (string solo : fSolos) {  // FIXME: solo variable may not contain leaf type
     double low_cut  = fSoloCut[solo].low;
     double high_cut = fSoloCut[solo].high;
     double burp_cut = fSoloCut[solo].burplevel;
-    double unit = UNITS[fVarUnit[solo]];
+    double unit = UNITS[fVarOutUnit[solo]];
     if (low_cut != 1024)
       low_cut /= unit;
     if (high_cut != 1024)
@@ -230,13 +279,16 @@ void TCheckSlug::Draw() {
 	if (nOk > 100)
 		c = new TCanvas("c", "c", 1800, 600);
 	else 
-		c = new TCanvas("c", "c", 800, 600);
-  c->SetGridy();
+		c = new TCanvas("c", "c", 1200, 600);
+  // c->SetGridy();
   gStyle->SetOptFit(111);
   gStyle->SetOptStat(1110);
-  gStyle->SetTitleX(0.5);
+  // gStyle->SetTitleX(0.5);
   gStyle->SetTitleAlign(23);
   gStyle->SetBarWidth(1.05);
+  gStyle->SetTitleSize(0.09, "XY");
+  gStyle->SetTitleXOffset(0.4);
+  gStyle->SetTitleYOffset(0.15);
 
   if (format == pdf)
     c->Print(Form("%s.pdf[", out_name));
@@ -254,27 +306,56 @@ void TCheckSlug::Draw() {
 
 void TCheckSlug::DrawSolos() {
   for (string solo : fSolos) {
-    TGraphErrors * g = new TGraphErrors();
-		TH1F *h = new TH1F("h", "h", 125, 99, 224);
+    TGraphErrors *g1 = new TGraphErrors();
+    TGraphErrors *galt1 = NULL, *galt2 = NULL;
+    TGraphErrors *g2 = new TGraphErrors();
 
-		int i=0;
+    bool alt = false;
+    vector<int> &alt_slugs = fVarUseAlt[solo];
+    if (alt_slugs.size()) {
+      alt = true;
+      galt1 = new TGraphErrors();
+      galt2 = new TGraphErrors();
+      
+      // style
+      g1->SetMarkerColor(kBlue);
+      g2->SetMarkerColor(kBlue);
+      galt1->SetMarkerStyle(20);
+      galt2->SetMarkerStyle(20);
+      galt1->SetMarkerColor(kRed);
+      galt2->SetMarkerColor(kRed);
+    }
+
+    int i = 0, j=0;
     for(int slug : fSlugs) {
 			// no need for session
       double val, err, rms;
       val = fVarValue[solo + ".mean"][i];
 			err = fVarValue[solo+".err"][i];
 			rms = fVarValue[solo+".rms"][i];
-      g->SetPoint(i, slug, val);
-      g->SetPointError(i, 0, err);
-			i++;
-			h->Fill(slug, rms);
+      g1->SetPoint(i, slug, val);
+      g1->SetPointError(i, 0, err);
+      g2->SetPoint(i, slug, rms);
+
+      if (alt && find(alt_slugs.begin(), alt_slugs.end(), slug) != alt_slugs.end()) {
+        galt1->SetPoint(j, slug, val);
+        galt1->SetPointError(j, 0, err);
+        galt2->SetPoint(j, slug, rms);
+        j++;
+      }
+      i++;
     }
     // g->GetXaxis()->SetRangeUser(0, nOk+1);
 		string title = solo;
-		if (count(title.begin(), title.end(), '.') == 2) {
-			title = title.substr(title.find('.')+1);
-		}
-		g->SetTitle((title + ";;" + fVarUnit[solo]).c_str());
+    if (alt)
+      title = Form("#color[4]{%s}(#color[2]{%s})", solo.c_str(), fBrAlt[solo].c_str());
+
+    // style
+		g1->SetTitle((title + ";;" + fVarOutUnit[solo + ".mean"]).c_str());
+    g1->SetMarkerStyle(20);
+
+    g2->SetMarkerStyle(20);
+    g2->SetTitle(Form(";slug;RMS Width (%s);", fVarOutUnit[solo+".rms"].c_str()));
 
     // g->Fit("pol0");
     // TF1 * fit= g->GetFunction("pol0");
@@ -282,21 +363,26 @@ void TCheckSlug::DrawSolos() {
 		// cout << OUTPUT << solo << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
 
     c->cd();
-    TPad *p1 = new TPad("p1", "p1", 0.0, 1.0, 0.5, 1.0);	// mean
-    TPad *p2 = new TPad("p2", "p2", 0.0, 1.0, 0.0, 0.5);	// rms
+    TPad *p1 = new TPad("p1", "p1", 0.0, 0.5, 1.0, 1.0);	// mean
+    TPad *p2 = new TPad("p2", "p2", 0.0, 0.0, 1.0, 0.5);	// rms
 		p1->SetBottomMargin(0);
 		p2->SetTopMargin(0);
 
 		p1->Draw();
-		p1->SetGridy();
+		p1->SetGridx();
 		p2->Draw();
-		p2->SetGrid();
+		p2->SetGridx();
 
     p1->cd();
-    g->Draw("AP");
+    g1->Draw("AP");
+    if (alt)
+      galt1->Draw("P SAME");
     p1->Update();
 		p2->cd();
-		h->Draw();
+		g2->Draw("AP");
+    if (alt)
+      galt2->Draw("P SAME");
+    p2->Update();
     // st = (TPaveStats *) g->FindObject("stats");
     // st->SetName("g_stats");
     // double width = 0.7/(flips.size() + 1);
@@ -312,15 +398,20 @@ void TCheckSlug::DrawSolos() {
     // double max = ay->GetXmax();
     // ay->SetRangeUser(min, max+(max-min)/9);
 
+    TPaveText *t = (TPaveText *) p1->GetPrimitive("title");
+    t->SetTextSize(0.09);
     c->Modified();
     if (format == pdf)
       c->Print(Form("%s.pdf", out_name));
     else if (format == png)
       c->Print(Form("%s_%s.png", out_name, solo.c_str()));
 
+    t->Delete();
+		g1->Delete();
+		g2->Delete();
+    if (galt1)  galt1->Delete();
+    if (galt2)  galt2->Delete();
     c->Clear();
-		g->Delete();
-		h->Delete();
   }
   cout << INFO << "Done with drawing Solos." << ENDL;
 }
@@ -380,7 +471,7 @@ void TCheckSlug::DrawComps() {
     g1->GetXaxis()->SetRangeUser(0, nOk+1);
     h_diff->GetXaxis()->SetRangeUser(0, nOk+1);
 
-		g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), fVarUnit[var1]));
+		g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), fVarOutUnit[var1]));
 
     // g1->Fit("pol0");
     // g2->Fit("pol0");
@@ -562,7 +653,7 @@ void TCheckSlug::DrawCors() {
       }
     }
     // g->GetXaxis()->SetRangeUser(0, nOk+1);
-		g->SetTitle((cor.first + " vs " + cor.second + ";" + fVarUnit[xvar] + ";" + fVarUnit[yvar]).c_str());
+		g->SetTitle((cor.first + " vs " + cor.second + ";" + fVarOutUnit[xvar] + ";" + fVarOutUnit[yvar]).c_str());
     g_bold->SetMarkerStyle(20);
     g_bold->SetMarkerSize(1.3);
     g_bold->SetMarkerColor(kBlue);
@@ -632,21 +723,39 @@ void TCheckSlug::DrawCors() {
   cout << INFO << "Done with drawing Correlations." << ENDL;
 }
 
-const char * TCheckSlug::GetUnit (string var) {
+const char * TCheckSlug::GetInUnit (string var) {
+  string branch = fVarName[var].first;
+  if (branch.find("asym") != string::npos) 
+    return "";
+  else if (branch.find("diff") != string::npos) 
+    return "mm";
+  else if (branch.find("yield") != string::npos) {
+    if (branch.find("bcm") != string::npos) 
+      return "uA";
+    else if (branch.find("bpm") != string::npos) 
+      return "mm";
+  } else
+    return "";
+}
+
+const char * TCheckSlug::GetOutUnit (string var) {
   string branch = fVarName[var].first;
   string leaf   = fVarName[var].second;
   if (branch.find("asym") != string::npos) {
-    if (var.find("mean") != string::npos || var.find("err") != string::npos)
+    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
       return "ppb";
-    else if (var.find("rms") != string::npos)
+    else // if (var.find("rms") != string::npos)
       return "ppm";
   } else if (branch.find("diff") != string::npos) {
-    if (var.find("mean") != string::npos || var.find("err") != string::npos)
+    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
       return "nm";
-    else if (var.find("rms") != string::npos)
+    else // if (var.find("rms") != string::npos)
       return "um";
-  }
-	return "";
+  } else if (branch.find("yield") != string::npos) {
+    if (branch.find("bcm") != string::npos) 
+      return "uA";
+  } else
+    return "";
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

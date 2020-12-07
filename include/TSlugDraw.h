@@ -37,7 +37,7 @@
 #include "line.h"
 #include "rcdb.h"
 #include "TConfig.h"
-#include "TRunBase.h"
+#include "TBase.h"
 
 enum SType {mean, err, rms};	// statistical type
 
@@ -54,11 +54,13 @@ map<int, const char *> legends = {
 
 using namespace std;
 
-class TCheckStat : public TRunBase {
+class TCheckStat : public TBase {
 
     // ClassDe (TCheckStat, 0) // check statistics
 
   private:
+		set<int> fBoldRuns;
+		int nBoldRuns;
     bool  sign = false;
     vector<int> flips;
 
@@ -70,11 +72,10 @@ class TCheckStat : public TRunBase {
     map<pair<string, string>, set<pair<int, int>>>	  fSlopeBadMiniruns;
     map<pair<string, string>, set<pair<int, int>>>	  fCorBadMiniruns;
 
-    TCanvas *c;
-
   public:
-     TCheckStat();
+     TCheckStat(const char*, const char* run_list = NULL);
      ~TCheckStat();
+     void SetBoldRuns(set<int> runs);
      void SetSign() {sign = true;}
 		 void ProcessValues();
      void CheckValues();
@@ -90,18 +91,31 @@ class TCheckStat : public TRunBase {
 
 // ClassImp(TCheckStat);
 
-TCheckStat::TCheckStat() :
-  TRunBase()
+TCheckStat::TCheckStat(const char* config_file, const char *run_list) :
+  TBase(config_file, run_list)
 {
-	// program		= checkstatistics;
+	program		= checkstatistics;
 	out_name	= "check";
 	// dir       = "/chafs2/work1/apar/postpan-outputs/";
 	// pattern   = "prexPrompt_xxxx_???_regress_postpan.root"; 
 	// tree      = "mini";
+  fBoldRuns = fConf.GetBoldRuns();
 }
 
 TCheckStat::~TCheckStat() {
   cout << INFO << "Release TCheckStat" << ENDL;
+}
+
+void TCheckStat::SetBoldRuns(set<int> runs) {
+  for(int run : runs) {
+    if (run < START_RUN || run > END_RUN) {
+      cerr << ERROR << "Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << ENDL;
+      continue;
+    }
+    fRuns.insert(run);
+  }
+  nRuns = fRuns.size();
+  nBoldRuns = fBoldRuns.size();
 }
 
 void TCheckStat::ProcessValues() {
@@ -141,7 +155,6 @@ void TCheckStat::ProcessValues() {
 		}
 	}
 
-  /*
 	for (string var : fVars) {	// weight raw det asym with lagr. det asym error
 		TString v = var;
 		if (v.CountChar('.') == 2)
@@ -161,7 +174,6 @@ void TCheckStat::ProcessValues() {
 			}
 		}
 	}
-  */
 }
 
 void TCheckStat::CheckValues() {
@@ -365,13 +377,14 @@ void TCheckStat::DrawSolos() {
 		}
 
     TGraphErrors * g = new TGraphErrors();
+    TGraphErrors * g_bold = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
     map<int, TGraphErrors *> g_flips;
     for (int i=0; i<flips.size(); i++) {
       g_flips[flips[i]] = new TGraphErrors();
     }
 
-    for(int i=0, ibad=0; i<nMiniruns; i++) {
+    for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err=0;
       val = fVarValue[solo][i];
       if (meanflag) {
@@ -384,6 +397,11 @@ void TCheckStat::DrawSolos() {
       g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
       g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
 
+      if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
+        g_bold->SetPoint(ibold, i+1, val);
+        g_bold->SetPointError(ibold, 0, err);
+        ibold++;
+      }
       if (fSoloBadMiniruns[solo].find(fMiniruns[i]) != fSoloBadMiniruns[solo].cend()) {
         g_bad->SetPoint(ibad, i+1, val);
         g_bad->SetPointError(ibad, 0, err);
@@ -399,6 +417,9 @@ void TCheckStat::DrawSolos() {
       g->SetTitle((title + " (sign corrected);;" + fVarUnit[solo]).c_str());
     else
       g->SetTitle((title + ";;" + fVarUnit[solo]).c_str());
+    g_bold->SetMarkerStyle(21);
+    g_bold->SetMarkerSize(1.3);
+    g_bold->SetMarkerColor(kBlue);
     g_bad->SetMarkerStyle(20);
     g_bad->SetMarkerSize(1.2);
     g_bad->SetMarkerColor(kRed);
@@ -469,6 +490,7 @@ void TCheckStat::DrawSolos() {
     st->SetY2NDC(0.9);
     st->SetY1NDC(0.8);
 
+    g_bold->Draw("P same");
     g_bad->Draw("P same");
 
     for (int i=0; i<flips.size(); i++) {
@@ -561,13 +583,14 @@ void TCheckStat::DrawSlopes() {
   for (pair<string, string> slope : fSlopes) {
     string unit = "ppb/nm";
     TGraphErrors * g = new TGraphErrors();
+    TGraphErrors * g_bold = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
     map<int, TGraphErrors *> g_flips;
     for (int i=0; i<flips.size(); i++) {
       g_flips[flips[i]] = new TGraphErrors();
     }
 
-    for(int i=0, ibad=0; i<nMiniruns; i++) {
+    for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val, err;
       val = fSlopeValue[slope][i];
       err = fSlopeErr[slope][i];
@@ -578,6 +601,11 @@ void TCheckStat::DrawSlopes() {
       g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
       g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
       
+      if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
+        g_bold->SetPoint(ibold, i+1, val);
+        g_bold->SetPointError(ibold, 0, err);
+        ibold++;
+      }
       if (fSlopeBadMiniruns[slope].find(fMiniruns[i]) != fSlopeBadMiniruns[slope].cend()) {
         g_bad->SetPoint(ibad, i+1, val);
         g_bad->SetPointError(ibad, 0, err);
@@ -589,6 +617,9 @@ void TCheckStat::DrawSlopes() {
       g->SetTitle((slope.first + "_" + slope.second + " (sign corrected);;" + unit).c_str());
     else 
       g->SetTitle((slope.first + "_" + slope.second + ";;" + unit).c_str());
+    g_bold->SetMarkerStyle(20);
+    g_bold->SetMarkerSize(1.3);
+    g_bold->SetMarkerColor(kBlue);
     g_bad->SetMarkerStyle(20);
     g_bad->SetMarkerSize(1.2);
     g_bad->SetMarkerColor(kRed);
@@ -649,6 +680,7 @@ void TCheckStat::DrawSlopes() {
     st->SetY2NDC(0.9);
     st->SetY1NDC(0.8);
 
+    g_bold->Draw("P same");
     g_bad->Draw("P same");
 
     for (int i=0; i<flips.size(); i++) {
@@ -739,6 +771,8 @@ void TCheckStat::DrawComps() {
 
     TGraphErrors * g1 = new TGraphErrors();
     TGraphErrors * g2 = new TGraphErrors();
+    TGraphErrors * g_bold1 = new TGraphErrors();
+    TGraphErrors * g_bold2 = new TGraphErrors();
     TGraphErrors * g_bad1  = new TGraphErrors();
     TGraphErrors * g_bad2  = new TGraphErrors();
     map<int, TGraphErrors *> g_flips1;
@@ -756,7 +790,7 @@ void TCheckStat::DrawComps() {
     TH1F * h_diff = new TH1F("diff", "", nMiniruns, 0, nMiniruns);
 
     double min, max;
-    for(int i=0, ibad=0; i<nMiniruns; i++) {
+    for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double val1, err1=0;
       double val2, err2=0;
       val1 = fVarValue[var1][i];
@@ -784,6 +818,13 @@ void TCheckStat::DrawComps() {
       g_flips2[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err2);
       h_diff->SetBinContent(i+1, val1-val2);
       
+      if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
+        g_bold1->SetPoint(ibold, i+1, val1);
+        g_bold1->SetPointError(ibold, 0, err1);
+        g_bold2->SetPoint(ibold, i+1, val2);
+        g_bold2->SetPointError(ibold, 0, err2);
+        ibold++;
+      }
       if (fCompBadMiniruns[comp].find(fMiniruns[i]) != fCompBadMiniruns[comp].cend()) {
         g_bad1->SetPoint(ibad, i+1, val1);
         g_bad1->SetPointError(ibad, 0, err1);
@@ -803,6 +844,12 @@ void TCheckStat::DrawComps() {
       g1->SetTitle(Form("%s & %s (sign corrected);;%s", var1.c_str(), var2.c_str(), fVarUnit[var1]));
     else 
       g1->SetTitle(Form("%s & %s;;%s", var1.c_str(), var2.c_str(), fVarUnit[var1]));
+    g_bold1->SetMarkerStyle(21);
+    g_bold1->SetMarkerSize(1.3);
+    g_bold1->SetMarkerColor(kBlue);
+    g_bold2->SetMarkerStyle(21);
+    g_bold2->SetMarkerSize(1.3);
+    g_bold2->SetMarkerColor(kBlue);
     g_bad1->SetMarkerStyle(20);
     g_bad1->SetMarkerSize(1.2);
     g_bad1->SetMarkerColor(kRed);
@@ -871,6 +918,8 @@ void TCheckStat::DrawComps() {
     st2->SetY2NDC(0.8);
     st2->SetY1NDC(0.7);
 
+    g_bold1->Draw("P same");
+    g_bold2->Draw("P same");
     g_bad1->Draw("P same");
     g_bad2->Draw("P same");
     
@@ -967,13 +1016,14 @@ void TCheckStat::DrawCors() {
     const char * yerr_var = Form("%s.err", ybranch.c_str());
 
     TGraphErrors * g = new TGraphErrors();
+    TGraphErrors * g_bold = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
     map<int, TGraphErrors *> g_flips;
     for (int i=0; i<flips.size(); i++) {
       g_flips[flips[i]] = new TGraphErrors();
     }
 
-    for(int i=0, ibad=0; i<nMiniruns; i++) {
+    for(int i=0, ibold=0, ibad=0; i<nMiniruns; i++) {
       double xval, xerr=0;
       double yval, yerr=0;
       xval = fVarValue[xvar][i];
@@ -992,6 +1042,11 @@ void TCheckStat::DrawCors() {
       g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, xval, yval);
       g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, xerr, yerr);
 
+      if (fBoldRuns.find(fMiniruns[i].first) != fBoldRuns.cend()) {
+        g_bold->SetPoint(ibold, xval, yval);
+        g_bold->SetPointError(ibold, xerr, yerr);
+        ibold++;
+      }
       if (fCorBadMiniruns[cor].find(fMiniruns[i]) != fCorBadMiniruns[cor].cend()) {
         g_bad->SetPoint(ibad, xval, yval);
         g_bad->SetPointError(ibad, xerr, yerr);
@@ -1003,6 +1058,9 @@ void TCheckStat::DrawCors() {
       g->SetTitle((cor.first + " vs " + cor.second + " (sign corrected);" + fVarUnit[xvar] + ";" + fVarUnit[yvar]).c_str());
     else
       g->SetTitle((cor.first + " vs " + cor.second + ";" + fVarUnit[xvar] + ";" + fVarUnit[yvar]).c_str());
+    g_bold->SetMarkerStyle(20);
+    g_bold->SetMarkerSize(1.3);
+    g_bold->SetMarkerColor(kBlue);
     g_bad->SetMarkerStyle(20);
     g_bad->SetMarkerSize(1.2);
     g_bad->SetMarkerColor(kRed);
@@ -1033,6 +1091,7 @@ void TCheckStat::DrawCors() {
     st->SetY2NDC(0.9);
     st->SetY1NDC(0.75);
 
+    g_bold->Draw("P same");
     g_bad->Draw("P same");
     
     for (int i=0; i<flips.size(); i++) {

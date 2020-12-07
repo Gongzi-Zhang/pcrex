@@ -9,35 +9,39 @@ typedef struct _STAT { double mean, err, rms; } STAT;
 class TAggSlug : public TRunBase {
 	private:
 		int slug;
-		const char *var_weight = "reg_asym_us_avg";
+		// const char *var_weight = "reg_asym_us_avg";
 		set<string> fBrVars;
 		// const char * out_pattern = "agg_minirun_xxxx_???";
 	public:
 		TAggSlug();
 		~TAggSlug() { cout << INFO << "end of TAggSlug" << ENDL; };
-		void SetSlug(const int s) { slug=s; fSlugs.clear(); fSlugs.insert(slug); };
+		void SetSlug(const int s) { slug=s; fSlugs.clear(); fRuns.clear(); SetSlugs({slug}); };
+    void GetConfig(const TConfig fConf);
 		void AggSlug();
 };
 
 TAggSlug::TAggSlug() :
 	TRunBase()
 {
-	// set<string> var_special = {
-	// 	"minirun",
-	// 	"num_samples",
-	// };
+  dir     = "rootfiles/";
+  pattern = "agg_mini_xxxx.???.root";
+  tree    = "mini";
+}
+
+void TAggSlug::GetConfig(const TConfig fConf) {
+  TBase::GetConfig(fConf);
 	if (fVars.find("num_samples") != fVars.end())
 		fVars.erase("num_samples");
 	for (string var : fVars) {
 		string v = var.substr(0, var.find('.'));
+    // fVars.erase(v);
 		fVars.insert(v + ".mean");
 		// fVars.insert(v + ".err");
 		fVars.insert(v + ".rms");
 		fBrVars.insert(v);
 	}
 	fVars.insert("num_samples");	// num_samples must be there for calculation of variance
-	fVars.insert(var_weight);	// make sure weight variable is always there
-	fGrans = fRuns;
+	// fVars.insert(var_weight);	// make sure weight variable is always there
 }
 
 void TAggSlug::AggSlug()
@@ -89,37 +93,38 @@ void TAggSlug::AggSlug()
 			exit(0);
 		}
 	}
-	double sum_weight = 0;
+	map<string, double> sum_weight;
 	double n1 = 0;
 	map<string, double> m1;	// mean
-	map<string, double> var1;	// variance
+	map<string, double> dev1;	// deviation
 	for (string var : fBrVars) {
 		sum[var] = 0;
+    sum_weight[var] = 0;
 		m1[var] = 0;
-		var1[var] = 0;
+		dev1[var] = 0;
 	}
   for (int i=0; i<nOk; i++) {
-		double weight = 1/pow(fVarValue[var_weight][i], 2);
-		sum_weight += weight;
-		double n2 = fVarValue["num_runs"][i];
+		double n2 = fVarValue["num_samples"][i];
 		for (string var : fBrVars) {
 			double m2 = fVarValue[var+".mean"][i];
 			double rms2 = fVarValue[var+".rms"][i];
-			// weighted mean
-			sum[var] += m2*weight;
-			// rms
-			double var2 = (n2-1)*pow(rms2, 2);
+      // double err2 = rms2/sqrt(n2);
+			double var2 = pow(rms2, 2);  // variance
+      double dev2 = (n2-1)*var2;  // deviation
+      double weight = n2/var2;    // w = 1/pow(err, 2)
+      sum_weight[var] += weight;
+			sum[var] += m2*weight; // weighted mean
 			double delta = m2 - m1[var];
 			m1[var] += n2/(n1+n2)*delta;
-			var1[var] = var1[var] + var2 + n1*n2/(n1+n2)*pow(delta, 2);
+			dev1[var] = dev1[var] + dev2 + n1*n2/(n1+n2)*pow(delta, 2);
 		}
 		n1 += n2;
 	}
 	num_samples = n1;
 	for (string var : fBrVars) {
-		stat[var].mean = sum[var]/sum_weight;
-		stat[var].err = sqrt(1/sum_weight);
-		stat[var].rms = sqrt(var1[var]/(num_samples-1));
+		stat[var].mean = sum[var]/sum_weight[var];
+		stat[var].err = sqrt(1/sum_weight[var]);
+		stat[var].rms = sqrt(dev1[var]/(num_samples-1));
 	}
 	fout.cd();
 	if (update) {
