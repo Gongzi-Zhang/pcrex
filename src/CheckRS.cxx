@@ -3,29 +3,28 @@
 #include <set>
 
 #include "line.h"
-#include "TCheckSlug.h"
+#include "TCheckRS.h"
 
 using namespace std;
 
 void usage();
 
 int main(int argc, char* argv[]) {
-  const char * config_file("conf/checkslug.conf");
+  const char * config_file("conf/checkrs.conf");
   const char * out_name = NULL;
   const char * out_format = NULL;
   set<int> slugs;
-  // bool sign = false;
+  set<int> runs;
+  const char *type = "slug";
+  bool sign = false;
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:s:i:w:f:n:S")) != -1)
+  while((opt = getopt(argc, argv, "hc:s:r:a:i:w:f:n:SR")) != -1)
     switch (opt) {
       case 'h':
         usage();
         exit(0);
-      // case 'S':
-      //   sign = true;  // make sign correction
-      //   break;
       case 'c':
         config_file = optarg;
         dconf = false;
@@ -33,6 +32,12 @@ int main(int argc, char* argv[]) {
       case 's':
         slugs = ParseRS(optarg);
         break;
+      case 'r':
+        runs = ParseRS(optarg);
+        break;
+			case 'a':
+				SetArmFlag(optarg);
+				break;
 			case 'i':
 				SetIHWP(optarg);
 				break;
@@ -45,37 +50,42 @@ int main(int argc, char* argv[]) {
       case 'n':
         out_name = optarg;
         break;
+      case 'S':
+        sign = true;
+        break;
+      case 'R':
+        type = "run";
+        break;
       default:
         usage();
         exit(1);
     }
-
-	if (!slugs.size()) {
-		cerr << FATAL << "no valid slugs specified" << ENDL;
-		exit(4);
-	}
-
-  if (out_format)
-    SetOutFormat(out_format);
-  if (out_name)
-    SetOutName(out_name);
 
   if (dconf) 
     cout << INFO << "use default config file: " << config_file << ENDL;
 	TConfig fConf(config_file);
 	fConf.ParseConfFile();
 
-  TCheckSlug fCheckSlug;
-  fCheckSlug.GetConfig(fConf);
-	fCheckSlug.SetSlugs(slugs);
-  // if (sign)
-  //   fCheckSlug.SetSign();
+  TCheckRS fCheckRS(type);
+  fCheckRS.GetConfig(fConf);
+  if (strcmp(type, "slug") == 0) {
+    fCheckRS.SetSlugs(slugs);
+  } else if (strcmp(type, "run") == 0) {
+    fCheckRS.SetRuns(runs);
+  }
+  if (sign)
+    fCheckRS.SetSign(sign);
 
-  // fCheckSlug.CheckRuns();
-  // fCheckSlug.CheckVars();
-  // fCheckSlug.GetValues();
-  // fCheckSlug.CheckValues();
-  fCheckSlug.Draw();
+  if (out_format)
+    SetOutFormat(out_format);
+  if (out_name)
+    SetOutName(out_name);
+
+  // fCheckRS.CheckRuns();
+  // fCheckRS.CheckVars();
+  // fCheckRS.GetValues();
+  // fCheckRS.CheckValues();
+  fCheckRS.Draw();
 
   return 0;
 }
@@ -86,13 +96,14 @@ void usage() {
        << "\t -h: print this help message" << endl
        << "\t -c: specify config file (default: check.conf)" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-			 << "\t -i: set wanted ihwp state (in, out)" << endl
-			 << "\t -w: set wien flip (left, right, horizontal, up, down, vertical)" << endl
+			 << "\t -a: set arm flag (both, left, right)" << endl
+			 << "\t -i: set wanted ihwp state (IN, OUT)" << endl
+			 << "\t -w: set wien flip (left, right, up, down)" << endl
        << "\t -f: set output file format: pdf or png" << endl
        << "\t -n: prefix of output pdf file" << endl
        << "\t -S: make sign correction" << endl
        << endl
        << "  Example:" << endl
-       << "\t ./check -c myconf.conf -s 125,127-130 -n test" << endl;
+       << "\t ./checkrs -c myconf.conf -s 125,127-130 -n test" << endl;
 }
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

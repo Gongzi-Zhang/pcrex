@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
   set<int> slugs;
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:R:s:a:d:")) != -1)
+  while((opt = getopt(argc, argv, "hc:r:R:s:d:")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -36,9 +36,6 @@ int main(int argc, char* argv[]) {
       case 's':
         slugs = ParseRS(optarg);
         break;
-			case 'a':
-				SetArmFlag(optarg);
-				break;
       case 'd':
         out_dir = optarg;
         break;
@@ -58,6 +55,7 @@ int main(int argc, char* argv[]) {
 
   TAggregate fAgg = TAggregate();
 	fAgg.GetConfig(fConf);
+
   if (runs.size())
     fAgg.SetRuns(runs);
   fAgg.SetRuns(fConf.GetRS());
@@ -65,9 +63,8 @@ int main(int argc, char* argv[]) {
     fAgg.SetSlugs(slugs);
 
 	fAgg.CheckRuns();
-	fAgg.CheckVars();
-  fAgg.GetValues();
-  fAgg.Aggregate();
+	fAgg.TBase::CheckVars();
+  fAgg.AggregateRuns();
 
   return 0;
 }
@@ -77,13 +74,13 @@ void usage() {
        << "  Options:" << endl
        << "\t -h: print this help message" << endl
        << "\t -c: specify config file (default: conf/aggregate.conf)" << endl
-       << "\t -r: specify runs (seperate by comma, no space between them. ran range is supported: 5678,6666-6670,6688)" << endl
+       << "\t -r: specify runs (seperated by comma, no space between them. run range is supported: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
        << "\t -d: prefix of name of output dir" << endl
        << endl
        << "  Example:" << endl
-       << "\t ./aggregate -c myconf.conf -R slug123.list -n slug123" << endl
-       << "\t ./aggregate -c myconf.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -d rootfiles" << endl;
+       << "\t ./aggregate -c agg.conf -R slug123.list -n slug123" << endl
+       << "\t ./aggregate -c agg.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -d rootfiles" << endl;
 }
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

@@ -1,5 +1,5 @@
-#ifndef TCHECKSLUG_H
-#define TCHECKSLUG_H
+#ifndef TCHECKRS_H
+#define TCHECKRS_H
 
 #include <iostream>
 #include <fstream>
@@ -37,119 +37,108 @@
 #include "line.h"
 #include "rcdb.h"
 #include "TConfig.h"
-#include "TSlugBase.h"
+#include "TRSbase.h"
+#include "draw.h"
 
 using namespace std;
 
-class TCheckSlug : public TSlugBase {
+enum Ptype {slug, run, event, other};
 
-    // ClassDe (TCheckSlug, 0) // check statistics
+class TCheckRS : public TRSbase {
+
+    // ClassDe (TCheckRS, 0) // check statistics
 
   private:
-    set<string> fBrVars;
+    Ptype pt = slug;
+    bool sign;
+    map<int, int> fSign;
     map<string, string> fVarInUnit;
     map<string, string> fVarOutUnit;
+    double xmin, xmax;
     TCanvas *c;
 
   public:
-     TCheckSlug();
-     ~TCheckSlug();
-     void GetConfig(const TConfig fConf);
-     void CheckVars();
+     TCheckRS(const char *t);
+     ~TCheckRS();
+     void GetConfig(const TConfig &fConf);
+     void SetSign(bool s) { sign = s; }
 		 void ProcessValues();
      void CheckValues();
      void Draw();
      void DrawSolos();
      void DrawComps();
      void DrawCors();
-
-     // auxiliary funcitons
-     const char * GetInUnit(string var);
-     const char * GetOutUnit(string var);
 };
 
-// ClassImp(TCheckSlug);
+// ClassImp(TCheckRS);
 
-TCheckSlug::TCheckSlug() :
-  TSlugBase()
+TCheckRS::TCheckRS(const char *t) :
+  TRSbase()
 {
-	out_name	= "checkslug";
-	dir       = "rootfiles/";
-	pattern   = "agg_slug_xxxx.root"; 
-	tree      = "slug";
+  if (strcmp(t, "slug") == 0) {
+    pt = slug;
+    granularity = "slug";
+    out_name	= "checkslug";
+    dir       = "rootfiles/";
+    pattern   = "agg_slug_xxxx.root"; 
+    tree      = "slug";
+  } else if (strcmp(t, "run") == 0) {
+    pt = run;
+    granularity = "run";
+    out_name	= "checkrun";
+    dir       = "rootfiles/";
+    pattern   = "agg_minirun_xxxx.root"; 
+    tree      = "run";
+  } 
 }
 
-TCheckSlug::~TCheckSlug() {
-  cout << INFO << "Release TCheckSlug" << ENDL;
+TCheckRS::~TCheckRS() {
+  cout << INFO << "Release TCheckRS" << ENDL;
 }
 
-void TCheckSlug::GetConfig(const TConfig fConf) {
+void TCheckRS::GetConfig(const TConfig &fConf) {
   TBase::GetConfig(fConf);
-  for (string var : fSolos) {
-    if (var.find('.') != string::npos) {  // FIXME: what's the format should be
-      cerr << ERROR << "branch only, no leaf allowed, in var: " << var << ENDL;
-      exit(14);
-    }
-		fVars.insert(var + ".mean");
-		fVars.insert(var + ".err");
-		fVars.insert(var + ".rms");
-		fBrVars.insert(var);
-  }
-  vector<pair<string, string>> pairs = fComps;
-  for (pair<string, string> cor : fCors)
-    pairs.push_back(cor);
-
-  for (pair<string, string> p : pairs) {
-    string var1 = p.first;
-    string var2 = p.second;
-    if (var1.find('.') != string::npos 
-        || var2.find('.') != string::npos ) {  // FIXME: what's the format should be
-      cerr << ERROR << "branch only, no leaf allowed, in var: " << var1 << "/" << var2 << ENDL;
-      exit(14);
-    }
-		fVars.insert(var1 + ".mean");
-		fVars.insert(var1 + ".err");
-		fVars.insert(var1 + ".rms");
-		fBrVars.insert(var1);
-		fVars.insert(var2 + ".mean");
-		fVars.insert(var2 + ".err");
-		fVars.insert(var2 + ".rms");
-		fBrVars.insert(var2);
-  }
-}
-
-void TCheckSlug::CheckVars() {
-  TBase::CheckVars();
-  for (string var : fBrVars) 
-    fVars.erase(var);
-}
-
-void TCheckSlug::ProcessValues() {
   for (string var : fVars) {
-    fVarInUnit[var] = GetInUnit(var);
-    fVarOutUnit[var] = GetOutUnit(var);
+    if (var.find(".mean") != string::npos)
+      fVars.insert(var.substr(0, var.find(".mean")) + ".err");
+  }
+}
 
-    for (int i=0; i<nOk; i++) {
+void TCheckRS::ProcessValues() {
+	for (pair<int, int> p : fSign) {
+		if (find(flips.begin(), flips.end(), p.second) == flips.end())
+			flips.push_back(p.second);
+	}
+  for (string var : fVars) {
+    fVarInUnit[var] = GetInUnit(fVarName[var].first, fVarName[var].second);
+    fVarOutUnit[var] = GetOutUnit(fVarName[var].first, fVarName[var].second);
+
+    int i = 0;
+    for (int g : fGrans) {
+      if (sign && (var.find("asym") != string::npos ^ var.find("diff") != string::npos)  
+          && fVarName[var].second == "mean") // only for mean value
+        fVarValue[var][i] *= fSign[g] > 0 ? 1 : (fSign[g] < 0 ? -1 : 0);
       fVarValue[var][i] *= (UNITS[fVarInUnit[var]] / UNITS[fVarOutUnit[var]]);
+      i++;  // for slug and run, only one entry per slug/run
     }
 	}
+  GetCustomValues();
+  set<string> vars = fVars;
+  for (string var : fCustoms) {
+    fVarInUnit[var] = GetInUnit(fVarName[var].first, fVarName[var].second);
+    fVarOutUnit[var] = GetOutUnit(fVarName[var].first, fVarName[var].second);
 
-	// 	// sign correction: only for mean value
-	// 	if (sign && fVarStatType[var] == mean) {
-  //     int m = 0;
-	// 		for (int run : fRuns) {
-  //       int s = fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0);
-  //       const size_t sessions = fRootFile[run].size();
-  //       for (size_t session=0; session < sessions; session++) {
-  //         for (int i = 0; i < fEntryNumber[run][session].size(); i++, m++)
-  //           fVarValue[var][m] *= s;
-  //       }
-  //     }
-	// 	}
-	// }
+    double sum = 0;
+    for (int i=0; i<nGrans; i++) { // for slug and run, only one entry per slug/run
+      // fVarValue[var][i] *= (UNITS[fVarInUnit[var]] / UNITS[fVarOutUnit[var]]);
+      sum += fVarValue[var][i];
+    }
+    if (var.find("charge") != string::npos)
+      cout << OUTPUT << var << ": " << sum << fVarOutUnit[var] << ENDL;
+  }
 }
 
-void TCheckSlug::CheckValues() {  // FIXME: do i need it?
+void TCheckRS::CheckValues() {  // FIXME: do i need it?
   for (string solo : fSolos) {  // FIXME: solo variable may not contain leaf type
     double low_cut  = fSoloCut[solo].low;
     double high_cut = fSoloCut[solo].high;
@@ -192,7 +181,7 @@ void TCheckSlug::CheckValues() {  // FIXME: do i need it?
     string var2 = comp.second;
     double low_cut  = fCompCut[comp].low;
     double high_cut = fCompCut[comp].high;
-    double unit = UNITS[GetUnit(var1)];
+    double unit = UNITS[fVarOutUnit[var1]];
     if (low_cut != 1024)
       low_cut /= unit;
     if (high_cut != 1024)
@@ -211,49 +200,13 @@ void TCheckSlug::CheckValues() {  // FIXME: do i need it?
     }
   }
 
-  for (pair<string, string> slope : fSlopes) {
-    string dv = slope.first;
-    string iv = slope.second;
-    double low_cut  = fSlopeCut[slope].low;
-    double high_cut = fSlopeCut[slope].high;
-    double burp_cut = fSlopeCut[slope].burplevel;
-
-    double dunit = UNITS[GetUnit(dv)];
-    double iunit = UNITS[GetUnit(iv)];
-    if (low_cut != 1024)
-      low_cut /= (dunit/iunit);
-    if (high_cut != 1024)
-      high_cut /= (dunit/iunit);
-    if (burp_cut != 1024)
-      burp_cut /= (dunit/iunit);
-
-    double sum  = 0;
-    double sum2 = 0;  // sum of square
-    double mean = fSlopeValue[slope][0];
-    double sigma = fSlopeErr[slope][0];
-    for (int i=0; i<nOk; i++) {
-      double val = fSlopeValue[slope][i];
-      if ( (low_cut  != 1024 && val < low_cut)
-        || (high_cut != 1024 && val > high_cut)
-        || (burp_cut != 1024 && abs(val-mean) > burp_cut)) {
-        cout << ALERT << "bad datapoint in slope: " << slope.first << " vs " << slope.second 
-             << " in slug: " << ENDL;
-      }
-
-      sum  += val;
-      sum2 += val*val;
-      mean = sum/(i+1);
-      sigma = sqrt(sum2/(i+1) - pow(mean, 2));
-    }
-  }
-
   for (pair<string, string> cor : fCors) {
     string yvar = cor.first;
     string xvar = cor.second;
     double low_cut   = fCorCut[cor].low;
     double high_cut  = fCorCut[cor].high;
-    double xunit = UNITS[GetUnit(xvar)];
-    double yunit = UNITS[GetUnit(yvar)];
+    double xunit = UNITS[fVarOutUnit[xvar]];
+    double yunit = UNITS[fVarOutUnit[yvar]];
     if (low_cut != 1024)
       low_cut /= (yunit/xunit);
     if (high_cut != 1024)
@@ -267,36 +220,49 @@ void TCheckSlug::CheckValues() {  // FIXME: do i need it?
   cout << INFO << "done with checking values" << ENDL;
 }
 
-void TCheckSlug::Draw() {
+void TCheckRS::Draw() {
 	// make sure get err for mean values
 
-	CheckSlugs();
-	CheckVars();
+  if (pt == slug) {
+    CheckSlugs();
+    GetSlugInfo();
+    fSign = fSlugSign;
+  } else if (pt == run) {
+    CheckRuns();
+    GetRunInfo();
+    fSign = fRunSign;
+  }
+  CheckVars();
 	GetValues();
 	ProcessValues();
 	// CheckValues();
 
 	if (nOk > 100)
-		c = new TCanvas("c", "c", 1800, 600);
+		c = new TCanvas("c", "c", 1800, 1200);
 	else 
-		c = new TCanvas("c", "c", 1200, 600);
+		c = new TCanvas("c", "c", 1200, 800);
   // c->SetGridy();
   gStyle->SetOptFit(111);
-  gStyle->SetOptStat(1110);
+  gStyle->SetOptStat(112200);
   // gStyle->SetTitleX(0.5);
   gStyle->SetTitleAlign(23);
-  gStyle->SetBarWidth(1.05);
-  gStyle->SetTitleSize(0.09, "XY");
-  gStyle->SetTitleXOffset(0.4);
-  gStyle->SetTitleYOffset(0.15);
+  // gStyle->SetBarWidth(1.05);
+  gStyle->SetLabelSize(0.05, "XY");
 
   if (format == pdf)
     c->Print(Form("%s.pdf[", out_name));
 
+  xmin = 10000;
+  xmax = 0;
+  for(int rs : fGrans) {
+    if (rs < xmin) xmin=rs;
+    if (rs > xmax) xmax=rs;
+  }
+
   DrawSolos();
   // DrawSlopes();
   // DrawComps();
-  // DrawCors();
+  DrawCors();
 
   if (format == pdf)
     c->Print(Form("%s.pdf]", out_name));
@@ -304,119 +270,367 @@ void TCheckSlug::Draw() {
   cout << INFO << "done with drawing plots" << ENDL;
 }
 
-void TCheckSlug::DrawSolos() {
-  for (string solo : fSolos) {
-    TGraphErrors *g1 = new TGraphErrors();
-    TGraphErrors *galt1 = NULL, *galt2 = NULL;
-    TGraphErrors *g2 = new TGraphErrors();
+void TCheckRS::DrawSolos() {
+  gStyle->SetTitleSize(0.05, "XY");
+  gStyle->SetTitleXOffset(0.75);
+  gStyle->SetTitleYOffset(0.7);
+  vector<string> solos = fSolos;
+  for (string var : fCustoms)
+    solos.push_back(var);
+  for (string solo : solos) {
+    string branch = fVarName[solo].first;
+    bool mean = false;
+    string errvar;
+    if (fVarName[solo].second == "mean") {
+      mean = true;
+      errvar = branch + ".err";
+    }
+
+    TH1F *h = new TH1F(solo.c_str(), "", xmax-xmin+1, xmin-0.5, xmax+0.5);
+    TGraphErrors *g = new TGraphErrors();
+    TH1F *h_pull = NULL;
+    TH1F *pull = NULL;
+    h->SetStats(kFALSE);
+    g->SetMarkerStyle(20);
+    if (mean) {
+      h_pull = new TH1F("h_pull", "", xmax-xmin+1, xmin-0.5, xmax+0.5);
+      h_pull->SetFillColor(kGreen);
+      h_pull->SetLineColor(kGreen);
+      h_pull->SetStats(kFALSE);
+      h_pull->GetYaxis()->SetLabelSize(0.1);
+      h_pull->GetXaxis()->SetLabelSize(0.1);
+      pull = new TH1F("pull", "", 16, -8, 8);
+      // pull->SetLineColor(kGreen);
+    }
+
+    map<int, TGraphErrors *> gflip;
+    bool flip = false;
+    // bool asym = (solo.find("asym") != string::npos ^ solo.find("diff") != string::npos);  // asym var, but not slope
+    // if (asym) {
+    if (flips.size() > 1) {
+      flip = true;
+      for (int i=0; i<flips.size(); i++) {
+        gflip[flips[i]] = new TGraphErrors();
+        gflip[flips[i]]->SetMarkerStyle(mstyles[i]);
+        gflip[flips[i]]->SetMarkerColor(mcolors[i]);
+      }
+      g->SetMarkerStyle(1);
+    } 
 
     bool alt = false;
-    vector<int> &alt_slugs = fVarUseAlt[solo];
-    if (alt_slugs.size()) {
+    TGraphErrors *galt = NULL;
+    vector<int> &alt_rs = fVarUseAlt[branch];
+    if (alt_rs.size()) {
       alt = true;
-      galt1 = new TGraphErrors();
-      galt2 = new TGraphErrors();
+      galt = new TGraphErrors();
       
-      // style
-      g1->SetMarkerColor(kBlue);
-      g2->SetMarkerColor(kBlue);
-      galt1->SetMarkerStyle(20);
-      galt2->SetMarkerStyle(20);
-      galt1->SetMarkerColor(kRed);
-      galt2->SetMarkerColor(kRed);
+      g->SetMarkerColor(kBlue);
+      galt->SetMarkerStyle(20);
+      galt->SetMarkerColor(kRed);
     }
 
-    int i = 0, j=0;
-    for(int slug : fSlugs) {
+    int i=0;
+    for(int rs : fGrans) {
 			// no need for session
-      double val, err, rms;
-      val = fVarValue[solo + ".mean"][i];
-			err = fVarValue[solo+".err"][i];
-			rms = fVarValue[solo+".rms"][i];
-      g1->SetPoint(i, slug, val);
-      g1->SetPointError(i, 0, err);
-      g2->SetPoint(i, slug, rms);
-
-      if (alt && find(alt_slugs.begin(), alt_slugs.end(), slug) != alt_slugs.end()) {
-        galt1->SetPoint(j, slug, val);
-        galt1->SetPointError(j, 0, err);
-        galt2->SetPoint(j, slug, rms);
-        j++;
+      double val, err=0;
+      val = fVarValue[solo][i];
+      if (std::isnan(val)) {
+        i++;
+        continue;
       }
+      if (mean)
+        err = fVarValue[errvar][i];
+      h->Fill(rs, val);
+      g->SetPoint(i, rs, val);
+      g->SetPointError(i, 0, err);
       i++;
+
+      if (alt && find(alt_rs.begin(), alt_rs.end(), rs) != alt_rs.end()) {
+        int j = galt->GetN();
+        galt->SetPoint(j, rs, val);
+        galt->SetPointError(j, 0, err);
+      }
+
+      if (flip) {
+        int k = gflip[fSign[rs]]->GetN();
+        gflip[fSign[rs]]->SetPoint(k, rs, val);
+        gflip[fSign[rs]]->SetPointError(k, 0, err);
+      }
     }
-    // g->GetXaxis()->SetRangeUser(0, nOk+1);
+
+    g->Fit("pol0");
+    TF1 *fit= g->GetFunction("pol0");
+    double mean_value = fit->GetParameter(0);
+    cout << OUTPUT << solo << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
+    if (mean) {
+      int i=0;
+      for (int rs : fGrans) {
+        double val = fVarValue[solo][i];
+        if (std::isnan(val)) {
+          i++;
+          continue;
+        }
+        double err = fVarValue[errvar][i];
+        h_pull->Fill(rs, (val - mean_value)/err);
+        pull->Fill((val - mean_value)/err);
+        i++;
+      }
+      pull->Fit("gaus");
+    }
+
 		string title = solo;
     if (alt)
-      title = Form("#color[4]{%s}(#color[2]{%s})", solo.c_str(), fBrAlt[solo].c_str());
-
-    // style
-		g1->SetTitle((title + ";;" + fVarOutUnit[solo + ".mean"]).c_str());
-    g1->SetMarkerStyle(20);
-
-    g2->SetMarkerStyle(20);
-    g2->SetTitle(Form(";slug;RMS Width (%s);", fVarOutUnit[solo+".rms"].c_str()));
-
-    // g->Fit("pol0");
-    // TF1 * fit= g->GetFunction("pol0");
-    // double mean_value = fit->GetParameter(0);
-		// cout << OUTPUT << solo << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
+      title = Form("#color[4]{%s} (#color[2]{%s})", solo.c_str(), fBrAlt[branch].c_str());
+    if (sign)
+      title = title + " (sign corrected)";
+		h->SetTitle((title + ";" + granularity + ";" + fVarOutUnit[solo]).c_str());
+    double ymin = g->GetYaxis()->GetXmin();
+    double ymax = g->GetYaxis()->GetXmax();
+    h->GetYaxis()->SetRangeUser(ymin, ymax+(ymax-ymin)/10);
+    h->GetXaxis()->SetTitle(granularity);
 
     c->cd();
-    TPad *p1 = new TPad("p1", "p1", 0.0, 0.5, 1.0, 1.0);	// mean
-    TPad *p2 = new TPad("p2", "p2", 0.0, 0.0, 1.0, 0.5);	// rms
-		p1->SetBottomMargin(0);
-		p2->SetTopMargin(0);
-
-		p1->Draw();
-		p1->SetGridx();
-		p2->Draw();
-		p2->SetGridx();
+		// c->SetGridx();
+    TPad *p1, *p2, *p3;
+    if (mean) {
+      p1 = new TPad("p1", "p1", 0.0, 0.3, 0.7, 1.0);
+      p2 = new TPad("p2", "p2", 0.0, 0.0, 0.7, 0.3);
+      p3 = new TPad("p3", "p3", 0.7, 0.0, 1.0, 1.0);
+      p1->SetBottomMargin(0);
+      p1->SetRightMargin(0.05);
+      p1->Draw();
+      p1->SetGridy();
+      p2->SetTopMargin(0);
+      p2->SetRightMargin(0.05);
+      p2->SetBottomMargin(0.16);
+      p2->Draw();
+      p2->SetGrid();
+      p3->SetRightMargin(0.05);
+      p3->Draw();
+    } else {
+      p1 = new TPad("p1", "p1", 0.0, 0.0, 1.0, 1.0);
+      p1->Draw();
+      p1->SetGridy();
+    }
 
     p1->cd();
-    g1->Draw("AP");
+    h->Sumw2(kFALSE);
+    h->Draw("*");
+    g->Draw("P SAME");
     if (alt)
-      galt1->Draw("P SAME");
+      galt->Draw("P SAME");
     p1->Update();
-		p2->cd();
-		g2->Draw("AP");
-    if (alt)
-      galt2->Draw("P SAME");
-    p2->Update();
-    // st = (TPaveStats *) g->FindObject("stats");
-    // st->SetName("g_stats");
-    // double width = 0.7/(flips.size() + 1);
-    // st->SetX2NDC(0.95); 
-    // st->SetX1NDC(0.95-width); 
-    // st->SetY2NDC(0.9);
-    // st->SetY1NDC(0.8);
-
-    // TAxis * ax = g->GetXaxis();
-    // TAxis * ay = g->GetYaxis();
-
-    // double min = ay->GetXmin();
-    // double max = ay->GetXmax();
-    // ay->SetRangeUser(min, max+(max-min)/9);
-
+    TPaveStats *st = (TPaveStats *) g->FindObject("stats");
+    if (st) {
+      st->SetName(solo.c_str());
+      st->SetX1NDC(0.65+0.05*(mean ? 1 : 0));
+      st->SetX2NDC(0.9+0.05*(mean ? 1 : 0));
+      st->SetY1NDC(0.75);
+      st->SetY2NDC(0.9);
+    }
+    if (flip) {
+      TLegend *l = new TLegend(0.1, 0.9-0.05*flips.size(), 0.2, 0.9);
+      for (int i=0; i<flips.size(); i++) {
+        gflip[flips[i]]->Draw("P SAME"); 
+        l->AddEntry(gflip[flips[i]], legends[flips[i]], "p");
+      }
+      l->Draw();
+    }
     TPaveText *t = (TPaveText *) p1->GetPrimitive("title");
-    t->SetTextSize(0.09);
+    if (t)
+      t->SetTextSize(0.07);
+
+    if (mean) {
+      p2->cd();
+      h_pull->Draw("HIST");
+      h_pull->GetXaxis()->SetTitle(granularity);
+      h_pull->GetXaxis()->SetTitleSize(0.1);
+      p3->cd();
+      pull->Draw();
+    }
+
+    if (std::isnan(g->GetYaxis()->GetXmax())) {
+      c->Clear();
+      c->cd();
+      TText *t = new TText(0.2, 0.45, Form("Blank page: no valid value for var: %s", solo.c_str())); 
+      t->SetNDC();
+      t->SetTextSize(0.15);
+      c->Clear();
+      t->Draw();
+    }
+
     c->Modified();
     if (format == pdf)
       c->Print(Form("%s.pdf", out_name));
     else if (format == png)
       c->Print(Form("%s_%s.png", out_name, solo.c_str()));
-
-    t->Delete();
-		g1->Delete();
-		g2->Delete();
-    if (galt1)  galt1->Delete();
-    if (galt2)  galt2->Delete();
+    if (t)
+      t->Delete();
+		g->Delete();
+    if (galt)  galt->Delete();
+    // if (st) st->Delete();
+    if (flip) {
+      for(int i=0; i<flips.size(); i++)
+        gflip[flips[i]]->Delete();
+    }
     c->Clear();
   }
   cout << INFO << "Done with drawing Solos." << ENDL;
 }
 
-void TCheckSlug::DrawComps() {
+void TCheckRS::DrawCors() {
+  gStyle->SetTitleSize(0.09, "XY");
+  // gStyle->SetLabelSize(0.09, "XY");
+  gStyle->SetTitleXOffset(0.4);
+  gStyle->SetTitleYOffset(0.4);
+  for (pair<string, string> cor : fCors) {
+    string var[2] = {cor.first, cor.second};
+    string branch[2];
+    TGraphErrors *g[2];
+    TGraphErrors *galt[2];
+    bool alt[2];
+    vector<int> alt_rs[2];
+    bool mean[2];
+    string errvar[2];
+    bool asym[2];
+
+    for (int i=0; i<2; i++) {
+      branch[i] = fVarName[var[i]].first;
+      asym[i] = (branch[i].find("asym") != string::npos ^ branch[i].find("diff") != string::npos);
+      g[i] = new TGraphErrors();
+      galt[i] = NULL;
+      alt[i] = false;
+      alt_rs[i] = fVarUseAlt[branch[i]];
+      mean[i] = false;
+      if (fVarName[var[i]].second == "mean") {
+        mean[i] = true;
+        errvar[i] = branch[i] + ".err";
+      }
+
+      if (alt_rs[i].size()) {
+        alt[i] = true;
+        galt[i] = new TGraphErrors();
+        
+        // style
+        g[i]->SetMarkerColor(kBlue);
+        galt[i]->SetMarkerStyle(20);
+        galt[i]->SetMarkerColor(kRed);
+      }
+      g[i]->SetMarkerStyle(20);
+
+      int j=0, k=0;
+      for(int rs : fGrans) {
+        // no need for session
+        double val, err = 0;
+        val = fVarValue[var[i]][j];
+        if (mean[i])
+          err = fVarValue[errvar[i]][j];
+        g[i]->SetPoint(j, rs, val);
+        g[i]->SetPointError(j, 0, err);
+        j++;
+
+        if (alt[i] && find(alt_rs[i].begin(), alt_rs[i].end(), rs) != alt_rs[i].end()) {
+          galt[i]->SetPoint(k, rs, val);
+          galt[i]->SetPointError(k, 0, err);
+          k++;
+        }
+      }
+    }
+
+    // title
+		string title = var[0], ytitle = fVarOutUnit[var[0]];
+    string title1=var[1], xtitle1(granularity), ytitle1 = fVarOutUnit[var[1]];
+    if (alt[1]) 
+      title1 = Form("#color[4]{%s} (#color[2]{%s})", var[1].c_str(), fBrAlt[branch[1]].c_str());
+    if (sign && asym[1])
+      title1 += " (sign corrected)";
+
+    if (branch[0] == branch[1]) { // same branch
+      title = fVarName[var[0]].first;
+      title1 = "";
+      ytitle = fVarName[var[0]].second + " / " + ytitle;
+      ytitle1 = fVarName[var[1]].second + " / " + ytitle1;
+
+      if (branch[0].find("asym") != string::npos ^ branch[0].find("diff") != string::npos) {
+        g[0]->Fit("pol0");
+        TF1 *fit = g[0]->GetFunction("pol0");
+        double mean_value = fit->GetParameter(0);
+        cout << OUTPUT << var[0] << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
+        g[1]->Fit("pol0");
+        fit = g[1]->GetFunction("pol0");
+        mean_value = fit->GetParameter(0);
+        cout << OUTPUT << var[1] << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
+      }
+
+    }
+    if (alt[0])
+      title = Form("#color[4]{%s} (#color[2]{%s})", title.c_str(), fBrAlt[branch[0]].c_str());
+    if (sign && asym[0])
+      title += " (sign corrected)";
+
+		g[0]->SetTitle((title + ";;" + ytitle).c_str());
+    g[1]->SetTitle((title1 + ";" + xtitle1 + ";" + ytitle1).c_str());
+
+    TPad *p[2];
+    p[0] = new TPad("p1", "p1", 0.0, 0.5, 1.0, 1.0);	// mean
+    p[1] = new TPad("p2", "p2", 0.0, 0.0, 1.0, 0.5);	// rms
+		p[0]->SetBottomMargin(0);
+		p[1]->SetTopMargin(0);
+
+    TPaveStats *st[2];
+    for (int i=0; i<2; i++) {
+      st[i] = NULL;
+      c->cd();
+      p[i]->Draw();
+      p[i]->SetGridx();
+
+      p[i]->cd();
+      g[i]->Draw("AP");
+      if (alt[i])
+        galt[i]->Draw("P SAME");
+
+      p[i]->Update();
+      st[i] = (TPaveStats *) g[i]->FindObject("stats");
+      if (st[i]) {
+        st[i]->SetName(var[i].c_str());
+        st[i]->SetX1NDC(0.75); 
+        st[i]->SetX2NDC(0.9); 
+        st[i]->SetY1NDC(0.75+0.1*i);
+        st[i]->SetY2NDC(0.9+0.1*i);
+      }
+
+      if (std::isnan(g[i]->GetYaxis()->GetXmax())) {
+        TText *t = new TText(0.2, 0.45, Form("Blank page: no valid value for var: %s", var[i].c_str())); 
+        t->SetNDC();
+        t->SetTextSize(0.15);
+        p[i]->Clear();
+        t->Draw();
+      }
+    }
+
+    TPaveText *t = (TPaveText *) p[0]->GetPrimitive("title");
+    if (t)
+      t->SetTextSize(0.07);
+    c->Modified();
+    if (format == pdf)
+      c->Print(Form("%s.pdf", out_name));
+    else if (format == png)
+      c->Print(Form("%s_%s_vs_%s.png", out_name, var[0].c_str(), var[1].c_str()));
+
+    if (t)
+      t->Delete();
+    for (int i=0; i<2; i++) {
+      g[i]->Delete();
+      if (galt[i])  galt[i]->Delete();
+      // p[i]->Delete();
+      // if (st[i]) st[i]->Delete();
+    }
+    c->Clear();
+  }
+  cout << INFO << "Done with drawing Correlations." << ENDL;
+}
+
+void TCheckRS::DrawComps() {
 	/*
   int MarkerStyles[] = {29, 33, 34, 31};
   for (pair<string, string> comp : fComps) {
@@ -601,8 +815,8 @@ void TCheckSlug::DrawComps() {
   cout << INFO << "Done with drawing Comparisons." << ENDL;
 }
 
-void TCheckSlug::DrawCors() {
 	/*
+void TCheckRS::DrawCors() {
   for (pair<string, string> cor : fCors) {
     string xvar = cor.second;
     string yvar = cor.first;
@@ -719,43 +933,8 @@ void TCheckSlug::DrawCors() {
       c->Print(Form("%s_%s_vs_%s.png", out_name, xvar.c_str(), yvar.c_str()));
     c->Clear();
   }
-	 */
   cout << INFO << "Done with drawing Correlations." << ENDL;
 }
-
-const char * TCheckSlug::GetInUnit (string var) {
-  string branch = fVarName[var].first;
-  if (branch.find("asym") != string::npos) 
-    return "";
-  else if (branch.find("diff") != string::npos) 
-    return "mm";
-  else if (branch.find("yield") != string::npos) {
-    if (branch.find("bcm") != string::npos) 
-      return "uA";
-    else if (branch.find("bpm") != string::npos) 
-      return "mm";
-  } else
-    return "";
-}
-
-const char * TCheckSlug::GetOutUnit (string var) {
-  string branch = fVarName[var].first;
-  string leaf   = fVarName[var].second;
-  if (branch.find("asym") != string::npos) {
-    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
-      return "ppb";
-    else // if (var.find("rms") != string::npos)
-      return "ppm";
-  } else if (branch.find("diff") != string::npos) {
-    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
-      return "nm";
-    else // if (var.find("rms") != string::npos)
-      return "um";
-  } else if (branch.find("yield") != string::npos) {
-    if (branch.find("bcm") != string::npos) 
-      return "uA";
-  } else
-    return "";
-}
+	 */
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

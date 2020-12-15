@@ -2,11 +2,11 @@
 #define TAGGSLUG_H
 
 #include <iostream>
-#include "TRunBase.h"
+#include "TRSbase.h"
 
 typedef struct _STAT { double mean, err, rms; } STAT;
 
-class TAggSlug : public TRunBase {
+class TAggSlug : public TRSbase {
 	private:
 		int slug;
 		// const char *var_weight = "reg_asym_us_avg";
@@ -15,13 +15,14 @@ class TAggSlug : public TRunBase {
 	public:
 		TAggSlug();
 		~TAggSlug() { cout << INFO << "end of TAggSlug" << ENDL; };
-		void SetSlug(const int s) { slug=s; fSlugs.clear(); fRuns.clear(); SetSlugs({slug}); };
     void GetConfig(const TConfig fConf);
+		void SetAggSlug(const int s);
 		void AggSlug();
+		void AggSlugs();
 };
 
 TAggSlug::TAggSlug() :
-	TRunBase()
+	TRSbase()
 {
   dir     = "rootfiles/";
   pattern = "agg_mini_xxxx.???.root";
@@ -42,6 +43,15 @@ void TAggSlug::GetConfig(const TConfig fConf) {
 	}
 	fVars.insert("num_samples");	// num_samples must be there for calculation of variance
 	// fVars.insert(var_weight);	// make sure weight variable is always there
+}
+
+void TAggSlug::SetAggSlug(const int s) { 
+  slug=s;
+  fSlugs.clear();
+  fRuns.clear();
+  SetSlugs({slug});
+  CheckRuns();
+  nSlugs = fSlugs.size();
 }
 
 void TAggSlug::AggSlug()
@@ -94,12 +104,13 @@ void TAggSlug::AggSlug()
 		}
 	}
 	map<string, double> sum_weight;
-	double n1 = 0;
+  map<string, double> n1; // so variables may have different num_samples
 	map<string, double> m1;	// mean
 	map<string, double> dev1;	// deviation
 	for (string var : fBrVars) {
 		sum[var] = 0;
     sum_weight[var] = 0;
+    n1[var] = 0;
 		m1[var] = 0;
 		dev1[var] = 0;
 	}
@@ -109,22 +120,28 @@ void TAggSlug::AggSlug()
 			double m2 = fVarValue[var+".mean"][i];
 			double rms2 = fVarValue[var+".rms"][i];
       // double err2 = rms2/sqrt(n2);
+      if (std::isnan(m2) && std::isnan(rms2)) // single arm nan value
+        continue;
 			double var2 = pow(rms2, 2);  // variance
       double dev2 = (n2-1)*var2;  // deviation
       double weight = n2/var2;    // w = 1/pow(err, 2)
       sum_weight[var] += weight;
 			sum[var] += m2*weight; // weighted mean
 			double delta = m2 - m1[var];
-			m1[var] += n2/(n1+n2)*delta;
-			dev1[var] = dev1[var] + dev2 + n1*n2/(n1+n2)*pow(delta, 2);
+			m1[var] += n2/(n1[var]+n2)*delta;
+			dev1[var] = dev1[var] + dev2 + n1[var]*n2/(n1[var]+n2)*pow(delta, 2);
+      n1[var] += n2;
 		}
-		n1 += n2;
+		num_samples += n2;
 	}
-	num_samples = n1;
 	for (string var : fBrVars) {
-		stat[var].mean = sum[var]/sum_weight[var];
-		stat[var].err = sqrt(1/sum_weight[var]);
-		stat[var].rms = sqrt(dev1[var]/(num_samples-1));
+    if (sum_weight[var] == 0)
+      stat[var] = {0/0., 0/0., 0/0.};
+    else {
+      stat[var].mean = sum[var]/sum_weight[var];
+      stat[var].err = sqrt(1/sum_weight[var]);
+      stat[var].rms = sqrt(dev1[var]/(n1[var]-1));
+    }
 	}
 	fout.cd();
 	if (update) {
@@ -137,6 +154,16 @@ void TAggSlug::AggSlug()
 	}
 	tout->Delete();
 	fout.Close();
+}
+
+void TAggSlug::AggSlugs() {
+  set<int> slugs = fSlugs;
+  for (int s : slugs) {
+    cout << INFO << "aggregating slug: " << s << ENDL;
+    SetAggSlug(s);
+    GetValues();
+    AggSlug();
+  }
 }
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

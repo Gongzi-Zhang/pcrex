@@ -1,11 +1,21 @@
-github: https://github.com/Gongzi-Zhang/pcrex.git
+# github: https://github.com/Gongzi-Zhang/pcrex.git
 
 # usage
-## check: used for checking statistics of each minirun of specified runs
- * it support 4 kinds of variables:
+## comman options
+  -c config_file 
+  -r 1234-2345,4356,2345-4566   :: specify runs, seperated by comma, support range
+  -s 123-124,125,136-148        :: specify slugs, same syntax as runs
+  -S                            :: do sign correction
+  -a both,left,right            :: wanted arm flags (default all values)
+  -w FLIP-LEFT,FLIT-RIGHT       :: wanted wien flips (default all states)
+  -i IN,OUT                     :: wanted IHWP state (default all states)
+  -f png                        :: output format (default pdf)
+  -n name                       :: output name (prefix)
+
+## checkmini: used for checking statistics of miniruns
+ * it support 3 kinds of variables:
     * solos: 
     * comparisons
-    * slopes  (for postpan root file only)
     * correlations
     see check.conf about how to setup each of them
 
@@ -45,9 +55,7 @@ github: https://github.com/Gongzi-Zhang/pcrex.git
 
 # todo
 * run 6366: how much good data there? should we recover it?
-* single arm slug
 * how to cut on slow tree? e.g.  IGL1I00OD16_16 (row 83) in /chafs2/work1/apar/japanOutput/prexPrompt_pass2_6400.000.root is wrong
-* TCheckStat: how to deal with slope in reg result and dit result?
 * TCheckRuns: bold point cut
 * TCheckRuns: should be able to fetch glitch
 * TCheckRuns: sudden change in a run? (glitch, gain change, trip, ...)
@@ -59,6 +67,9 @@ github: https://github.com/Gongzi-Zhang/pcrex.git
 * aggregation
   > keep only one rootfile (merge sessions) for one run
     >> run-level slope will be calculated as average of each session (weighted by 1/err²)
+  > two types of aggregation:
+    >> average (mean,err,rms)
+    >> sum
 
 # problem
 * munmap_chunk(): invalid pointer

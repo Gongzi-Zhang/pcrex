@@ -3,7 +3,7 @@
 #include <set>
 
 #include "line.h"
-#include "TCheckStat.h"
+#include "TCheckMini.h"
 
 using namespace std;
 
@@ -67,30 +67,25 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-	if (!(runs.size() + slugs.size())) {
-		cerr << FATAL << "no runs or slugs specified" << ENDL;
-		exit(4);
-	}
-
   if (dconf) 
     cout << INFO << "use default config file: " << config_file << ENDL;
 	TConfig fConf(config_file, run_list);
 	fConf.ParseConfFile();
 
-  TCheckStat fCheckStat;
-	fCheckStat.GetConfig(fConf);
+  TCheckMini fCheckMini;
+	fCheckMini.GetConfig(fConf);
   if (runs.size() > 0)
-    fCheckStat.SetRuns(runs);
+    fCheckMini.SetRuns(runs);
   if (slugs.size() > 0)
-    fCheckStat.SetSlugs(slugs);
+    fCheckMini.SetSlugs(slugs);
   if (sign)
-    fCheckStat.SetSign();
+    fCheckMini.SetSign();
 
-  // fCheckStat.CheckRuns();
-  // fCheckStat.CheckVars();
-  // fCheckStat.GetValues();
-  // fCheckStat.CheckValues();
-  fCheckStat.Draw();
+  // fCheckMini.CheckRuns();
+  // fCheckMini.CheckVars();
+  // fCheckMini.GetValues();
+  // fCheckMini.CheckValues();
+  fCheckMini.Draw();
 
   return 0;
 }

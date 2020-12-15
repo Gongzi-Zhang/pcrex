@@ -1,4 +1,4 @@
-#ifndef TRUNBAS3
+#ifndef TSLUGBASE_H
 #define TSLUGBASE_H
 #include "TBase.h"
 

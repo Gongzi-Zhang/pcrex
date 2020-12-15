@@ -425,7 +425,7 @@ vector<char*> Split(const char *line, const char del) {
   while (line[n] != '\0')
     n++;
 
-  int index1=0, index2=0;
+  int index1=0, index2;
   while (index1 < n && (index2=Index(line, del, index1)) >= index1) {
     // if (index2 == index1) {	// empty field
     //   index1 += 1;
@@ -440,7 +440,7 @@ vector<char*> Split(const char *line, const char del) {
   return fields;
 }
 
-vector<char*> Split(const char *line, const char * del) {
+vector<char*> Split(const char *line, const char *del) {
   vector<char*> fields;
   if (line == NULL) {
     cerr << WARNING << "uninitialized line";

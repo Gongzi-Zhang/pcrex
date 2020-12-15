@@ -147,7 +147,8 @@ void SetRunFlag(const char *rf);
 void SetTarget(const char *t);
 set<int>	GetRuns();
 set<int>  GetRunsFromSlug(const int slug);
-void    GetValidRuns(set<int> &runs);
+void GetValidRuns(set<int> &runs);
+void GetValidSlugs(set<int> &slugs);
 
 char *  GetRunExperiment(const int run);
 char *  GetRunType(const int run);
@@ -162,6 +163,7 @@ float	  GetRunHelicityHz(const int run);
 char *  GetRunUserComment(const int run);
 char *  GetRunWacNote(const int run);
 int			GetRunSign(const int run);
+int     GetSlugSign(const int slug);
 
 void    RunTests();
 
@@ -334,7 +336,7 @@ void SetTarget(const char *ts) {
 		char tg[Size(t) + 1];
 		strcpy(tg, t);
 		StripSpaces(tg);
-		if (runtypes.find(tg) == runtypes.end()) {
+		if (targets.find(tg) == targets.end()) {
 			cerr << FATAL << "Invalid target: " << t << ENDL;
 			cerr << "Valid target: " << endl;
 			for (string v : targets)
@@ -372,6 +374,7 @@ set<int> GetRuns() {
 
   set<int> runs;
 	char q_exp[128], q_runtype[128*2], q_runflag[128*3], q_target[128*4], q_armflag[128*5], q_ihwp[128*6], q_wienflip[128*7];
+  // stupid data structure
 	if (gexp.size())
 		sprintf(q_exp, "SELECT run_number FROM conditions WHERE condition_type_id=26 AND text_value regexp '%s'", gexp.c_str());
 
@@ -652,6 +655,18 @@ void GetValidRuns(set<int> &runs) {
   }
 }
 
+void GetValidSlugs(set<int> &slugs) {
+  for(set<int>::const_iterator it=slugs.cbegin(); it!=slugs.cend(); ) {
+    int slug = *it;
+		if (   (gwienflip.size() && gwienflip.find(SLUGINFO[slug].wienflip) == string::npos)
+        || (gihwp.size() && gihwp.find(SLUGINFO[slug].ihwp) == string::npos)
+        || (garmflag.size() && garmflag.find(to_string(SLUGINFO[slug].arm)) == string::npos) )
+			it = slugs.erase(it);
+		else 
+			it++;
+  }
+}
+
 int GetRunSign(const int run) {
   if (!con) {
     cerr << ERROR << "please StartConnection before anything else." << ENDL;
@@ -680,6 +695,36 @@ int GetRunSign(const int run) {
 		return 0;
 	}
 	ihwp = row[0];
+
+	if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
+		sign = 1;
+	else if (strcmp(wien_flip, "FLIP-RIGHT") == 0)
+		sign = -2;
+	else if (strcmp(wien_flip, "Vertical(UP)") == 0)
+		sign = 3;
+	else if (strcmp(wien_flip, "Vertical(DOWN)") == 0)
+		sign = -4;
+	else {
+		cerr << WARNING << "run-" << run << ": unknow flip state: " << wien_flip << ENDL;
+		return 0;
+	}
+
+	if (strcmp(ihwp, "IN") == 0)
+		sign *= -1;
+	else if (strcmp(ihwp, "OUT") == 0)
+		sign *= 1;
+	else {
+		cerr << WARNING << "run-" << run << ": unknow ihwp state: " << ihwp << ENDL;
+		return 0;
+	}
+
+  return sign;
+}
+
+int GetSlugSign(const int slug) {
+	int sign = 1;
+  const char *wien_flip = SLUGINFO[slug].wienflip;
+  const char *ihwp = SLUGINFO[slug].ihwp;
 
 	if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
 		sign = 1;

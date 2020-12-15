@@ -8,7 +8,6 @@
 using namespace std;
 
 void usage();
-set<int> parseRS(const char *);	// parse runs|slugs
 
 int main(int argc, char* argv[]) {
   const char *config_file("conf/aggslug.conf");
@@ -17,7 +16,7 @@ int main(int argc, char* argv[]) {
   set<int> slugs;
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:R:s:a:d:")) != -1)
+  while((opt = getopt(argc, argv, "hc:r:s:a:d:")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -27,7 +26,7 @@ int main(int argc, char* argv[]) {
         dconf = false;
         break;
       case 's':
-        slugs = parseRS(optarg);
+        slugs = ParseRS(optarg);
         break;
       case 'd':
         out_dir = optarg;
@@ -47,27 +46,13 @@ int main(int argc, char* argv[]) {
 	TConfig fConf(config_file);
 	fConf.ParseConfFile();
 
-  for (int slug : fConf.GetRS())
-    slugs.insert(slug);
-  if (slugs.size() == 0) {
-    cerr << FATAL << "no valid slug specified" << ENDL;
-    usage();
-    exit(4);
-  }
-  cerr << INFO << slugs.size() << " slugs specified" << ENDL;
-
   TAggSlug fAgg = TAggSlug();
 	fAgg.GetConfig(fConf);
+  fAgg.SetSlugs(fConf.GetRS());
   fAgg.SetSlugs(slugs);
   fAgg.CheckRuns();
 	fAgg.CheckVars();
-	for (int s : slugs) {
-    cerr << INFO << "agg slug: " << s << ENDL;
-    fAgg.SetSlug(s);
-    fAgg.CheckRuns();
-		fAgg.GetValues();
-		fAgg.AggSlug();
-	}
+  fAgg.AggSlugs();
 
   return 0;
 }
@@ -76,46 +61,11 @@ void usage() {
   cout << "AggSlug (minirun) for specified runs/slugs" << endl
        << "  Options:" << endl
        << "\t -h: print this help message" << endl
-       << "\t -c: specify config file (default: conf/aggregate.conf)" << endl
-       << "\t -s: specify slugs (the same syntax as -r)" << endl
+       << "\t -c: specify config file (default: conf/aggslug.conf)" << endl
+       << "\t -s: specify slugs (seperated by comma, no space between them. ranges are supported: 5678-6789,8765)" << endl
        << "\t -d: prefix of name of output dir" << endl
        << endl
        << "  Example:" << endl
        << "\t ./aggslug -c myconf.conf -s 125,127-130 -d rootfiles" << endl;
-}
-
-set<int> parseRS(const char * input) {
-  if (!input) {
-    cerr << ERROR << "empty input for -r or -s" << ENDL;
-    return {};
-  }
-  set<int> vals;
-  vector<char*> fields = Split(input, ',');
-  for(int i=0; i<fields.size(); i++) {
-    char * val = fields[i];
-    if (Contain(val, "-")) {
-      vector<char*> range = Split(val, '-');
-      if (!IsInteger(range[0]) || !IsInteger(range[1])) {
-        cerr << FATAL << "invalid range input" << ENDL;
-        exit(3);
-      }
-      const int start = atoi(range[0]);
-      const int end   = atoi(range[1]);
-      if (start > end) {
-        cerr << FATAL << "for range input: start must less than end" << ENDL;
-        exit(4);
-      }
-      for (int j=start; j<=end; j++) {
-        vals.insert(j);
-      }
-    } else {
-      if (!IsInteger(val)) {
-        cerr << FATAL << "run/slug must be an integer number" << ENDL;
-        exit(4);
-      }
-      vals.insert(atoi(val));
-    }
-  }
-  return vals;
 }
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

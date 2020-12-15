@@ -1,5 +1,5 @@
-#ifndef TRUNBASE_H
-#define TRUNBASE_H
+#ifndef TRSBASE_H
+#define TRSBASE_H
 #include "TBase.h"
 
 const char *out_dir = "rootfiles";
@@ -33,48 +33,51 @@ void CheckOutDir()
 	*/
 }
 
-class TRunBase : public TBase {
+class TRSbase : public TBase {
   protected:
     set<int> fSlugs;
     set<int> fRuns;
 
     int nSlugs;
     int nRuns;
+    map<int, int> fSlugSign;
     map<int, int> fRunSign;
     map<int, int> fRunArm;
+
   public:
-    TRunBase();
-    ~TRunBase() {}
+    TRSbase();
+    ~TRSbase();
     void SetSlugs(set<int> slugs);
     void SetRuns(set<int> runs);
+		void CheckSlugs();
 		void CheckRuns();
+    void GetSlugInfo();
     void GetRunInfo();
 };
 
-TRunBase::TRunBase() : TBase() {
-  granularity = "run";
+TRSbase::TRSbase() : TBase() {
+  StartConnection();
 }
 
-void TRunBase::SetSlugs(set<int> slugs) {
-	StartConnection();
+TRSbase::~TRSbase() {
+  EndConnection();
+}
+
+void TRSbase::SetSlugs(set<int> slugs) {
   for(int slug : slugs) {
     if (   (CREX_AT_START_SLUG <= slug && slug <= CREX_AT_END_SLUG)
         || (PREX_AT_START_SLUG <= slug && slug <= PREX_AT_END_SLUG)
         || (        START_SLUG <= slug && slug <= END_SLUG) ) { 
       fSlugs.insert(slug);
-      for (int run : GetRunsFromSlug(slug))
-        fRuns.insert(run);
     } else {
       cerr << ERROR << "Invalid slug number (" << START_SLUG << "-" << END_SLUG << "): " << slug << ENDL;
       continue;
     }
   }
   nSlugs = fSlugs.size();
-	nRuns = fRuns.size();
-	EndConnection();
 }
 
-void TRunBase::SetRuns(set<int> runs) {
+void TRSbase::SetRuns(set<int> runs) {
   for(int run : runs) {
     if (run < START_RUN || run > END_RUN) {
       cerr << ERROR << "Invalid run number (" << START_RUN << "-" << END_RUN << "): " << run << ENDL;
@@ -85,25 +88,37 @@ void TRunBase::SetRuns(set<int> runs) {
   nRuns = fRuns.size();
 }
 
-void TRunBase::CheckRuns() {
+void TRSbase::CheckRuns() {
   // check runs against database
-	StartConnection();
+  for (int slug : fSlugs)
+    for (int run : GetRunsFromSlug(slug))
+      fRuns.insert(run);
 	GetValidRuns(fRuns);
 	fGrans = fRuns;
 	CheckGrans();
 	fRuns = fGrans;
   nRuns = fRuns.size();
-	EndConnection();
 }
 
-void TRunBase::GetRunInfo() {
-	StartConnection();
+void TRSbase::CheckSlugs() {
+  GetValidSlugs(fSlugs);
+	fGrans = fSlugs;
+	CheckGrans();
+	fSlugs = fGrans;
+  nSlugs = fSlugs.size();
+}
+
+void TRSbase::GetRunInfo() {
 	for (int run : fRuns) {
 		fRunSign[run] = GetRunSign(run);
 		fRunArm[run]	= GetRunArmFlag(run);
 	}
-	EndConnection();
 }
 
-#endif	// TRUNBASE_H
+void TRSbase::GetSlugInfo() {
+  for (int slug : fSlugs) 
+    fSlugSign[slug] = GetSlugSign(slug);
+}
+
+#endif	// TRSBASE_H
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

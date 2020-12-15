@@ -1,6 +1,7 @@
-* 6647.001: no valid mul entries
+* run 7660,7661: no flag, should be Good
 
 
 
 # backup
+* 6647.001: no valid mul entries
 * 8032, 8034, 8370: mislabelled as Production; relabelled as junk

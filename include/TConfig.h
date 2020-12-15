@@ -21,7 +21,7 @@ typedef struct { double low, high, burplevel; } VarCut;
 typedef VarCut CompCut;
 typedef VarCut CorCut;
 
-set<int> ParseRS(char *line);
+set<int> ParseRS(const char *line);
 class TConfig {
 
   // ClassDef(TConfig, 0)  // config file parser
@@ -46,7 +46,7 @@ public:
   vector<string>					 GetSolos()	    const {return fSolos;}
   map<string, VarCut>      GetSoloCut()		const {return fSoloCut;}
 
-	// custom variables: for CheckRun
+	// custom variables: 
   vector<string>					 GetCustoms()   const {return fCustoms;}	
   map<string, VarCut>			 GetCustomCut()	const {return fCustomCut;}
 	map<string, Node *>			 GetCustomDef()	const {return fCustomDef;}
@@ -117,16 +117,6 @@ TConfig::TConfig(const char *conf_file, const char *RSlist) :
 {}
 
 TConfig::~TConfig() {
-  fRS.clear();
-  fVars.clear();
-  fSolos.clear();
-  fSoloCut.clear();
-  fComps.clear();
-  fCompCut.clear();
-  fSlopes.clear();
-  fSlopeCut.clear();
-  fCors.clear();
-  fCorCut.clear();
   cerr << INFO << "End of TConfig" << ENDL;
 }
 
@@ -406,7 +396,7 @@ bool TConfig::ParseCustom(char *line) {
     return false;
   }
 
-  Node * node = ParseExpression(def);
+  Node *node = ParseExpression(def);
   if (node == NULL) {
     cerr << ERROR << "unable to parse definition. \n"
 				 << "\t" << def << ENDL;
@@ -818,36 +808,37 @@ double TConfig::ExtractValue(Node * node) {
 	return -9999;
 }
 
-set<int> ParseRS(char *line) {
+set<int> ParseRS(const char *line) {
   if (!line) {
     cerr << ERROR << "empty input" << ENDL;
     return {};
   }
 
 	set<int> vals;
-  int start=-1, end=-1;
-  vector<char*> fields = Split(line, '-');
-  switch (fields.size()) {
-    case 2:
-      if (!IsInteger(fields[1])) {
-        cerr << WARNING << "invalid end value in range: " << line << ENDL;
-        return {};
-      }
-      end = atoi(fields[1]);
-    case 1:
-      if (!IsInteger(fields[0])) {
-        cerr << WARNING << "invalid (start) value in line: " << line << ENDL;
-        return {};
-      }
-      start = atoi(fields[0]);
-      if (end == -1)
-        end = start;
-  }
+  for (const char *seg : Split(line, ',')) {
+    int start=-1, end=-1;
+    vector<char*> fields = Split(seg, '-');
+    switch (fields.size()) {
+      case 2:
+        if (!IsInteger(fields[1])) {
+          cerr << WARNING << "invalid end value in range: " << line << ENDL;
+          return {};
+        }
+        end = atoi(fields[1]);
+      case 1:
+        if (!IsInteger(fields[0])) {
+          cerr << WARNING << "invalid (start) value in line: " << line << ENDL;
+          return {};
+        }
+        start = atoi(fields[0]);
+        if (end == -1)
+          end = start;
+    }
 
-  for (int v=start; v<=end; v++) {
-    vals.insert(v); 
+    for (int v=start; v<=end; v++) {
+      vals.insert(v); 
+    }
   }
-
   return vals;
 }
 #endif

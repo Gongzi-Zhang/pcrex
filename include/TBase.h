@@ -30,26 +30,7 @@
 #include "rcdb.h"
 #include "TConfig.h"
 
-enum Format {pdf, png};
-// enum Program {mulplot, checkstatistics, checkruns};
-
 using namespace std;
-
-Format format     = pdf; // default pdf output
-const char *out_name = "out";
-
-void SetOutName(const char *name) {if (name) out_name = name;}
-void SetOutFormat(const char *f) {
-  if (strcmp(f, "pdf") == 0) {
-    format = pdf;
-  } else if (strcmp(f, "png") == 0) {
-    format = png;
-  } else {
-    cerr << FATAL << "Unknow output format: " << f << ENDL;
-    exit(40);
-  }
-}
-
 
 class TBase {
 
@@ -127,7 +108,7 @@ class TBase {
   public:
      TBase();
      ~TBase();
-     virtual void GetConfig(const TConfig fConf);
+     virtual void GetConfig(const TConfig &fConf);
      void SetDir(const char *d);
      void CheckGrans();
      pair<string, string> ParseVar(const string var);
@@ -135,6 +116,7 @@ class TBase {
      bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
      virtual void GetValues();
+     void GetCustomValues();
      bool CheckEntryCut(const long entry);
 
 		 double get_custom_value(Node *node);
@@ -147,18 +129,18 @@ class TBase {
 
 TBase::TBase() 
 {
-	gROOT->SetBatch(1);	// FIXME: maybe move to something as gsetting.h
+	// gROOT->SetBatch(1);	// FIXME: maybe move to something as gsetting.h
 }
 
 TBase::~TBase() {
-  if (slope_buf) 
-		delete slope_buf;
-  if (slope_err_buf) 
-		delete slope_err_buf;
+  // if (slope_buf) 
+	// 	delete slope_buf;
+  // if (slope_err_buf) 
+	// 	delete slope_err_buf;
   cerr << INFO << "End of TBase" << ENDL;
 }
 
-void TBase::GetConfig(const TConfig fConf)
+void TBase::GetConfig(const TConfig &fConf)
 {
   // fConf.ParseConfFile();
   fVars	= fConf.GetVars();
@@ -214,7 +196,6 @@ void TBase::SetDir(const char * d) {
 }
 
 void TBase::CheckGrans() {
-  StartConnection();
   nGrans = fGrans.size();
 
   for (set<int>::const_iterator it = fGrans.cbegin(); it != fGrans.cend(); ) {
@@ -245,7 +226,6 @@ void TBase::CheckGrans() {
   nGrans = fGrans.size();
   if (nGrans == 0) {
     cerr << FATAL << "No valid " << granularity << " specified!" << ENDL;
-    EndConnection();
     exit(10);
   }
 
@@ -253,8 +233,6 @@ void TBase::CheckGrans() {
   for(int g : fGrans) {
     cout << "\t" << g << endl;
   }
-
-  EndConnection();
 }
 
 pair<string, string> TBase::ParseVar(const string var) {
@@ -287,25 +265,6 @@ void TBase::CheckVars() {
 	// add necessary variables
 	// for main avg/dd variables, if global armflag is all, there must be corresponding left/right arm data
 	// FIXME: what if us_avg_ds_avg_dd
-	// if (	 garmflag.find(rightarm) != string::npos 
-	// 		|| garmflag.find(leftarm) != string::npos) { 
-	// 	for (string var : fVars) {
-	// 		if ( var.find("us_avg") != string::npos 
-	// 			|| var.find("ds_avg") != string::npos 
-	// 			|| var.find("us_dd") != string::npos 
-	// 		  || var.find("ds_dd")  != string::npos ) {
-	// 			string lvar = var;
-	// 			string rvar = var;
-	// 			if ( var.find("_avg") != string::npos ) {
-	// 				fVars.insert(lvar.replace(lvar.find("_avg"), 4, "l"));
-	// 				fVars.insert(rvar.replace(rvar.find("_avg"), 4, "r"));
-	// 			} else {
-	// 				fVars.insert(lvar.replace(lvar.find("_dd"), 3, "l"));
-	// 				fVars.insert(rvar.replace(rvar.find("_dd"), 3, "r"));
-	// 			}
-	// 		}
-	// 	}
-	// }
 
   for (pair<string, string> var : fVarAlt) {
     string ori = var.first;
@@ -323,6 +282,8 @@ void TBase::CheckVars() {
     }
     fBrAlt[b1] = b2;
   }
+  for (string var : fCustoms) 
+    fVarName[var] = {var, ""};  // no leaf for custom variables
 
   srand(time(NULL));
   int s = rand() % nGrans;
@@ -374,6 +335,7 @@ void TBase::CheckVars() {
         if (globbuf.gl_pathc == 0) {
           cerr << WARNING << granularity << "-" << g << ": can't read friend tree: " << texp
 							 << " in root file: " << file_name << ", skip it." << ENDL; 
+          globfree(&globbuf);
 					goto next;
 				}
 				file_name = globbuf.gl_pathv[0];
@@ -681,8 +643,8 @@ void TBase::GetValues() {  // return accepted number of entries
 	// initialization
   for (string var : fVars) {
     fVarValue[var].clear();
-    fVarSum[var] = 0;
-    fVarSum2[var] = 0;
+    // fVarSum[var] = 0;
+    // fVarSum2[var] = 0;
     fVarMax[var] = 0;
 		unit[var] = 1;
 		if (var.find("diff") != string::npos)
@@ -690,8 +652,8 @@ void TBase::GetValues() {  // return accepted number of entries
   }
   for (string custom : fCustoms) {
     fVarValue[custom].clear();
-		fVarSum[custom] = 0;
-		fVarSum2[custom] = 0;
+		// fVarSum[custom] = 0;
+		// fVarSum2[custom] = 0;
 		fVarMax[custom] = 0;
   }
 
@@ -794,52 +756,14 @@ void TBase::GetValues() {  // return accepted number of entries
           double val;
           fVarLeaf[var]->GetBranch()->GetEntry(en);
           val = fVarLeaf[var]->GetValue();
-          // leave sign correction to separated programs
-          // if (program == mulplot || program == checkstatistics)	// FIXME: is there a better way to do sign correction
-          // 	val *= (fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0)); 
 
-          // if (var.find("bpm11X") != string::npos && run < 3390)		// special treatment of bpmE = bpm11X + 0.4*bpm12X
-          //   val *= 0.6;
-
-          // avg/dd of single arm running
-          // if (	 (	 garmflag.find(rightarm) != string::npos 
-          //         || garmflag.find(leftarm)	 != string::npos )
-          //     && (fRunArm[run] == leftarm || fRunArm[run] == rightarm)
-          //     && (	 var.find("us_avg") != string::npos 
-          //         || var.find("us_dd")	!= string::npos 
-          //         || var.find("ds_avg") != string::npos 
-          //         || var.find("ds_dd")	!= string::npos)) 
-          // {
-          //   string rvar = var;
-          //   const char * replaced = "_avg";
-          //   int l = 4;
-          //   if (var.find("_dd") != string::npos) {
-          //     replaced = "_dd";
-          //     l = 3;
-          //   }
-          //   const char * replacement = (fRunArm[run] == leftarm ? "l" : "r");
-          //   rvar.replace(rvar.find(replaced), l, replacement);
-          //   fVarLeaf[rvar]->GetBranch()->GetEntry(en);
-          //   val = fVarLeaf[rvar]->GetValue();
-          // }
-          // val *= unit[var];	// FIXME normalized to standard units
           vars_buf[var] = val;
           fVarValue[var].push_back(val);
-          fVarSum[var]	+= val;
-          fVarSum2[var] += val * val;
+          // fVarSum[var]	+= val;
+          // fVarSum2[var] += val * val;
 
           if (abs(val) > fVarMax[var])
             fVarMax[var] = abs(val);
-        }
-        for (string custom : fCustoms) {	// FIXME: this may be incorrect while doing calculation before sign and unit corrections
-          double val = get_custom_value(fCustomDef[custom]);
-          vars_buf[custom] = val;
-          fVarValue[custom].push_back(val);
-          fVarSum[custom]	+= val;
-          fVarSum2[custom]  += val * val;
-
-          if (abs(val) > fVarMax[custom]) 
-            fVarMax[custom] = abs(val);
         }
       }
 
@@ -861,18 +785,51 @@ void TBase::GetValues() {  // return accepted number of entries
   cout << INFO << "with cut: " << cut <<  "--read " << nOk << "/" << nTotal << " good entries." << ENDL;
 }
 
+void TBase::GetCustomValues() {
+  if (fCustoms.size() == 0)
+    return;
+
+  set<string> cvars;
+  for (string c : fCustoms) {
+    for (string var : GetVariables(fCustomDef[c]))
+      cvars.insert(var);
+  }
+
+  int iok=0;
+  for (int g : fGrans) {
+    const int sessions = fRootFile[g].size();
+    for (int s=0; s<sessions; s++) {
+      const int n = fEntryNumber[g][s].size();
+      for (int i=0; i<n; i++, iok++) {
+        for (string var : cvars)
+          vars_buf[var] = fVarValue[var][iok];
+        for (string c : fCustoms) {
+          double val = get_custom_value(fCustomDef[c]);
+          vars_buf[c] = val;
+          fVarValue[c].push_back(val);
+          // fVarSum[c]  += val;
+          // fVarSum2[c] += val * val;
+
+          if (abs(val) > fVarMax[c]) 
+            fVarMax[c] = abs(val);
+        }
+      }
+    }
+  }
+}
+
 double TBase::get_custom_value(Node *node) {
 	if (!node) {
 		cerr << ERROR << "Null node" << ENDL;
-		return -999999;
+		return 0./0.;
 	}
 
 	const char * val = node->token.value;
 	double v=0, vl=0, vr=0;
 	if (node->lchild) vl = get_custom_value(node->lchild);
 	if (node->rchild) vr = get_custom_value(node->rchild);
-	if (vl == -999999 || vr == -999999)
-		return -999999;
+	if (std::isnan(vl) || std::isnan(vr))
+		return 0./0.;
 
 	switch (node->token.type) {
 		case opt:
@@ -900,9 +857,9 @@ double TBase::get_custom_value(Node *node) {
 				return vars_buf[val];
 		default:
 			cerr << ERROR << "unkonw token type: " << TypeName[node->token.type] << ENDL;
-			return -999999;
+			return 0./0.;
 	}
-	return -999999;
+	return 0./0.;
 }
 
 bool TBase::CheckEntryCut(const long entry) {

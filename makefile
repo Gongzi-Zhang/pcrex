@@ -15,19 +15,15 @@ io					:= include/io.h
 all: check mulplot checkruns sctplot runinfo
 	@echo "compiling ... "
 
-check: src/Check.cxx include/TCheckStat.h 
+checkrs: src/CheckRS.cxx include/TCheckRS.h 
 	g++ $(CXXFLAGS) -o $@ $< $(root_libs) $(mysql_libs)
-checkslug: src/CheckSlug.cxx include/TCheckSlug.h 
+checkmini: src/CheckMini.cxx include/TCheckMini.h 
 	g++ $(CXXFLAGS) -o $@ $< $(root_libs) $(mysql_libs)
-
-checkruns: src/CheckRuns.cxx include/TCheckRuns.h 
+checkevent: src/CheckEvent.cxx include/TCheckEvent.h 
 	g++ $(CXXFLAGS) -o $@ $< $(root_libs) $(mysql_libs)
 
 mulplot: src/MulPlot.cxx include/TMulPlot.h 
 	g++ $(CXXFLAGS) -o $@ $< $(root_libs) $(mysql_libs)
-
-sctplot: src/SctPlot.cxx include/TSctPlot.h 
-	g++ $(CXXFLAGS) -o $@ $< $(root_libs)
 
 aggregate: src/Aggregate.cxx include/TAggregate.h 
 	g++ $(CXXFLAGS) -o $@ $< $(root_libs) $(mysql_libs)
@@ -54,7 +50,7 @@ tmp: src/tmp.cxx
 plot:
 	tar czvf plots.tar.gz *.png 
 clean:
-	rm -f check mulplot checkrun
+	rm -f checkrs checkmini checkevent mulplot aggregate aggslug runinfo getrun
 
 temp: scripts/agg_count.C $(rcdb) $(line) $(const) $(io)
 	g++ $(CXXFLAGS) -o $@ $< $(root_libs) $(mysql_libs)
