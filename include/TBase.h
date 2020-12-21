@@ -415,6 +415,11 @@ void TBase::CheckVars() {
 				exit(24);
 			}
 			fVarName[var] = make_pair(branch, leaf);
+      if (leaf == "mean") { // add corresponding err variables
+        string errvar = branch + ".err";  
+        fVars.insert(errvar);
+        fVarName[errvar] = make_pair(branch, "err");
+      }
 			used_ftrees.insert(bbuf->GetTree()->GetName());
 		}
 		tmp_vars.clear();

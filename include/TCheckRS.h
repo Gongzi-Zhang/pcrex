@@ -60,7 +60,8 @@ class TCheckRS : public TRSbase {
   public:
      TCheckRS(const char *t);
      ~TCheckRS();
-     void GetConfig(const TConfig &fConf);
+     // void GetConfig(const TConfig &fConf);
+     // void CheckVars();
      void SetSign(bool s) { sign = s; }
 		 void ProcessValues();
      void CheckValues();
@@ -96,6 +97,7 @@ TCheckRS::~TCheckRS() {
   cout << INFO << "Release TCheckRS" << ENDL;
 }
 
+/*
 void TCheckRS::GetConfig(const TConfig &fConf) {
   TBase::GetConfig(fConf);
   for (string var : fVars) {
@@ -103,6 +105,20 @@ void TCheckRS::GetConfig(const TConfig &fConf) {
       fVars.insert(var.substr(0, var.find(".mean")) + ".err");
   }
 }
+*/
+
+/*
+void TCheckRS::CheckVars() {
+  TBase::CheckVars();
+  for (string var : fVars) {
+    if (fVarName[var].second == "mean") {
+      string errvar = fVarName[var].first + ".err";
+      fVars.insert(errvar);
+      fVarName[errvar] = make_pair(fVarName[var].first, "err");
+    }
+  }
+}
+*/
 
 void TCheckRS::ProcessValues() {
 	for (pair<int, int> p : fSign) {
@@ -115,11 +131,14 @@ void TCheckRS::ProcessValues() {
 
     int i = 0;
     for (int g : fGrans) {
-      if (sign && (var.find("asym") != string::npos ^ var.find("diff") != string::npos)  
-          && fVarName[var].second == "mean") // only for mean value
-        fVarValue[var][i] *= fSign[g] > 0 ? 1 : (fSign[g] < 0 ? -1 : 0);
-      fVarValue[var][i] *= (UNITS[fVarInUnit[var]] / UNITS[fVarOutUnit[var]]);
-      i++;  // for slug and run, only one entry per slug/run
+      const int sessions = fRootFile[g].size();
+      for (int s=0; s<sessions; s++) {
+        if (sign && (var.find("asym") != string::npos ^ var.find("diff") != string::npos)  
+            && fVarName[var].second == "mean") // only for mean value
+          fVarValue[var][i] *= fSign[g] > 0 ? 1 : (fSign[g] < 0 ? -1 : 0);
+        fVarValue[var][i] *= (UNITS[fVarInUnit[var]] / UNITS[fVarOutUnit[var]]);
+        i++;  
+      }
     }
 	}
   GetCustomValues();
@@ -305,9 +324,9 @@ void TCheckRS::DrawSolos() {
 
     map<int, TGraphErrors *> gflip;
     bool flip = false;
-    // bool asym = (solo.find("asym") != string::npos ^ solo.find("diff") != string::npos);  // asym var, but not slope
-    // if (asym) {
-    if (flips.size() > 1) {
+    // bool asym = solo.find("asym_us") != string::npos;  // asym var, only for det.
+    if ((solo.find("asym_us") != string::npos && solo.find("diff") == string::npos) // not slope
+         && flips.size() > 1) {
       flip = true;
       for (int i=0; i<flips.size(); i++) {
         gflip[flips[i]] = new TGraphErrors();
@@ -330,31 +349,38 @@ void TCheckRS::DrawSolos() {
     }
 
     int i=0;
+    double ymin = fVarValue[solo][0];
+    double ymax = ymin;
     for(int rs : fGrans) {
-			// no need for session
-      double val, err=0;
-      val = fVarValue[solo][i];
-      if (std::isnan(val)) {
+      const int sessions = fRootFile[rs].size();
+      for (int s=0; s<sessions; s++) {
+        double val, err=0;
+        val = fVarValue[solo][i];
+        if (std::isnan(val)) {
+          i++;
+          continue;
+        }
+        if (mean)
+          err = fVarValue[errvar][i];
+        if (val + err > ymax) ymax = val + err;
+        if (val - err < ymin) ymin = val - err;
+        h->Fill(rs, val);
+        g->SetPoint(i, rs, val);
+        g->SetPointError(i, 0, err);
         i++;
-        continue;
-      }
-      if (mean)
-        err = fVarValue[errvar][i];
-      h->Fill(rs, val);
-      g->SetPoint(i, rs, val);
-      g->SetPointError(i, 0, err);
-      i++;
+        // cerr << DEBUG << solo << "\t" << rs << "\t" << g->GetYaxis()->GetXmin() << "\t" << g->GetYaxis()->GetXmax() << ENDL;
 
-      if (alt && find(alt_rs.begin(), alt_rs.end(), rs) != alt_rs.end()) {
-        int j = galt->GetN();
-        galt->SetPoint(j, rs, val);
-        galt->SetPointError(j, 0, err);
-      }
+        if (alt && find(alt_rs.begin(), alt_rs.end(), rs) != alt_rs.end()) {
+          int j = galt->GetN();
+          galt->SetPoint(j, rs, val);
+          galt->SetPointError(j, 0, err);
+        }
 
-      if (flip) {
-        int k = gflip[fSign[rs]]->GetN();
-        gflip[fSign[rs]]->SetPoint(k, rs, val);
-        gflip[fSign[rs]]->SetPointError(k, 0, err);
+        if (flip) {
+          int k = gflip[fSign[rs]]->GetN();
+          gflip[fSign[rs]]->SetPoint(k, rs, val);
+          gflip[fSign[rs]]->SetPointError(k, 0, err);
+        }
       }
     }
 
@@ -365,15 +391,18 @@ void TCheckRS::DrawSolos() {
     if (mean) {
       int i=0;
       for (int rs : fGrans) {
-        double val = fVarValue[solo][i];
-        if (std::isnan(val)) {
+        const int sessions = fRootFile[rs].size();
+        for (int s=0; s<sessions; s++) {
+          double val = fVarValue[solo][i];
+          if (std::isnan(val)) {
+            i++;
+            continue;
+          }
+          double err = fVarValue[errvar][i];
+          h_pull->Fill(rs, (val - mean_value)/err);
+          pull->Fill((val - mean_value)/err);
           i++;
-          continue;
         }
-        double err = fVarValue[errvar][i];
-        h_pull->Fill(rs, (val - mean_value)/err);
-        pull->Fill((val - mean_value)/err);
-        i++;
       }
       pull->Fit("gaus");
     }
@@ -384,8 +413,6 @@ void TCheckRS::DrawSolos() {
     if (sign)
       title = title + " (sign corrected)";
 		h->SetTitle((title + ";" + granularity + ";" + fVarOutUnit[solo]).c_str());
-    double ymin = g->GetYaxis()->GetXmin();
-    double ymax = g->GetYaxis()->GetXmax();
     h->GetYaxis()->SetRangeUser(ymin, ymax+(ymax-ymin)/10);
     h->GetXaxis()->SetTitle(granularity);
 
@@ -464,10 +491,15 @@ void TCheckRS::DrawSolos() {
       c->Print(Form("%s.pdf", out_name));
     else if (format == png)
       c->Print(Form("%s_%s.png", out_name, solo.c_str()));
+
     if (t)
       t->Delete();
 		g->Delete();
     if (galt)  galt->Delete();
+    if (mean) {
+      h_pull->Delete();
+      pull->Delete();
+    }
     // if (st) st->Delete();
     if (flip) {
       for(int i=0; i<flips.size(); i++)
@@ -520,19 +552,21 @@ void TCheckRS::DrawCors() {
 
       int j=0, k=0;
       for(int rs : fGrans) {
-        // no need for session
-        double val, err = 0;
-        val = fVarValue[var[i]][j];
-        if (mean[i])
-          err = fVarValue[errvar[i]][j];
-        g[i]->SetPoint(j, rs, val);
-        g[i]->SetPointError(j, 0, err);
-        j++;
+        const int sessions = fRootFile[rs].size();
+        for (int s=0; s<sessions; s++) {
+          double val, err = 0;
+          val = fVarValue[var[i]][j];
+          if (mean[i])
+            err = fVarValue[errvar[i]][j];
+          g[i]->SetPoint(j, rs, val);
+          g[i]->SetPointError(j, 0, err);
+          j++;
 
-        if (alt[i] && find(alt_rs[i].begin(), alt_rs[i].end(), rs) != alt_rs[i].end()) {
-          galt[i]->SetPoint(k, rs, val);
-          galt[i]->SetPointError(k, 0, err);
-          k++;
+          if (alt[i] && find(alt_rs[i].begin(), alt_rs[i].end(), rs) != alt_rs[i].end()) {
+            galt[i]->SetPoint(k, rs, val);
+            galt[i]->SetPointError(k, 0, err);
+            k++;
+          }
         }
       }
     }
