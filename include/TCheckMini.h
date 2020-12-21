@@ -98,8 +98,8 @@ void TCheckMini::ProcessValues() {
   }
 	for (string var : fVars) {
 		// unit correction
-    fVarInUnit[var] = GetInUnit(var);
-    fVarOutUnit[var] = GetOutUnit(var);
+    fVarInUnit[var] = GetInUnit(fVarName[var].first, fVarName[var].second);
+    fVarOutUnit[var] = GetOutUnit(fVarName[var].first, fVarName[var].second);
 		for (int m=0; m<nMiniruns; m++) {
 			fVarValue[var][m] *= (UNITS[fVarInUnit[var]]/UNITS[fVarOutUnit[var]]);
 		}
@@ -118,8 +118,8 @@ void TCheckMini::ProcessValues() {
 	}
   GetCustomValues();
   for (string var : fCustoms) {
-    fVarInUnit[var] = GetInUnit(var);
-    fVarOutUnit[var] = GetOutUnit(var);
+    fVarInUnit[var] = GetInUnit(fVarName[var].first, fVarName[var].second);
+    fVarOutUnit[var] = GetOutUnit(fVarName[var].first, fVarName[var].second);
     // looks like no need for unit correction for custom, should be taken care of in the expression
 		// for (int m=0; m<nMiniruns; m++) {
 		// 	fVarValue[var][m] *= (UNITS[fVarInUnit[var]]/UNITS[fVarOutUnit[var]]);
@@ -573,7 +573,6 @@ void TCheckMini::DrawCors() {
     string err_var[2];
     TH1F *h[2];
     TGraphErrors * g[2];
-    TH1F * h_diff = new TH1F("diff", "", nMiniruns, 0.5, nMiniruns+0.5);
     
     for (int i=0; i<2; i++) {
       branch[i] = fVarName[var[i]].first;
@@ -657,10 +656,9 @@ void TCheckMini::DrawCors() {
       c->Print(Form("%s_%s-%s.png", out_name, var[0].c_str(), var[1].c_str()));
     c->Clear();
     for (int i=0; i<2; i++) {
+      h[i]->Delete();
       g[i]->Delete();
     }
-    h_diff->Delete();
-    h_diff = NULL;
   }
   cout << INFO << "Done with drawing corarisons." << ENDL;
 }

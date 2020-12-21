@@ -38,13 +38,12 @@
 #include "line.h"
 #include "rcdb.h"
 #include "TConfig.h"
-#include "TRunBase.h"
-
-
+#include "TRSbase.h"
+#include "draw.h"
 
 using namespace std;
 
-class TMulPlot : public TRunBase {
+class TMulPlot : public TRSbase {
 
     // ClassDe (TMulPlot, 0) // mul plots
 
@@ -69,7 +68,7 @@ class TMulPlot : public TRunBase {
 // ClassImp(TMulPlot);
 
 TMulPlot::TMulPlot() :
-	TRunBase()
+	TRSbase()
 {
 	out_name = "mulplot";
 	// dir = "/adaqfs/home/apar/PREX/prompt/results/";

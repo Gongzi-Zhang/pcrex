@@ -128,6 +128,10 @@ string gexp = "CREX";
 string gruntype = "Production";
 string grunflag = "Good";
 string gtarget = "48Ca";
+// string gexp = "PREX2";
+// string gruntype;
+// string grunflag;
+// string gtarget = "D-208Pb8-D";
 
 MYSQL *con;
 MYSQL_RES  *res;

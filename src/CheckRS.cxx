@@ -68,9 +68,8 @@ int main(int argc, char* argv[]) {
 
   TCheckRS fCheckRS(type);
   fCheckRS.GetConfig(fConf);
-  if (strcmp(type, "slug") == 0) {
-    fCheckRS.SetSlugs(slugs);
-  } else if (strcmp(type, "run") == 0) {
+  fCheckRS.SetSlugs(slugs);
+  if (strcmp(type, "run") == 0) {
     fCheckRS.SetRuns(runs);
   }
   if (sign)

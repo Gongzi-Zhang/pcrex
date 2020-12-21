@@ -12,6 +12,8 @@ void usage();
 int main(int argc, char* argv[]) {
   const char * config_file("conf/check.conf");
   const char * run_list = NULL;
+  const char * out_name = NULL;
+  const char * out_format = NULL;
   set<int> runs;
   set<int> slugs;
   bool sign = false;
@@ -51,16 +53,10 @@ int main(int argc, char* argv[]) {
 				SetWienFlip(optarg);
 				break;
       case 'f':
-				if (optarg)
-					SetOutFormat(optarg);
-				else 
-					cerr << WARNING << "no format specified for -f option" << ENDL;
+			  out_format = optarg;
         break;
       case 'n':
-				if (optarg)
-					out_name = optarg;
-				else
-					cerr << WARNING << "no name specified for -n option" << ENDL;
+				out_name = optarg;
         break;
       default:
         usage();
@@ -80,6 +76,11 @@ int main(int argc, char* argv[]) {
     fCheckMini.SetSlugs(slugs);
   if (sign)
     fCheckMini.SetSign();
+
+  if (out_format)
+    SetOutFormat(out_format);
+  if (out_name)
+    SetOutName(out_name);
 
   // fCheckMini.CheckRuns();
   // fCheckMini.CheckVars();

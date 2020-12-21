@@ -1,7 +1,17 @@
 # github: https://github.com/Gongzi-Zhang/pcrex.git
 
 # usage
-## comman options
+  1. produce aggregated files (run/minirun wise and slug wise)
+  2. then used these files to plots 
+  Note: of course, you can use other aggregated results, but that will not work
+        with slope, because slopes are stored as an array in reg/japan output
+        With aggregate, you can transfer them into solo variables
+
+* The default experiment type is CREX, if you want to use it with PREX2, you can modify it
+  in rcdb.h; (the SetExp() function is there, but I think it is needless for current analysis,
+  so I there is no -e option to set exp type)
+
+## common options
   -c config_file 
   -r 1234-2345,4356,2345-4566   :: specify runs, seperated by comma, support range
   -s 123-124,125,136-148        :: specify slugs, same syntax as runs
@@ -13,45 +23,44 @@
   -n name                       :: output name (prefix)
 
 ## checkmini: used for checking statistics of miniruns
- * it support 3 kinds of variables:
-    * solos: 
-    * comparisons
-    * correlations
-    see check.conf about how to setup each of them
-
- * default config file: conf/check.conf
-
-  e.x.
-    > ./check   # use the default configuration: conf/check.conf
-    > ./check -c myconf.conf -R runs.list   # specified runs in seperated run list file, instead of in config file
-  all runs specified with different approaches will be checked together
-
-
-### plot explanation:
-  bold runs will be marked with blue and larger size dot, which bad miniruns (fail the cut) will be marked
-  with red (normal size) dots.
-
-  For comparisons, the two different variables will be marked with different colored dots, but for bold runs
-  and bad miniruns, they will have the same color, though different marker styles.
-
-## checkruns: check every event/pattern along the time
-  its usage is similar to check
-  > ./checkruns -h       # for help
-
- * default config file: conf/checkruns.conf
-
+  ./checkmini -h
+## checkruns: check every event/pattern 
+  ./checkruns -h
 ## mulplot: draw pair/mul plots 
-  mulplot has similar usage to check
-  > ./mulplot -h        # for help
+  ./mulplot -h
 
- * default config file: conf/mul_plot.conf
 
-## 
 # compilation
   > make check
   > make checkrun
   > make mulplot
 
+
+# idea
+
+      TBase.h
+        |
+        V
+     TRSbase.h  TConfig.h
+        |         /
+        V        /
+      TAgg*  TCheck*  TMulplot
+
+* TConfig.h: read config file
+* TBase.h: it does 3 things: 
+  * check runs/slugs (by checking rcdb and their root files)
+  * check variables
+  * read values (store it in a map variable that can be used by derived classes)
+* TRSbase.h: 
+* draw.h: plots related stuff
+  * output name/format
+  * unit
+* aggregation
+  > keep only one rootfile (merge sessions) for one run
+    >> run-level slope will be calculated as average of each session (weighted by 1/err²)
+  > two types of aggregation:
+    >> average (mean,err,rms)
+    >> sum
 
 # todo
 * run 6366: how much good data there? should we recover it?
@@ -62,14 +71,6 @@
 * TCheckRuns: check the diff between bcms and bpms, maybe one see something while others not
 * TCheckRuns: cor? how to use it?
 * TCheckRuns: Correlation, two (more) variables along time
-
-# idea
-* aggregation
-  > keep only one rootfile (merge sessions) for one run
-    >> run-level slope will be calculated as average of each session (weighted by 1/err²)
-  > two types of aggregation:
-    >> average (mean,err,rms)
-    >> sum
 
 # problem
 * munmap_chunk(): invalid pointer

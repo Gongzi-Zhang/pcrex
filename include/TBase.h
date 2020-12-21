@@ -262,10 +262,6 @@ pair<string, string> TBase::ParseVar(const string var) {
 }
 
 void TBase::CheckVars() {
-	// add necessary variables
-	// for main avg/dd variables, if global armflag is all, there must be corresponding left/right arm data
-	// FIXME: what if us_avg_ds_avg_dd
-
   for (pair<string, string> var : fVarAlt) {
     string ori = var.first;
     string alt = var.second;
