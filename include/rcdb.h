@@ -125,7 +125,7 @@ string garmflag;
 string gihwp;
 string gwienflip;
 string gexp = "CREX";
-string gruntype = "Production";
+string gruntype = "Production|A-T";
 string grunflag = "Good";
 string gtarget = "48Ca";
 // string gexp = "PREX2";

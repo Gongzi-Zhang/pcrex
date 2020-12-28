@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:r:R:s:a:i:w:f:n:S")) != -1)
+  while((opt = getopt(argc, argv, "hc:r:R:s:a:i:w:t:f:n:S")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -52,6 +52,9 @@ int main(int argc, char* argv[]) {
 			case 'w':
 				SetWienFlip(optarg);
 				break;
+      case 't':
+        SetRunType(optarg);
+        break;
       case 'f':
 			  out_format = optarg;
         break;
@@ -99,9 +102,10 @@ void usage() {
        << "\t -r: specify runs (seperate by comma, no space between them. ran range is supportted: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-			 << "\t -a: indicate arm flag you want (both, left, right, singlearm, all: default both): of course, single arm specification will also include both arms running, but not vice versa." << endl
-			 << "\t -i: set wanted ihwp state (in, out)" << endl
-			 << "\t -w: set wien flip (left, right, horizontal, up, down, vertical)" << endl
+			 << "\t -a: indicate arm flag you want (both, left, right)" << endl
+			 << "\t -i: set wanted ihwp state (IN, OUT)" << endl
+			 << "\t -w: set wien flip (FLIP-LEFT, FLIP-RIGHT, Vertical(UP), Vertical(DOWN))" << endl
+			 << "\t -t: set run type (Production, A-T...)" << endl
        << "\t -f: set output file format: pdf or png" << endl
        << "\t -n: prefix of output pdf file" << endl
        << "\t -S: make sign correction" << endl
