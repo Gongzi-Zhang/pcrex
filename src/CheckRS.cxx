@@ -68,6 +68,12 @@ int main(int argc, char* argv[]) {
     cout << INFO << "use default config file: " << config_file << ENDL;
 	TConfig fConf(config_file);
 	fConf.ParseConfFile();
+  for (int rs : fConf.GetRS()) {
+    if (rs < 500)
+      slugs.insert(rs);
+    else
+      runs.insert(rs);
+  }
 
   TCheckRS fCheckRS(type);
   fCheckRS.GetConfig(fConf);

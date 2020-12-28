@@ -125,7 +125,7 @@ string garmflag;
 string gihwp;
 string gwienflip;
 string gexp = "CREX";
-string gruntype = "Production|A-T";
+string gruntype = "Production|A_T";
 string grunflag = "Good";
 string gtarget = "48Ca";
 // string gexp = "PREX2";
@@ -652,8 +652,10 @@ void GetValidRuns(set<int> &runs) {
 	set<int> vruns = GetRuns();
   for(set<int>::const_iterator it=runs.cbegin(); it!=runs.cend(); ) {
     int run = *it;
-		if (vruns.find(run) == vruns.end())
+		if (vruns.find(run) == vruns.end()) {
+      cerr << WARNING << "run: " << *it << " is not a valid run" << ENDL;
 			it = runs.erase(it);
+    }
 		else 
 			it++;
   }
