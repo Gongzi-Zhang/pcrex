@@ -145,16 +145,18 @@ void TAggregate::Aggregate()
   char hostname[32];
   gethostname(hostname, 32);
   const char *run_prefix = "./", *mini_prefix = "./";
+  int nburst_dv = 56;
   if (Contain(hostname, "aonl") || Contain(hostname, "adaq")) {
     run_prefix  = "/adaqfs/home/apar/PREX/prompt/japanOutput/";
     mini_prefix = "/adaqfs/home/apar/PREX/prompt/results/"; 
+		if (run <= 6464)
+			nburst_dv = 48;
   } else if (Contain(hostname, "ifarm")) {
-    run_prefix  = "/lustre/expphy/volatile/halla/parity/crex-respin2/japanOutput/";
-    mini_prefix = "/lustre/expphy/volatile/halla/parity/crex-respin2/postpan_respin/";
+    run_prefix  = "/lustre19/expphy/volatile/halla/parity/crex-respin1/japanOutput/";
+    mini_prefix = "/lustre19/expphy/volatile/halla/parity/crex-respin1/postpan_respin/";
   }
 
   int iok = 0;
-  const int nburst_dv = (run <= 6464) ? 48 : 56;
   double run_slope[5][nburst_dv], run_slope_err[5][nburst_dv];
   // double mini_slope[61][5], mini_slope_err[61][5];
   double burst_slope[5][nburst_dv], burst_slope_err[5][nburst_dv];
