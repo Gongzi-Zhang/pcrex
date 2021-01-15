@@ -36,11 +36,12 @@
 #include "const.h"
 #include "line.h"
 #include "TConfig.h"
-#include "TRunBase.h"
+#include "TRSbase.h"
+#include "draw.h"
 
 using namespace std;
 
-class TCheckRuns : public TRunBase {
+class TCheckRuns : public TRSbase {
 
     // ClassDe (TCheckRuns, 0) // check statistics
 
@@ -73,7 +74,7 @@ class TCheckRuns : public TRunBase {
 // ClassImp(TCheckRuns);
 
 TCheckRuns::TCheckRuns() :
-	TRunBase()
+	TRSbase()
 {
 	out_name = "checkruns";
 	// program = checkruns;

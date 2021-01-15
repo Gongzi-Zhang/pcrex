@@ -1,5 +1,9 @@
 #ifndef TRSBASE_H
 #define TRSBASE_H
+
+#include <sys/stat.h>
+#include "const.h"
+#include "rcdb.h"
 #include "TBase.h"
 
 const char *out_dir = "rootfiles";

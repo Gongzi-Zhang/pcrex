@@ -2,6 +2,9 @@
 #define TAGGREGATE_H
 
 #include <iostream>
+#include <glob.h>
+#include "TFile.h"
+#include "TTree.h"
 #include "TRSbase.h"
 
 struct STAT { double mean, err, rms; };
@@ -25,7 +28,8 @@ TAggregate::TAggregate() :
 	TRSbase()
 {}
 
-void TAggregate::SetAggRun(int r) { 
+void TAggregate::SetAggRun(int r) 
+{ 
   run=r; 
   fRuns.clear(); 
   fSlugs.clear(); 
@@ -442,12 +446,16 @@ void TAggregate::Aggregate()
 
 void TAggregate::AggregateRuns() {
   set<int> runs = fRuns;
+  fSlugs.clear(); 
+  nSlugs = 0;
   for (int r : runs) {
     cout << INFO << "aggregating run: " << r << ENDL;
     set<string> varBuf = fVars;
     vector<string> cusBuf = fCustoms;
     vector<pair<string, string>> slopeBuf = fSlopes;
-    SetAggRun(r);
+		run=r; 
+		fRuns.clear(); 
+		fRuns.insert(run); 
     CheckVars();
     if (!(fVars.size() + fCustoms.size() + fSlopes.size())) {
       cerr << WARNING << "run: " << run << ". No new variables in update mode, skip it" << ENDL;

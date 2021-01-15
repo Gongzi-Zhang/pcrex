@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <set>
 
+#include "io.h"
 #include "line.h"
+#include "rcdb.h"
+#include "TConfig.h"
+#include "draw.h"
 #include "TCheckRS.h"
 
 using namespace std;

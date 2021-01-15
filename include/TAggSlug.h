@@ -2,6 +2,8 @@
 #define TAGGSLUG_H
 
 #include <iostream>
+#include "TFile.h"
+#include "TTree.h"
 #include "TRSbase.h"
 
 typedef struct _STAT { double mean, err, rms; } STAT;

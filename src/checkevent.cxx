@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <set>
 
-#include "TCheckRuns.h"
+#include "TCheckEvent.h"
 #include "const.h"
 
 using namespace std;

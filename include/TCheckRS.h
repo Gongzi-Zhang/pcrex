@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <glob.h>
-#include "mysql.h"
 #include <libgen.h>
 
 #include "TROOT.h"
@@ -39,6 +38,7 @@
 #include "TConfig.h"
 #include "TRSbase.h"
 #include "draw.h"
+#include "TCheckRS.h"
 
 using namespace std;
 
@@ -50,7 +50,7 @@ class TCheckRS : public TRSbase {
 
   private:
     Ptype pt = slug;
-    bool sign;
+		bool sign = false;
     map<int, int> fSign;
     map<string, string> fVarInUnit;
     map<string, string> fVarOutUnit;
@@ -70,7 +70,6 @@ class TCheckRS : public TRSbase {
      void DrawComps();
      void DrawCors();
 };
-
 // ClassImp(TCheckRS);
 
 TCheckRS::TCheckRS(const char *t) :

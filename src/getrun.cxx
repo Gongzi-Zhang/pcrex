@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 
+#include "io.h"
 #include "line.h"
 #include "rcdb.h"
 #include "TRun.h"

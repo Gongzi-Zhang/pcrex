@@ -37,13 +37,24 @@
 
 
 # idea
+  These programs do 3 jobs:
+  1. select runs based on rcdb and root file existance
+  2. select variables (solo, diff, comparison)
+  3. analysis/plot
+    * analysis: not implemented yet
+    * how to draw
+      * fit
+      * variable unit
+      * pull-plot
 
-      TBase.h
-        |
-        V
-     TRSbase.h  TConfig.h
-        |         /
-        V        /
+       io  line
+
+   slug_info → rcdb
+		↓
+    const     TBase    TConfig	  math_eval
+      ↓         ↓         ↓           ↓
+      ↓      TRSbase      ↓	      ↓
+      ↓         ↓         ↓           ↓
       TAgg*  TCheck*  TMulplot
 
 * TConfig.h: read config file

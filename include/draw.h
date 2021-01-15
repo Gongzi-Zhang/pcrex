@@ -1,4 +1,12 @@
 // auxiliary funcitons
+#ifndef DRAW_H
+#define DRAW_H
+
+#include <vector>
+#include <map>
+#include <string>
+#include "TCanvas.h"
+
 enum Format {pdf, png};
 
 Format format = pdf; // default pdf output
@@ -6,12 +14,12 @@ const char *out_name = "out";
 TCanvas *c;
 map<int, const char *> legends = {
   {-1,  "left in"},
-  {1,		"left out"},
-  {2,		"right in"},
+  {1,	"left out"},
+  {2,	"right in"},
   {-2,  "right out"},
   {-3,  "up in"},
-  {3,		"up out"},
-  {4,		"down in"},
+  {3,	"up out"},
+  {4,	"down in"},
   {-4,  "down out"},
 };
 vector<int> flips;
@@ -72,3 +80,4 @@ const char * GetOutUnit (string branch, string leaf) {
   } 
   return "";
 }
+#endif
