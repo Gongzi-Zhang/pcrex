@@ -8,17 +8,26 @@
 #include "TRSbase.h"
 
 struct STAT { double mean, err, rms; };
+string cmethods[] = {"reg", "lrb"};	// correction methods; FIXME: bmw
 
 class TAggregate : public TRSbase 
 {
 	private:
     int run;
+
+		// slopes
+		map<string, vector<STAT>> fSlopeValue;
+		map<pair<string, string>, pair<int, int>> fSlopeIndex;
+		int rows, cols;
+
 		// const char * out_pattern = "agg_minirun_xxxx_???";
 	public:
 		TAggregate();
 		~TAggregate() { cout << INFO << "end of TAggregate" << ENDL; };
     void SetAggRun(int r);
+		void CheckSlopeVars();
     void CheckVars();
+		void GetSlopeValues();
     void ProcessValues();
 		void Aggregate();
     void AggregateRuns();
@@ -36,6 +45,71 @@ void TAggregate::SetAggRun(int r)
   SetRuns({run}); 
   CheckRuns();
   nSlugs = fSlugs.size();
+}
+
+void TAggregate::CheckSlopeVars() 
+{
+	if (!nSlopes)
+		return;
+
+  srand(time(NULL));
+  int s = rand() % nRuns;
+  set<int>::const_iterator it_r=fRuns.cbegin();
+  for(int i=0; i<s; i++)
+    it_r++;
+
+	while (it_r != fRuns.cend())
+	{
+		int r = *it_r;
+		const char *file_name = Form("/lustre19/expphy/volatile/halla/parity/crex-respin1/postpan_respin/prexPrompt_%d_000_regress_postpan.root", r);
+		cerr << INFO << "use run: " << file_name << " to check slope variables" << ENDL;
+		TFile * f_rootfile = new TFile(file_name, "read");
+		if (!f_rootfile->IsOpen()) {
+			cerr << ERROR << run << "-" << r << ": can't read root file: " << file_name << ENDL;
+			f_rootfile->Close();
+			exit(44);
+		}
+
+		vector<TString> *l_iv, *l_dv;
+		l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
+		l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
+		if (l_iv == NULL || l_dv == NULL){
+			cerr << WARNING << "run-" << r << " ^^^^ can't read IVNames or DVNames in root file: " 
+					 << file_name << ", skip this run." << ENDL;
+			f_rootfile->Close();
+			it_r++;
+			if (it_r == fRuns.cend())
+				it_r = fRuns.cbegin();
+		}
+
+		rows = l_dv->size();
+		cols = l_iv->size();
+		for (vector<pair<string, string>>::iterator it=fSlopes.begin(); it != fSlopes.end(); it++) {
+			string dv = it->first;
+			string iv = it->second;
+			vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
+			vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
+			if (it_dv == l_dv->cend()) 
+			{
+				cerr << ERROR << "Invalid dv name for slope: " << dv << ENDL;
+				cout << DEBUG << "List of valid dv names:" << ENDL;
+				for (vector<TString>::const_iterator it = l_dv->cbegin(); it != l_dv->cend(); it++) 
+					cout << "\t" << (*it).Data() << endl;
+				exit(44);
+			}
+			if (it_iv == l_iv->cend()) 
+			{
+				cerr << ERROR << "Invalid iv name for slope: " << iv << ENDL;
+				cout << DEBUG << "List of valid dv names:" << ENDL;
+				for (vector<TString>::const_iterator it = l_iv->cbegin(); it != l_iv->cend(); it++) 
+					cout << "\t" << (*it).Data() << endl;
+				exit(44);
+			}
+			fSlopeIndex[*it] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
+		}
+		f_rootfile->Close();
+		break;
+	}
 }
 
 void TAggregate::CheckVars() {
@@ -83,6 +157,133 @@ void TAggregate::CheckVars() {
   }
   trun->Delete();
   fout.Close();
+}
+
+void TAggregate::GetSlopeValues()
+{
+	if (nSlopes == 0)
+		return;
+
+  char hostname[32];
+  gethostname(hostname, 32);
+  const char *lrb_prefix = "./", *reg_prefix = "./";
+  int nlrb_dv = 56;
+  vector<string> LRB_DV = LRB_DV2;	// for respin
+  if (Contain(hostname, "aonl") || Contain(hostname, "adaq")) {
+    lrb_prefix  = "/adaqfs/home/apar/PREX/prompt/japanOutput/";
+    reg_prefix = "/adaqfs/home/apar/PREX/prompt/results/"; 
+		if (run <= 6464)
+		{
+			nlrb_dv = 48;
+			LRB_DV = LRB_DV1;
+		}
+  } else if (Contain(hostname, "ifarm")) {
+    lrb_prefix  = "/lustre19/expphy/volatile/halla/parity/crex-respin1/japanOutput/";
+    reg_prefix = "/lustre19/expphy/volatile/halla/parity/crex-respin1/postpan_respin/";
+  }
+
+  // double lrb_run[5][nlrb_dv], lrb_run_err[5][nlrb_dv];
+  double lrb_mini_buf[5][nlrb_dv], lrb_mini_err_buf[5][nlrb_dv];
+	double *reg_mini_buf = new double[rows*cols];
+	double *reg_mini_err_buf = new double[rows*cols];
+  map<string, int> lrb_dv_index;
+  for (vector<pair<string, string>>::iterator it_s = fSlopes.begin(); it_s != fSlopes.end(); it_s++) 
+	{	// dv device index in lrb slope device list
+		lrb_dv_index[it_s->first] = -1;
+    vector<string>::iterator it = find(LRB_DV.begin(), LRB_DV.end(), it_s->first);
+    if (it != LRB_DV.end()) 
+      lrb_dv_index[it_s->first] = it-LRB_DV.begin();
+    else 
+      cerr << WARNING << "^^^^run: " << run << "\tno such device: " << it_s->first << " in lrb slope device list" << ENDL;
+  }
+
+	TFile *flrb, *freg; 
+	TTree *treg_mini, *tlrb_mini, *tlrb_run;
+  const int sessions = fRootFile[run].size();
+	for (int session=0; session < sessions; session++) {
+		const char *lrb_name = Form("%s/prexPrompt_pass2_%d.%03d.root", lrb_prefix, run, session);
+		const char *reg_name = Form("%s/prexPrompt_%d_%03d_regress_postpan.root", reg_prefix, run, session);
+		flrb = new TFile(lrb_name, "read");
+		freg = new TFile(reg_name, "read");
+		if (!flrb->IsOpen() || !freg->IsOpen()) {
+			cerr << ERROR << "^^^^run: " << run << "\tsession: " << session << "\tcan't find some rootfiles for slope:\n"
+				<< "\t" << lrb_name << endl
+				<< "\t" << reg_name << ENDL;
+			flrb->Close();
+			freg->Close();
+			continue;
+		}
+		const char *reg_mini_tree = "mini";
+		const char *lrb_mini_tree = "burst_lrb_alldet";
+		// const char *lrb_run_tree = "lrb_alldet"; 
+		treg_mini = (TTree *) freg->Get(reg_mini_tree);
+		tlrb_mini = (TTree *) flrb->Get(lrb_mini_tree);
+		// tlrb_run = (TTree *) flrb->Get(lrb_run_tree);
+		if (!treg_mini || !tlrb_mini) {
+			cerr << ERROR << "^^^^run: " << run << "\tsession: " << session << "\tcan't read some trees: \n"
+				<< "\t" << reg_mini_tree << endl
+				<< "\t" << lrb_mini_tree << ENDL;
+				// << "\t" << lrb_run_tree << endl
+			continue;
+		}
+		treg_mini->SetBranchAddress("coeff", reg_mini_buf);
+		treg_mini->SetBranchAddress("err_coeff", reg_mini_err_buf);
+		tlrb_mini->SetBranchAddress("|statA", lrb_mini_buf);
+		tlrb_mini->SetBranchAddress("|statdA", lrb_mini_err_buf);
+		// tlrb_run_tree->SetBranchAddress("A", run);
+		// tlrb_run_tree->SetBranchAddress("dA", run_err);
+
+		const int Nmini = treg_mini->GetEntries();
+		for (int mini=0; mini<Nmini; mini++)
+		{
+			treg_mini->GetEntry(mini);
+			tlrb_mini->GetEntry(mini);
+			for (pair<string, string> slope : fSlopes) 
+			{
+				string var = slope.first + '_' + slope.second;
+				string reg_var = "reg_" + var;
+				string lrb_var = "lrb_" + var;
+
+				if (fRunArm[run] != 0) {  // single arm
+					const char *arm = "r";
+					const char *other_arm = "l";
+					if (fRunArm[run] == 2) {
+						arm = "l";
+						other_arm = "r";
+					}
+
+					if (slope.first.find(Form("asym_us%s", other_arm))) {
+						fSlopeValue[reg_var].push_back({0/0., 0/0., 0/0.});
+						fSlopeValue[lrb_var].push_back({0/0., 0/0., 0/0.});
+						continue;
+					}
+
+					int pos;
+					if ((pos = slope.first.find("_avg")) != string::npos)
+						slope.first.replace(pos, 4, arm);
+					else if  ((pos = slope.first.find("_dd")) != string::npos)
+						slope.first.replace(pos, 3, arm);
+				}
+				fSlopeValue[reg_var].push_back(
+					{ reg_mini_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second],
+						reg_mini_err_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second],
+						0/0.} );
+				if (fSlopeIndex[slope].second < 5 && lrb_dv_index[slope.first] != -1)
+					fSlopeValue[lrb_var].push_back(
+						{ lrb_mini_buf[fSlopeIndex[slope].second][lrb_dv_index[slope.first]],
+							lrb_mini_err_buf[fSlopeIndex[slope].second][lrb_dv_index[slope.first]],
+							0/0.} );
+				else
+					fSlopeValue[lrb_var].push_back({0/0., 0/0., 0/0.});
+			}
+		}
+
+		treg_mini->Delete();
+		tlrb_mini->Delete();
+		// tlrb_run->Delete();
+		flrb->Close();
+		freg->Close();
+	}
 }
 
 void TAggregate::ProcessValues() {
@@ -141,48 +342,12 @@ void TAggregate::Aggregate()
 	unsigned int num_samples = 0;
 	map<string, double> mini_sum, sum;
 	map<string, double> mini_sum2, sum2;
-  map<string, double> sum_weight;
+  map<string, double> sum_weight;	// for slopes
 	map<string, STAT> mini_stat, stat;
 	unsigned int minirun = 0; // number of miniruns
 	unsigned int N = 0;   // total number of mul patterns
 
-  char hostname[32];
-  gethostname(hostname, 32);
-  const char *run_prefix = "./", *mini_prefix = "./";
-  int nburst_dv = 56;
-  if (Contain(hostname, "aonl") || Contain(hostname, "adaq")) {
-    run_prefix  = "/adaqfs/home/apar/PREX/prompt/japanOutput/";
-    mini_prefix = "/adaqfs/home/apar/PREX/prompt/results/"; 
-		if (run <= 6464)
-			nburst_dv = 48;
-  } else if (Contain(hostname, "ifarm")) {
-    run_prefix  = "/lustre19/expphy/volatile/halla/parity/crex-respin1/japanOutput/";
-    mini_prefix = "/lustre19/expphy/volatile/halla/parity/crex-respin1/postpan_respin/";
-  }
-
   int iok = 0;
-  double run_slope[5][nburst_dv], run_slope_err[5][nburst_dv];
-  // double mini_slope[61][5], mini_slope_err[61][5];
-  double burst_slope[5][nburst_dv], burst_slope_err[5][nburst_dv];
-  for (int i=0; i<5; i++)
-    for (int j=0; j<nburst_dv; j++) {
-      run_slope[i][j] = 0;
-      run_slope_err[i][j] = 0;
-      burst_slope[i][j] = 0;
-      burst_slope_err[i][j] = 0;
-    }
-  map<string, int> burst_dv_index;
-  vector<string> &BURST_DV = (run <= 6464) ? BURST_DV1 : BURST_DV2;
-  for (vector<pair<string, string>>::iterator it_s = fSlopes.begin(); it_s != fSlopes.end(); ) {
-    vector<string>::iterator it = find(BURST_DV.begin(), BURST_DV.end(), it_s->first);
-    if (it != BURST_DV.end()) {
-      burst_dv_index[it_s->first] = it-BURST_DV.begin();
-      it_s++;
-    } else {
-      cerr << WARNING << "^^^^run: " << run << "\tno such device: " << it_s->first << " in burst device list" << ENDL;
-      it_s = fSlopes.erase(it_s);
-    }
-  }
 
   bool update=true;	// update tree: add new branches
   vector<TBranch *> mini_brs, run_brs;
@@ -233,15 +398,17 @@ void TAggregate::Aggregate()
   }
   for (pair<string, string> slope : fSlopes) { 
     string var = slope.first + '_' + slope.second;
-    string mini_var = "reg_" + var;
-    string burst_var = "burst_" + var;
-    TBranch *b_mini = tout_mini->Branch(mini_var.c_str(), &mini_stat[mini_var], "mean/D:err/D:rms/D");
-    TBranch *b_burst = tout_mini->Branch(burst_var.c_str(), &mini_stat[burst_var], "mean/D:err/D:rms/D");
-    TBranch *b1 = tout_run->Branch(var.c_str(), &stat[var], "mean/D:err/D:rms/D");
+    string reg_var = "reg_" + var;
+    string lrb_var = "lrb_" + var;
+    TBranch *b_reg = tout_mini->Branch(reg_var.c_str(), &mini_stat[reg_var], "mean/D:err/D:rms/D");
+    TBranch *b_lrb = tout_mini->Branch(lrb_var.c_str(), &mini_stat[lrb_var], "mean/D:err/D:rms/D");
+    TBranch *b1_reg = tout_run->Branch(reg_var.c_str(), &stat[reg_var],	"mean/D:err/D:rms/D");
+    TBranch *b1_lrb = tout_run->Branch(lrb_var.c_str(), &stat[lrb_var],	"mean/D:err/D:rms/D");
     if (update) {
-      mini_brs.push_back(b_mini);
-      mini_brs.push_back(b_burst);
-      run_brs.push_back(b1);
+      mini_brs.push_back(b_reg);
+      mini_brs.push_back(b_lrb);
+      run_brs.push_back(b1_reg);
+      run_brs.push_back(b1_lrb);
     }
 
     sum[var] = 0;
@@ -267,50 +434,17 @@ void TAggregate::Aggregate()
   }
 
   minirun = 0;
-  for (int session=0; session < sessions; session++) {
+  for (int session=0; session < sessions; session++) 
+	{
     int n	= fEntryNumber[run][session].size();
-    if (n == 0) {
+    if (n == 0) 
+		{
       cerr << WARNING << "no valid minirun in run: " << run << ", session: " << session << ENDL;
       continue;
     }
     int Smini = n>9000 ? n/9000 : 1; // number of miniruns in a session
-    TFile *frun_slope, *fmini_slope; 
-    TTree *trun_slope, *tmini_slope, *tburst_slope; // FIXME somehow, mini slope is different from burst slope
-    if (nSlopes > 0) {
-      const char *run_name = Form("%s/prexPrompt_pass2_%d.%03d.root", run_prefix, run, session);
-      const char *mini_name = Form("%s/prexPrompt_%d_%03d_regress_postpan.root", mini_prefix, run, session);
-      frun_slope = new TFile(run_name, "read");
-      fmini_slope = new TFile(mini_name, "read");
-      if (!frun_slope->IsOpen() || !fmini_slope->IsOpen()) {
-        cerr << ERROR << "^^^^run: " << run << "\tsession: " << session << "\tcan't find some rootfiles for slope:\n"
-          << "\t" << run_name << endl
-          << "\t" << mini_name << ENDL;
-        frun_slope->Close();
-        fmini_slope->Close();
-        continue;
-      }
-      const char *run_tree = "lrb_alldet"; 
-      const char *mini_tree = "mini";
-      const char *burst_tree = "burst_lrb_alldet";
-      trun_slope = (TTree *) frun_slope->Get(run_tree);
-      tmini_slope = (TTree *) fmini_slope->Get(mini_tree);
-      tburst_slope = (TTree *) frun_slope->Get(burst_tree);
-      if (!trun_slope || !tmini_slope || !tburst_slope) {
-        cerr << ERROR << "^^^^run: " << run << "\tsession: " << session << "\tcan't read some trees: \n"
-          << "\t" << run_tree << endl
-          << "\t" << mini_tree << endl
-          << "\t" << burst_tree << ENDL;
-        continue;
-      }
-      trun_slope->SetBranchAddress("A", run_slope);
-      trun_slope->SetBranchAddress("dA", run_slope_err);
-      tmini_slope->SetBranchAddress("coeff", slope_buf);
-      tmini_slope->SetBranchAddress("err_coeff", slope_err_buf);
-      tburst_slope->SetBranchAddress("|statA", burst_slope);
-      tburst_slope->SetBranchAddress("|statdA", burst_slope_err);
-    }
-
-    for (int mini=0; mini<Smini; mini++, minirun++) {
+    for (int mini=0; mini<Smini; mini++, minirun++) 
+		{
       cout << INFO << "aggregate minirun: " << mini << " of run: " << run << " session: " << session << ENDL;
       num_samples = (mini == Smini-1) ? n-9000*mini : 9000;
       for (int i=0; i<num_samples; i++, iok++) {
@@ -318,94 +452,33 @@ void TAggregate::Aggregate()
           double val = fVarValue[var][iok];
           mini_sum[var] += val;
           mini_sum2[var] += val * val;
-          sum[var] += val;
-          sum2[var] += val * val;
         }
       }
-      for (string var : allVars) {
+      for (string var : allVars) 
+			{
         mini_stat[var].mean = mini_sum[var]/num_samples;
         mini_stat[var].rms = sqrt((mini_sum2[var] - mini_sum[var]*mini_sum[var]/num_samples)/(num_samples-1));
         mini_stat[var].err = mini_stat[var].rms / sqrt(num_samples);
+				sum[var] += mini_sum[var];
+				sum2[var] += mini_sum2[var];
         mini_sum[var] = 0;
         mini_sum2[var] = 0;
       }
-      if (nSlopes > 0) {
-        trun_slope->GetEntry(mini);
-        tmini_slope->GetEntry(mini);
-        tburst_slope->GetEntry(mini);
-        for (pair<string, string> slope : fSlopes) {
-          string var = slope.first + '_' + slope.second;
-          string mini_var = "reg_" + var;
-          string burst_var = "burst_" + var;
-
-          if (fRunArm[run] != 0) {  // single arm
-            const char *arm = "r";
-            const char *other_arm = "l";
-            if (fRunArm[run] == 2) {
-              arm = "l";
-              other_arm = "r";
-            }
-
-            if (slope.first.find(Form("asym_us%s", other_arm))) {
-              mini_stat[mini_var] = {0/0., 0/0., 0/0.};
-              mini_stat[burst_var] = {0/0., 0/0., 0/0.};
-              continue;
-            }
-
-            int pos;
-            if ((pos = slope.first.find("_avg")) != string::npos)
-              slope.first.replace(pos, 4, arm);
-            else if  ((pos = slope.first.find("_dd")) != string::npos)
-              slope.first.replace(pos, 3, arm);
-          }
-          mini_stat[mini_var].mean = slope_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second];
-          mini_stat[mini_var].err = slope_err_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second];
-          mini_stat[mini_var].rms = 0;
-          mini_stat[burst_var].mean = burst_slope[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
-          mini_stat[burst_var].err = burst_slope_err[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
-          mini_stat[burst_var].rms = 0;
-        }
-      }
+			for (pair<string, string> slope : fSlopes) {
+				for (string method : cmethods)
+				{
+					string var = method + '_' + slope.first + '_' + slope.second;
+					mini_stat[var] = fSlopeValue[var][mini];
+					double weight = 1/pow(mini_stat[var].err, 2);
+					sum[var] += weight*mini_stat[var].mean;
+					sum_weight[var] += weight;
+				}
+			}
       if (update) {
         for (TBranch *b : mini_brs)
           b->Fill();
       } else 
         tout_mini->Fill();
-    }
-    if (nSlopes > 0) {  // average session-level slope values, weighted by 1/err²
-      trun_slope->GetEntry(0);
-      for (pair<string, string> slope : fSlopes) {
-        string var = slope.first + '_' + slope.second;
-
-        if (fRunArm[run] != 0) {  // single arm
-          const char *arm = "r";
-          const char *other_arm = "l";
-          if (fRunArm[run] == 2) {
-            arm = "l";
-            other_arm = "r";
-          }
-
-          if (slope.first.find(Form("asym_us%s", other_arm)) != string::npos)
-            continue;
-
-          int pos;
-          if ((pos = slope.first.find("_avg")) != string::npos)
-            slope.first.replace(pos, 4, arm);
-          else if  ((pos = slope.first.find("_dd")) != string::npos)
-            slope.first.replace(pos, 3, arm);
-        }
-
-        double mean = run_slope[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
-        double err = run_slope_err[fSlopeIndex[slope].second][burst_dv_index[slope.first]];
-        double weight = 1/pow(err, 2);
-        sum[var] += weight*mean;
-        sum_weight[var] += weight;
-      }
-      trun_slope->Delete();
-      tmini_slope->Delete();
-      tburst_slope->Delete();
-      frun_slope->Close();
-      fmini_slope->Close();
     }
   }
 
@@ -416,18 +489,21 @@ void TAggregate::Aggregate()
     sum[var] = 0;
     sum2[var] = 0;
   }
-  if (nSlopes > 0) {
-    for (pair<string, string> slope : fSlopes) {
-      string var = slope.first + '_' + slope.second;
-      if (sum_weight[var] == 0)
-        stat[var] = {0/0., 0/0., 0/0.};
-      else {
-        stat[var].mean = sum[var]/sum_weight[var];
-        stat[var].err = sqrt(1/sum_weight[var]);
-        stat[var].rms = 0;
-      }
-    }
-  }
+	for (pair<string, string> slope : fSlopes) 
+	{
+		for (string method : cmethods)
+		{
+			string var = method + '_' + slope.first + '_' + slope.second;
+			if (sum_weight[var] == 0)
+				stat[var] = {0/0., 0/0., 0/0.};
+			else {
+				stat[var].mean = sum[var]/sum_weight[var];
+				stat[var].err = sqrt(1/sum_weight[var]);
+				stat[var].rms = 0;
+			}
+			fSlopeValue[var].clear();
+		}
+	}
   fout.cd();
   if (update) {
     tout_mini->Write("", TObject::kOverwrite);
@@ -446,16 +522,12 @@ void TAggregate::Aggregate()
 
 void TAggregate::AggregateRuns() {
   set<int> runs = fRuns;
-  fSlugs.clear(); 
-  nSlugs = 0;
   for (int r : runs) {
     cout << INFO << "aggregating run: " << r << ENDL;
     set<string> varBuf = fVars;
     vector<string> cusBuf = fCustoms;
     vector<pair<string, string>> slopeBuf = fSlopes;
-		run=r; 
-		fRuns.clear(); 
-		fRuns.insert(run); 
+		SetAggRun(r);
     CheckVars();
     if (!(fVars.size() + fCustoms.size() + fSlopes.size())) {
       cerr << WARNING << "run: " << run << ". No new variables in update mode, skip it" << ENDL;
@@ -483,6 +555,7 @@ void TAggregate::AggregateRuns() {
       cout << ENDL;
     }
     GetValues();
+		GetSlopeValues();
     ProcessValues();
     Aggregate();
     fVars = varBuf;

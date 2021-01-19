@@ -39,7 +39,7 @@ void TAggSlug::GetConfig(const TConfig fConf) {
 		string v = var.substr(0, var.find('.'));
     // fVars.erase(v);
 		fVars.insert(v + ".mean");
-		// fVars.insert(v + ".err");
+		fVars.insert(v + ".err");
 		fVars.insert(v + ".rms");
 		fBrVars.insert(v);
 	}
@@ -59,7 +59,7 @@ void TAggSlug::SetAggSlug(const int s) {
 void TAggSlug::AggSlug()
 {
 	unsigned int num_runs = fRuns.size();
-	unsigned int num_miniruns = nOk;
+	unsigned int num_miniruns = nOk;	// FIXME: what if I aggregate from run?
 	unsigned int num_samples = 0;
 	map<string, double> sum;
 	// map<string, STAT> sum2;
@@ -120,15 +120,20 @@ void TAggSlug::AggSlug()
 		double n2 = fVarValue["num_samples"][i];
 		for (string var : fBrVars) {
 			double m2 = fVarValue[var+".mean"][i];
+      double err2 = fVarValue[var+".err"][i];
 			double rms2 = fVarValue[var+".rms"][i];
-      // double err2 = rms2/sqrt(n2);
-      if (std::isnan(m2) && std::isnan(rms2)) // single arm nan value
+      if (std::isnan(m2) && std::isnan(rms2)) // single arm nan value; here may cause different n1 values
         continue;
-			double var2 = pow(rms2, 2);  // variance
-      double dev2 = (n2-1)*var2;  // deviation
-      double weight = n2/var2;    // w = 1/pow(err, 2)
+      double weight = 1/pow(err2, 2);
       sum_weight[var] += weight;
 			sum[var] += m2*weight; // weighted mean
+			if (std::isnan(rms2))	// slope
+			{
+				dev1[var] = 0/0.;
+				continue;
+			}
+			double var2 = pow(rms2, 2);  // variance
+      double dev2 = (n2-1)*var2;  // deviation
 			double delta = m2 - m1[var];
 			m1[var] += n2/(n1[var]+n2)*delta;
 			dev1[var] = dev1[var] + dev2 + n1[var]*n2/(n1[var]+n2)*pow(delta, 2);

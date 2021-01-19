@@ -38,10 +38,6 @@ TBase::TBase()
 }
 
 TBase::~TBase() {
-  // if (slope_buf) 
-	// 	delete slope_buf;
-  // if (slope_err_buf) 
-	// 	delete slope_err_buf;
   cerr << INFO << "End of TBase" << ENDL;
 }
 
@@ -200,29 +196,17 @@ void TBase::CheckVars() {
     const char * file_name = fRootFile[g][0].c_str();
     TFile * f_rootfile = new TFile(file_name, "read");
     if (!f_rootfile->IsOpen()) {
-      cerr << WARNING << granularity << "-" << g << ": can't read root file: " << file_name 
-           << ", skip it." << ENDL;
-      goto next;
+      cerr << ERROR << granularity << "-" << g << ": can't read root file: " << file_name << ENDL;
+			f_rootfile->Close();
+      exit(44);
     }
   
-		// slope
-    vector<TString> *l_iv, *l_dv;
-    if (nSlopes > 0) {
-      l_iv = (vector<TString>*) f_rootfile->Get("IVNames");
-      l_dv = (vector<TString>*) f_rootfile->Get("DVNames");
-      if (l_iv == NULL || l_dv == NULL){
-        cerr << WARNING << "run-" << g << " ^^^^ can't read IVNames or DVNames in root file: " 
-             << file_name << ", skip this run." << ENDL;
-        goto next;
-      }
-    }
-
-    TTree * tin;
-		tin = (TTree*) f_rootfile->Get(tree);
+    TTree *tin = (TTree*) f_rootfile->Get(tree);
     if (tin == NULL) {
-      cerr << WARNING << granularity << "-" << g << ": can't read tree: " << tree 
-        << " in root file: " << file_name << ", skip it." << ENDL;
-      goto next;
+      cerr << ERROR << granularity << "-" << g << ": can't read tree: " << tree 
+        << " in root file: " << file_name << ENDL;
+			f_rootfile->Close();
+      exit(44);
     }
 
     for (auto const ftree : ftrees) {
@@ -354,57 +338,6 @@ void TBase::CheckVars() {
 			}
 		}
 
-		if (nSlopes>0) {
-			rows = l_dv->size();
-			cols = l_iv->size();
-			slope_buf = new double[rows*cols];
-			slope_err_buf = new double[rows*cols];
-			bool error_dv_flag = false;
-			bool error_iv_flag = false;
-			for (vector<pair<string, string>>::iterator it=fSlopes.begin(); it != fSlopes.end(); ) {
-				string dv = it->first;
-				string iv = it->second;
-				vector<TString>::const_iterator it_dv = find(l_dv->cbegin(), l_dv->cend(), dv);
-				vector<TString>::const_iterator it_iv = find(l_iv->cbegin(), l_iv->cend(), iv);
-				if (it_dv == l_dv->cend() || it_iv == l_iv->cend()) {
-					if (it_dv == l_dv->cend()) {
-            if (fVarAlt.find(dv) != fVarAlt.end()) {
-              it_dv = find(l_dv->cbegin(), l_dv->cend(), fVarAlt[dv]);
-              if (it_dv == l_dv->cend()) {
-                cerr << WARNING << "Invalid dv name for slope: " << dv << ENDL;
-                error_dv_flag = true;
-              }
-            }
-					}
-					if (it_iv == l_iv->cend()) {
-            if (fVarAlt.find(iv) != fVarAlt.end()) {
-              it_iv = find(l_iv->cbegin(), l_iv->cend(), fVarAlt[iv]);
-              if (it_iv == l_iv->cend()) {
-                cerr << WARNING << "Invalid iv name for slope: " << iv << ENDL;
-                error_iv_flag = true;
-              }
-            }
-					}
-					map<pair<string, string>, VarCut>::const_iterator it_c = fSlopeCut.find(*it);
-					if (it_c != fSlopeCut.cend())
-						fSlopeCut.erase(it_c);
-					it = fSlopes.erase(it);
-					continue;
-				}
-				fSlopeIndex[*it] = make_pair(it_dv-l_dv->cbegin(), it_iv-l_iv->cbegin());
-				it++;
-			}
-			if (error_dv_flag) {
-				cout << DEBUG << "List of valid dv names:" << ENDL;
-				for (vector<TString>::const_iterator it = l_dv->cbegin(); it != l_dv->cend(); it++) 
-					cout << "\t" << (*it).Data() << endl;
-			}
-			if (error_iv_flag) {
-				cout << DEBUG << "List of valid dv names:" << ENDL;
-				for (vector<TString>::const_iterator it = l_iv->cbegin(); it != l_iv->cend(); it++) 
-					cout << "\t" << (*it).Data() << endl;
-			}
-		}
 		tin->Delete();
 		f_rootfile->Close();
 		break;
@@ -488,25 +421,35 @@ next:
   nCors  = fCors.size();
   nCustoms = fCustoms.size();
 
-  cout << INFO << "" << nSolos << " valid solo variables specified:" << ENDL;
-  for(string solo : fSolos) {
-    cout << "\t" << solo << endl;
+	if (nSolos)
+	{
+		cout << INFO << "" << nSolos << " valid solo variables specified:" << ENDL;
+		for(string solo : fSolos) 
+			cout << "\t" << solo << endl;
   }
-  cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
-  for(pair<string, string> comp : fComps) {
-    cout << "\t" << comp.first << " , " << comp.second << endl;
+	if (nComps)
+	{
+		cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
+		for(pair<string, string> comp : fComps)
+			cout << "\t" << comp.first << " , " << comp.second << endl;
   }
-  cout << INFO << "" << nSlopes << " valid slopes specified:" << ENDL;
-  for(pair<string, string> slope : fSlopes) {
-    cout << "\t" << slope.first << " : " << slope.second << endl;
+	if (nSlopes)
+	{
+		cout << INFO << "" << nSlopes << " valid slopes specified:" << ENDL;
+		for(pair<string, string> slope : fSlopes)
+			cout << "\t" << slope.first << " : " << slope.second << endl;
   }
-  cout << INFO << "" << nCors << " valid correlations specified:" << ENDL;
-  for(pair<string, string> cor : fCors) {
-    cout << "\t" << cor.first << " : " << cor.second << endl;
+	if (nCors)
+	{
+		cout << INFO << "" << nCors << " valid correlations specified:" << ENDL;
+		for(pair<string, string> cor : fCors)
+			cout << "\t" << cor.first << " : " << cor.second << endl;
   }
-  cout << INFO << "" << nCustoms << " valid customs specified:" << ENDL;
-  for(string custom : fCustoms) {
-    cout << "\t" << custom << endl;
+	if (nCustoms)
+	{
+		cout << INFO << "" << nCustoms << " valid customs specified:" << ENDL;
+		for(string custom : fCustoms)
+			cout << "\t" << custom << endl;
   }
 }
 
@@ -540,10 +483,7 @@ bool TBase::CheckCustomVar(Node * node) {
  * 5. special variables: bpm11X
  * 7. provide some statistical features of the values
  */
-void TBase::GetValues() {  // return accepted number of entries
-
-  // make sure multi-calling return the same results
-
+void TBase::GetValues() {  
 	// initialization
   for (string var : fVars) {
     fVarValue[var].clear();
@@ -631,11 +571,6 @@ void TBase::GetValues() {  // return accepted number of entries
       if (error)
         continue;
 
-      // if (nSlopes > 0) {
-      //   tin->SetBranchAddress("coeff", slope_buf);
-      //   tin->SetBranchAddress("err_coeff", slope_err_buf);
-      // }
-
       const int N = tin->Draw(">>elist", cut, "entrylist");
       TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
       cout << INFO << "use cut: " << cut << ENDL;
@@ -667,13 +602,6 @@ void TBase::GetValues() {  // return accepted number of entries
             fVarMax[var] = abs(val);
         }
       }
-
-      // slope
-      // for (pair<string, string> slope : fSlopes) {
-      //   // double unit = ppm/(um/mm);
-      //   fSlopeValue[slope].push_back(slope_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
-      //   fSlopeErr[slope].push_back(slope_err_buf[fSlopeIndex[slope].first*cols+fSlopeIndex[slope].second]);
-      // }
 
 			fEntries[g][session] = tin->GetEntries();
 			nTotal += fEntries[g][session];

@@ -63,6 +63,7 @@ int main(int argc, char* argv[]) {
     fAgg.SetSlugs(slugs);
 
 	fAgg.CheckRuns();
+	fAgg.CheckSlopeVars();
 	fAgg.TBase::CheckVars();
   fAgg.AggregateRuns();
 
@@ -77,7 +78,7 @@ void usage() {
        << "\t -r: specify runs (seperated by comma, no space between them. run range is supported: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-       << "\t -d: prefix of name of output dir" << endl
+       << "\t -d: name of output dir" << endl
        << endl
        << "  Example:" << endl
        << "\t ./aggregate -c agg.conf -R slug123.list -n slug123" << endl

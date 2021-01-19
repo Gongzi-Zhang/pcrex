@@ -54,7 +54,7 @@ std::map<std::string, const double> UNITS = {
   {"C",   1},
 };
 
-std::vector<std::string> BURST_DV1 = {  // for runs <= 6464
+std::vector<std::string> LRB_DV1 = {  // for runs <= 6464
 	"asym_sam1",
 	"asym_sam2",
 	"asym_sam3",
@@ -104,7 +104,7 @@ std::vector<std::string> BURST_DV1 = {  // for runs <= 6464
 	"asym_us_avg",
 	"asym_us_dd",
 };
-std::vector<std::string> BURST_DV2 = {  // for runs >= 6514
+std::vector<std::string> LRB_DV2 = {  // for runs >= 6514
 	"asym_sam1",
 	"asym_sam2",
 	"asym_sam3",

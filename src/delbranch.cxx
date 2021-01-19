@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 {
 	const char *file = NULL, *tree = NULL;
 	set<const char *> branches;
-  char opt;
+	char opt;
   while((opt = getopt(argc, argv, "hf:t:b:")) != -1)
   {
 		switch(opt)
@@ -85,8 +85,7 @@ int main(int argc, char* argv[])
 	set<string> all_branches;
 	TObjArray* blist = t->GetListOfBranches();
 	TIter next(blist);
-	TObject *it;
-	while (it = next())
+	while (TObject *it = next())
 		all_branches.insert(it->GetName());
 	// TObjArray* llist = t->GetListOfLeaves();
 	for (auto b : branches)
@@ -106,7 +105,7 @@ int main(int argc, char* argv[])
 		// blist->Remove(br);
 		// TObjArray* list = br->GetListOfLeaves();
 		// TIter lnext(list);
-		// while (it = lnext())
+		// while (TObject *it = lnext())
 		// 	llist->Remove(it);
 	}
 	auto tout = t->CloneTree();
@@ -122,6 +121,8 @@ int main(int argc, char* argv[])
 	// delete t;
 	delete tout;
 	delete f;
+
+	cout << INFO << "done with file: " << file << ENDL;
 }
 
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

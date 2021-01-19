@@ -58,11 +58,6 @@ class TBase
     vector<pair<string, string>>      fCors;
     map<pair<string, string>, VarCut> fCorCut;
 
-    map<pair<string, string>, pair<int, int>>	  fSlopeIndex;
-    int     rows, cols;
-    double *slope_buf = NULL;
-    double *slope_err_buf = NULL;
-
     map<int, vector<string>> fRootFile;
     map<string, pair<string, string>> fVarName;
     map<string, string> fBrAlt;
@@ -75,8 +70,6 @@ class TBase
 		map<string, const char *> fVarUnit;
     map<string, double>  vars_buf;	// temp. value storage
 		map<string, vector<double>> fVarValue;	// real value storage;
-    map<pair<string, string>, vector<double>> fSlopeValue;
-    map<pair<string, string>, vector<double>> fSlopeErr;
 
 		map<string, double> fVarSum;
 		map<string, double> fVarSum2;
