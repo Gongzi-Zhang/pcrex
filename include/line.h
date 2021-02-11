@@ -17,7 +17,7 @@ char* StripSpaces(char *line);
 bool IsEmpty(const char *line);
 bool IsInteger(const char *line);
 bool IsNumber(const char *line);
-int  Size(const char *line);
+// int  Size(const char *line);
 int  Index(const char *line, const char c, const int start=0);
 int	 Index(const char *line, const char *sub, const int start=0);
 int  Count(const char *line, const char c);
@@ -27,6 +27,8 @@ std::vector<char*> Split(const char *line, const char del);
 std::vector<char*> Split(const char *line, const char *del);
 char* Sub(const char *line, const int start=0);
 char* Sub(const char *line, const int start, const int length);
+void  Reg(char *);	// assistant func, remember allocated memory address
+void  Free();	// assistant func, help to free memory allocated in Sub functions
 void StringTests();
 
 #endif

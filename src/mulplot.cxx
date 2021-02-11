@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
   set<int> slugs;
 
   char opt;
-  while((opt = getopt(argc, argv, "hlc:r:R:s:a:n:f:")) != -1)
+  while((opt = getopt(argc, argv, "hlc:r:R:s:a:i:w:t:n:f:")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -43,6 +43,15 @@ int main(int argc, char* argv[]) {
 			case 'a':
 				SetArmFlag(optarg);
 				break;
+			case 'i':
+				SetIHWP(optarg);
+				break;
+			case 'w':
+				SetWienFlip(optarg);
+				break;
+      case 't':
+        SetRunType(optarg);
+        break;
       case 'n':
         out_name = optarg;
         break;
@@ -59,11 +68,6 @@ int main(int argc, char* argv[]) {
 		exit(4);
 	}
 
-  if (out_name)
-    SetOutName(out_name);
-  if (out_format)
-    SetOutFormat(out_format);
-
   if (dconf)
     cout << INFO << "use default config file: " << config_file << ENDL;
 	TConfig fConf(config_file, run_list);
@@ -78,6 +82,12 @@ int main(int argc, char* argv[]) {
     fMulPlot.SetRuns(runs);
   if (slugs.size() > 0)
     fMulPlot.SetSlugs(slugs);
+
+  if (out_name)
+    SetOutName(out_name);
+  if (out_format)
+    SetOutFormat(out_format);
+
 
   fMulPlot.Draw();
 	fMulPlot.GetOutliers();
@@ -94,7 +104,10 @@ void usage() {
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
        << "\t -l: set log scale" << endl
-			 << "\t -a: indicate arm flag you want (both, left, right: default both): of course, single arm specification will also include both arms running, but not vice versa." << endl
+			 << "\t -a: indicate arm flag you want (both, left, right)" << endl
+			 << "\t -i: set wanted ihwp state (IN, OUT)" << endl
+			 << "\t -w: set wien flip (FLIP-LEFT, FLIP-RIGHT, Vertical(UP), Vertical(DOWN))" << endl
+			 << "\t -t: set run type (Production, A-T...)" << endl
        << "\t -n: prefix of name of output" << endl
        << "\t -f: output file format (pdf or png: default pdf)" << endl
        << endl

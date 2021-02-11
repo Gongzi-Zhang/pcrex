@@ -5,6 +5,7 @@
 #include <set>
 #include <map>
 #include "TLeaf.h"
+#include "TCut.h"
 #include "TConfig.h"
 
 using namespace std;
@@ -20,8 +21,7 @@ class TBase
     const char *dir   = "/adaqfs/home/apar/PREX/prompt/results/";
     string pattern    = "prexPrompt_xxxx_???_regress_postpan.root";
     const char *tree  = "reg";
-		const char *cut	  = "";
-    // bool logy         = false;
+		TCut tcut;	// tree cut
 		map<string, const char*> ftrees;	// friend trees: tree, file_name
     vector<pair<long, long>> ecuts;
 
@@ -67,7 +67,6 @@ class TBase
 		long nOk = 0;  // total number of ok events 
 		map<int, map<int, vector<long>>> fEntryNumber; // entry number of good entry
 		map<int, map<int, int>> fEntries;  // number of entries for each session of each granularity
-		map<string, const char *> fVarUnit;
     map<string, double>  vars_buf;	// temp. value storage
 		map<string, vector<double>> fVarValue;	// real value storage;
 
@@ -81,6 +80,7 @@ class TBase
      ~TBase();
      virtual void GetConfig(const TConfig &fConf);
      void SetDir(const char *d);
+		 void SetTreeCut(TCut cut) {tcut = cut;}
      void CheckGrans();
      pair<string, string> ParseVar(const string var);
      virtual void CheckVars();

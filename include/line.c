@@ -10,11 +10,19 @@
 
 using namespace std;
 
-// struct cmp_str {
-//   bool operator()(const char *a, const char *b) const {
-//     return strcmp(a, b) < 0;
-//   }
-// };
+vector<char *> subs;
+
+void Reg(char * s) {subs.push_back(s);}
+void Free()
+{
+	while (subs.size())
+	{
+		char *s = subs.back();
+		if (s)
+			delete[] s;
+		subs.pop_back();
+	}
+}
 
 bool StripComment(char* line) {
   if (line == NULL) {
@@ -173,26 +181,13 @@ bool IsNumber(const char *line) {
   return true;
 }
 
-int Size(const char *line) {
-  if (line == NULL) {
-    cerr << ERROR << "uninitialized line";
-    return -1;
-  }
-
-  int i=0;
-  while (line[i] != '\0')
-    i++;
-
-  return i;
-}
-
 int Index(const char *line, const char c, const int start) { // first index of char in line since start position
   if (line == NULL) {
     cerr << WARNING << "uninitialized line";
     return -2;
   }
   
-  const int n = Size(line);
+  const int n = strlen(line);
   if (abs(start) >= n) {
     cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
     return -3;
@@ -219,8 +214,8 @@ int Index(const char *line, const char *sub, const int start) {  // index of a s
     return -3;
 	}
   
-  const int n = Size(line);
-  const int m = Size(sub);
+  const int n = strlen(line);
+  const int m = strlen(sub);
 
   if (abs(start) >= n) {
     cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
@@ -273,8 +268,8 @@ bool Contain(const char *line, const char *sub, const int start) {
     return false;
   }
   
-  const int n = Size(line);
-  const int m = Size(sub);
+  const int n = strlen(line);
+  const int m = strlen(sub);
   if (abs(start) >= n) {
     cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
     return false;
@@ -313,14 +308,15 @@ char * Sub(const char *line, const int start) {
     return NULL;
   }
 
-  const int n = Size(line);
+  const int n = strlen(line);
   if (abs(start) >= n) {
     cerr << ERROR << "invalid position: " << start << " in line: " << line << ENDL;
     return NULL;
   }
 
   // char *sub = (char*) malloc(sizeof(char) * (start>0 ? n-start+1 : -start+1));
-  char *sub = new char[start>0 ? n-start+1 : -start+1];
+  char *sub = new char[start>=0 ? n-start+1 : -start+1];
+	Reg(sub);	// register new allocated memory
   if (start >= 0)
     strcpy(sub, line+start);
   else
@@ -340,7 +336,7 @@ char * Sub(const char *line, const int start, const int length) {
     return NULL;
   }
 
-  const int n = Size(line);
+  const int n = strlen(line);
   if (abs(start) >= n) {
     cerr << ERROR << "invalid start position: " << start << " in line: " << line << ENDL;
     return NULL;
@@ -352,6 +348,7 @@ char * Sub(const char *line, const int start, const int length) {
 
   // char *sub = (char*) malloc(sizeof(char) * (size+1));
   char *sub = new char[size+1];
+	Reg(sub);
   strncpy(sub, (start>=0 ? line+start : line+n+start), size);
   sub[size] = '\0';
   return sub;
@@ -399,7 +396,8 @@ vector<char*> Split(const char *line, const char del) {
     n++;
 
   int index1=0, index2;
-  while (index1 < n && (index2=Index(line, del, index1)) >= index1) {
+  while (index1 < n && (index2=Index(line, del, index1)) >= index1) 
+	{
     // if (index2 == index1) {	// empty field
     //   index1 += 1;
     //   continue;
@@ -420,8 +418,8 @@ vector<char*> Split(const char *line, const char *del) {
     return fields; // FIXME: what should be return?
   }
 
-  int n=Size(line);
-	int m=Size(del);
+  int n=strlen(line);
+	int m=strlen(del);
 	int pi = 0;
 	int i = Index(line, del, pi);	// if del is null, return minus value
 	while (i>=pi) {
@@ -443,8 +441,6 @@ void StringTests() {
   assert(IsInteger(" - 00101 ") == false);
   assert(IsInteger("00101.") == false);
   assert(IsNumber("1.34e2") == true);
-  assert(Size(" \t ") == 3);
-  assert(Size(line) == 12);
   assert(Index(line, ',') == 5);
   assert(Index(line, ',', 6) == -1);
   assert(Index(line, ',', -4) == -1);

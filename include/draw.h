@@ -10,7 +10,7 @@
 enum Format {pdf, png};
 
 Format format = pdf; // default pdf output
-const char *out_name = "out";
+const char *out_name;
 TCanvas *c;
 map<int, const char *> legends = {
   {-1,  "left in"},
@@ -26,7 +26,7 @@ vector<int> flips;
 vector<int> mcolors = {2, 4, 3, 6};
 vector<int> mstyles = {20, 21, 22, 23};
 
-void SetOutName(const char *name) {if (name) out_name = name;}
+void SetOutName(const char *name) {if (name) out_name = name; else cerr << WARNING << "null pointer passed." << ENDL;}
 void SetOutFormat(const char *f);
 const char * GetInUnit(string branch, string leaf="");
 const char * GetOutUnit(string branch, string leaf="");
@@ -45,8 +45,8 @@ void SetOutFormat(const char *f) {
 const char * GetInUnit (string branch, string leaf) {
   if (branch.find("asym") != string::npos && branch.find("diff") != string::npos) 
     return "1/mm";
-  else if (branch.find("asym") != string::npos) 
-    return "";
+  // else if (branch.find("asym") != string::npos) 
+  //   return "";
   else if (branch.find("diff") != string::npos) 
     return "mm";
   else if (branch.find("yield") != string::npos) {
@@ -57,6 +57,7 @@ const char * GetInUnit (string branch, string leaf) {
   } 
   return "";
 }
+
 const char * GetOutUnit (string branch, string leaf) {
   if (branch.find("asym") != string::npos && branch.find("diff") != string::npos) { // slope
     return "ppm/um";

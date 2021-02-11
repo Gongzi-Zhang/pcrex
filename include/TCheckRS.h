@@ -38,7 +38,6 @@
 #include "TConfig.h"
 #include "TRSbase.h"
 #include "draw.h"
-#include "TCheckRS.h"
 
 using namespace std;
 
@@ -55,7 +54,7 @@ class TCheckRS : public TRSbase {
     map<string, string> fVarInUnit;
     map<string, string> fVarOutUnit;
     double xmin, xmax;
-    TCanvas *c;
+    // TCanvas *c;
 
   public:
      TCheckRS(const char *t);
@@ -78,14 +77,16 @@ TCheckRS::TCheckRS(const char *t) :
   if (strcmp(t, "slug") == 0) {
     pt = slug;
     granularity = "slug";
-    out_name	= "checkslug";
+		if (!out_name)
+			out_name	= "checkslug";
     dir       = "rootfiles/";
     pattern   = "agg_slug_xxxx.root"; 
     tree      = "slug";
   } else if (strcmp(t, "run") == 0) {
     pt = run;
     granularity = "run";
-    out_name	= "checkrun";
+		if (!out_name)
+			out_name	= "checkrun";
     dir       = "rootfiles/";
     pattern   = "agg_minirun_xxxx.root"; 
     tree      = "run";
@@ -127,15 +128,18 @@ void TCheckRS::ProcessValues() {
   for (string var : fVars) {
     fVarInUnit[var] = GetInUnit(fVarName[var].first, fVarName[var].second);
     fVarOutUnit[var] = GetOutUnit(fVarName[var].first, fVarName[var].second);
+		double unit = UNITS[fVarInUnit[var]]/UNITS[fVarOutUnit[var]];
+		bool sflag = sign 
+								 && (var.find("asym") != string::npos ^ var.find("diff") != string::npos)  
+								 && fVarName[var].second == "mean"; // sign correction, only for mean value
 
     int i = 0;
     for (int g : fGrans) {
       const int sessions = fRootFile[g].size();
       for (int s=0; s<sessions; s++) {
-        if (sign && (var.find("asym") != string::npos ^ var.find("diff") != string::npos)  
-            && fVarName[var].second == "mean") // only for mean value
+        if (sflag) 
           fVarValue[var][i] *= fSign[g] > 0 ? 1 : (fSign[g] < 0 ? -1 : 0);
-        fVarValue[var][i] *= (UNITS[fVarInUnit[var]] / UNITS[fVarOutUnit[var]]);
+        fVarValue[var][i] *= unit;
         i++;  
       }
     }
@@ -367,7 +371,6 @@ void TCheckRS::DrawSolos() {
         g->SetPoint(i, rs, val);
         g->SetPointError(i, 0, err);
         i++;
-        // cerr << DEBUG << solo << "\t" << rs << "\t" << g->GetYaxis()->GetXmin() << "\t" << g->GetYaxis()->GetXmax() << ENDL;
 
         if (alt && find(alt_rs.begin(), alt_rs.end(), rs) != alt_rs.end()) {
           int j = galt->GetN();

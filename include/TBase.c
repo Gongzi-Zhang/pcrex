@@ -39,6 +39,7 @@ TBase::TBase()
 
 TBase::~TBase() {
   cerr << INFO << "End of TBase" << ENDL;
+	Free();
 }
 
 void TBase::GetConfig(const TConfig &fConf)
@@ -73,8 +74,8 @@ void TBase::GetConfig(const TConfig &fConf)
   if (fConf.GetPattern())   pattern = fConf.GetPattern();
   if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
   if (fConf.GetTreeCut()) {
-		cut	= fConf.GetTreeCut();
-		Node *node = ParseExpression(cut);
+		tcut	= fConf.GetTreeCut();
+		Node *node = ParseExpression(tcut);
 		for (string var : GetVariables(node))
 			fCutVars.insert(var);
 		DeleteNode(node);
@@ -571,11 +572,11 @@ void TBase::GetValues() {
       if (error)
         continue;
 
-      const int N = tin->Draw(">>elist", cut, "entrylist");
+      const int N = tin->Draw(">>elist", tcut, "entrylist");
       TEntryList *elist = (TEntryList*) gDirectory->Get("elist");
-      cout << INFO << "use cut: " << cut << ENDL;
+      cout << INFO << "use cut: " << tcut << ENDL;
       if (N == 0) {
-        cerr << WARNING << granularity << "-" << g << " session-" << session << " fails cut: " << cut << ENDL;
+        cerr << WARNING << granularity << "-" << g << " session-" << session << " fails cut: " << tcut << ENDL;
         continue;
       }
       for(int n=0; n<N; n++) { // loop through the events
@@ -611,7 +612,7 @@ void TBase::GetValues() {
     }
   }
 
-  cout << INFO << "with cut: " << cut <<  "--read " << nOk << "/" << nTotal << " good entries." << ENDL;
+  cout << INFO << "with cut: " << tcut <<  "--read " << nOk << "/" << nTotal << " good entries." << ENDL;
 }
 
 void TBase::GetCustomValues() {
@@ -624,25 +625,18 @@ void TBase::GetCustomValues() {
       cvars.insert(var);
   }
 
-  int iok=0;
-  for (int g : fGrans) {
-    const int sessions = fRootFile[g].size();
-    for (int s=0; s<sessions; s++) {
-      const int n = fEntryNumber[g][s].size();
-      for (int i=0; i<n; i++, iok++) {
-        for (string var : cvars)
-          vars_buf[var] = fVarValue[var][iok];
-        for (string c : fCustoms) {
-          double val = get_custom_value(fCustomDef[c]);
-          vars_buf[c] = val;
-          fVarValue[c].push_back(val);
-          // fVarSum[c]  += val;
-          // fVarSum2[c] += val * val;
+	for (int i=0; i<nOk; i++) {
+		for (string var : cvars)
+			vars_buf[var] = fVarValue[var][i];
+		for (string c : fCustoms) {
+			double val = get_custom_value(fCustomDef[c]);
+			vars_buf[c] = val;
+			fVarValue[c].push_back(val);
+			// fVarSum[c]  += val;
+			// fVarSum2[c] += val * val;
 
-          if (abs(val) > fVarMax[c]) 
-            fVarMax[c] = abs(val);
-        }
-      }
+			if (abs(val) > fVarMax[c]) 
+				fVarMax[c] = abs(val);
     }
   }
 }

@@ -16,7 +16,7 @@ const				:= const.h
 checkrs			:= TCheckRS.h
 checkmini		:= TCheckMini.h
 checkevent	:= TCheckEvent.h
-mulplot			:= TMulplot.h
+mulplot			:= TMulPlot.h
 aggregate		:= TAggregate.h
 aggslug			:= TAggSlug.h
 
@@ -27,7 +27,7 @@ $(rcdb_obj): rcdb.c $(io)
 $(TBase_obj): TBase.c $(io) 
 	g++ $(CXXFLAGS) -c -o $@ $< $(root_libs)
 
-assist_obj := $(TConfig) $(line) $(math_eval)
+assist_obj := $(TConfig_obj) $(line_obj) $(math_eval_obj)
 $(assist_obj): bin/%.o: %.c
 	@echo "compiling $@"
 	g++ $(CXXFLAGS) -c -o $@ $<
@@ -41,7 +41,10 @@ test:
 	echo $(agg_obj)
 run_obj := $(addprefix bin/, $(run))
 
-all: $(checkobj) $(aggobj) $(runojb)
+all: $(checkobj) $(aggobj) $(runojb) | bin
+
+bin:
+	mkdir bin
 
 .SECONDEXPANSION:
 $(check_obj) $(agg_obj): bin/%: %.cxx $$(%) $(TRSbase) $(TConfig_obj) $(TBase_obj) $(rcdb_obj) $(line_obj) $(math_eval_obj)

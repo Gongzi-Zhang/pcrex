@@ -88,13 +88,9 @@ void TMulPlot::Draw() {
        << "\tuse tree: " << tree << ENDL;
 
   CheckRuns();
+	GetRunInfo();
   CheckVars();
   GetValues();
-
-	for (string var : fCustoms)	{		// merge customs into solos/vars
-		fSolos.push_back(var);
-		fVars.insert(var);
-	}
 
 	FillHistograms();
   DrawHistograms();
@@ -102,43 +98,64 @@ void TMulPlot::Draw() {
 
 void TMulPlot::FillHistograms() {
 	map<string, double> up;
+	map<string, double> vUnit;
+	map<string, const char *> inUnit;
+	map<string, const char *> outUnit;
+	
+	// sign and unit corrections
 	for (string var : fVars) {
-		fVarUnit[var] = GetUnit(var);
-		fVarMax[var] /= UNITS[fVarUnit[var]];
-    long max = ceil(fVarMax[var]);
-    int power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    up[var] = (a+1) * pow(10, power) / 10.;
+		inUnit[var] = GetInUnit(fVarName[var].first, fVarName[var].second);
+		outUnit[var] = GetOutUnit(fVarName[var].first, fVarName[var].second);
+		double unit = UNITS[inUnit[var]]/UNITS[outUnit[var]];
+		vUnit[var] = unit;
+		fVarMax[var] *= unit;
+		// sign correction, only for asym/diff values
+		bool sflag = (var.find("asym") != string::npos ^ var.find("diff") != string::npos); 
 
 		// default sign correction
 		int iok = 0;
 		for (int run : fRuns) {
       int s = fRunSign[run] > 0 ? 1 : (fRunSign[run] < 0 ? -1 : 0);
       const size_t sessions = fRootFile[run].size();
-      for (size_t session=0; session < sessions; session++) {
+      for (size_t session=0; session < sessions; session++) 
+			{
         for (int i = 0; i < fEntryNumber[run][session].size(); i++, iok++)
-        fVarValue[var][iok] *= s;
-      }
+				{
+					if (sflag)
+						fVarValue[var][iok] *= s;
+					fVarValue[var][iok] *= unit;
+				}
+			}
 		}
 	}
 
-  // initialize histogram
-	for (string var : fVars) {
-		double unit = UNITS[fVarUnit[var]];
-    for (int i=0; i<nOk; i++)
-      fVarValue[var][i] /= unit;
+	GetCustomValues();
+	for (string var : fCustoms)	{		// merge customs into solos/vars
+		fSolos.push_back(var);
+		fVars.insert(var);
+		outUnit[var] = GetOutUnit(var, var);
+		vUnit[var] = 1/UNITS[outUnit[var]];
+		fSoloCut[var] = fCustomCut[var];
 	}
 
+	for (string var : fVars) {
+    long max = ceil(fVarMax[var]);
+    int power = floor(log(max)/log(10));
+    int  a = max*10 / pow(10, power);
+    up[var] = (a+1) * pow(10, power) / 10.;
+	}
+
+  // initialize histogram
   for (string solo : fSolos) {
-		double unit = UNITS[fVarUnit[solo]];
+		double unit = vUnit[solo];
 		double high = up[solo];
 		double low  = -high;
     if (fSoloCut[solo].low != 1024)
-      low = fSoloCut[solo].low/unit;
+      low = fSoloCut[solo].low*unit;
     if (fSoloCut[solo].high != 1024)
-      high = fSoloCut[solo].high/unit;
+      high = fSoloCut[solo].high*unit;
     
-    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), fVarUnit[solo]), 100, low, high);
+    fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), outUnit[solo]), 100, low, high);
     for (int i=0; i<nOk; i++)
       fSoloHists[solo]->Fill(fVarValue[solo][i]);
   }
@@ -146,17 +163,17 @@ void TMulPlot::FillHistograms() {
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
-		double unit = UNITS[fVarUnit[var1]];
+		double unit = vUnit[var1];
 		double high = (up[var1] > up[var2] ? up[var1] : up[var2]) * 1.05;
 		double low  = -high;
     if (fCompCut[comp].low != 1024)
-      low = fCompCut[comp].low/unit;
+      low = fCompCut[comp].low*unit;
     if (fCompCut[comp].high != 1024)
-      high = fCompCut[comp].high/unit;
+      high = fCompCut[comp].high*unit;
 
     size_t h = hash<string>{}(var1+var2);
-    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), fVarUnit[var1]), 100, low, high);
-    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), fVarUnit[var2]), 100, low, high);
+    fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), outUnit[var1]), 100, low, high);
+    fCompHists[comp].second = new TH1F(Form("%s_%ld", var2.c_str(), h), Form("%s;%s", var2.c_str(), outUnit[var2]), 100, low, high);
 
     for (int i=0; i<nOk; i++) {
       fCompHists[comp].first->Fill(fVarValue[var1][i]);
@@ -167,20 +184,20 @@ void TMulPlot::FillHistograms() {
 	for (pair<string, string> cor : fCors) {
     string xvar = cor.second;
     string yvar = cor.first;
-		double xunit = UNITS[fVarUnit[xvar]];
-		double yunit = UNITS[fVarUnit[yvar]];
+		double xunit = vUnit[xvar];
+		double yunit = vUnit[yvar];
 		double xhigh = up[xvar] * 1.05;
 		double xlow = -xhigh;
 		double yhigh = up[yvar] * 1.05;
 		double ylow = -yhigh;
 
     // if (fCorCut[cor].low != 1024)
-    //   min = fCorCut[cor].low/UNITS[unit];
+    //   min = fCorCut[cor].low*unit[xvar];
     // if (fCompCut[comp].high != 1024)
-    //   min = fCompCut[comp].high/UNITS[unit];
+    //   min = fCompCut[comp].high*unit[yvar];
 
     fCorHists[cor] = new TH2F((yvar + xvar).c_str(), 
-				Form("%s vs %s; %s/%s; %s/%s", yvar.c_str(), xvar.c_str(), xvar.c_str(), fVarUnit[xvar], yvar.c_str(), fVarUnit[yvar]),
+				Form("%s vs %s; %s/%s; %s/%s", yvar.c_str(), xvar.c_str(), xvar.c_str(), outUnit[xvar], yvar.c_str(), outUnit[yvar]),
 				100, xlow, xhigh,
 				100, ylow, yhigh);
 

@@ -93,25 +93,30 @@ void TConfig::ParseConfFile() {
 				fRS.insert(i);
 				parsed = true;
 			}
-    } else if (session & 2) {
+    } 
+		else if (session & 2) 
       parsed = ParseSolo(current_line);
-    } else if (session & 4) {
+    else if (session & 4) 
       parsed = ParseComp(current_line);
-    } else if (session & 8) {
+    else if (session & 8) 
       parsed = ParseSlope(current_line);
-    } else if (session & 16) {
+    else if (session & 16) 
       parsed = ParseCor(current_line);
-    } else if (session & 32) {
+    else if (session & 32) 
       parsed = ParseCustom(current_line);
-    } else if (session & 64) {
+    else if (session & 64)
       parsed = ParseEntryCut(current_line);
-    } else {
+    else 
+		{
       cerr << WARNING << "unknown session, ignore line " << nline << ENDL;
       continue;
     }
 
     if (!parsed)
+		{
       cerr << ERROR << "line " << nline << " can't be parsed correclty." << ENDL;
+			exit(44);
+		}
   }
   ifs.close();
 
@@ -169,48 +174,71 @@ void TConfig::ParseRSfile() {
   }
 }
 
-bool TConfig::ParseSolo(char *line) {
-  vector<char*> fields = Split(line, ';');
-  VarCut cut = {1024, 1024, 1024};
-  char *var=NULL, *alt=NULL;
+bool TConfig::SetCut(VarCut &cut, vector<char *> fields) 
+{
+	cut = {1024, 1024, 1024};
   switch (fields.size()) {
-    case 4:
-      StripSpaces(fields[3]);
-      if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(ParseExpression(fields[3]));
+    case 3:
+      StripSpaces(fields[2]);
+      if (!IsEmpty(fields[2])) {
+        double val = ExtractValue(ParseExpression(fields[2]));
         if (val == -9999) {
           cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
           return false;
         }
         cut.burplevel = val;
       }
-    case 3:
-      StripSpaces(fields[2]);
-      if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(ParseExpression(fields[2]));
+    case 2:
+      StripSpaces(fields[1]);
+      if (!IsEmpty(fields[1])) {
+        double val = ExtractValue(ParseExpression(fields[1]));
         if (val == -9999) {
           cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
           return false;
         }
         cut.high = val;
       }
-    case 2:
-      StripSpaces(fields[1]);
-      if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(ParseExpression(fields[1]));
+    case 1:
+      StripSpaces(fields[0]);
+      if (!IsEmpty(fields[0])) {
+        double val = ExtractValue(ParseExpression(fields[0]));
         if (val == -9999) {
           cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
           return false;
         }
         cut.low = val;
       }
-    case 1:
-      var = fields[0];
-      break;
+			break;
+		case 0:
+			return true;
     default:
+      cerr << ERROR << "At most 3 fields for cut!" << ENDL;
+      return false;
+  }
+
+	if (cut.high != 1024 && cut.low != 1024 && cut.low > cut.high)
+	{
+		cerr << ERROR << "Upper limit cut must be larger than low limit cut" << ENDL;
+		return false;
+	}
+
+	return true;
+}
+
+bool TConfig::ParseSolo(char *line) {
+  vector<char*> fields = Split(line, ';');
+  VarCut cut;
+  char *var=NULL, *alt=NULL;
+
+	if (fields.size() > nFIELDS)
+	{
       cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
+	var = fields[0];
+	fields.erase(fields.begin());
+	if (!SetCut(cut, fields))
+		return false;
 
   // alternative
   if (Contain(var, "(") && Contain(var, ")") &&
@@ -244,55 +272,24 @@ bool TConfig::ParseSolo(char *line) {
 // in custom definition, then define it in solo (or other) part
 bool TConfig::ParseCustom(char *line) {
   vector<char*> fields = Split(line, ';');
-  VarCut cut = {1024, 1024, 1024};
+  VarCut cut;
   char *var;
   char *def;
-  switch (fields.size()) {
-    case 4:
-      StripSpaces(fields[3]);
-      if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(ParseExpression(fields[3]));
-        if (val == -9999) {
-          cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
-          return false;
-        }
-        cut.burplevel = val;
-      }
-    case 3:
-      StripSpaces(fields[2]);
-      if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(ParseExpression(fields[2]));
-        if (val == -9999) {
-          cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
-          return false;
-        }
-        cut.high = val;
-      }
-    case 2:
-      StripSpaces(fields[1]);
-      if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(ParseExpression(fields[1]));
-        if (val == -9999) {
-          cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
-          return false;
-        }
-        cut.low = val;
-      }
-    case 1:
-			{
-				vector<char *> vfields = Split(fields[0], ':');
-				if (vfields.size() != 2) {
-					cerr << ERROR << "Wrong format in defining custom variable (var: definition): " << fields[0] << ENDL;
-					return false;
-				}
-				var = vfields[0];
-				def = vfields[1];
-			}
-      break;
-    default:
-      cerr << ERROR << "At most 4 fields per custom line!" << ENDL;
+	if (fields.size() > nFIELDS)
+	{
+      cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
+	vector<char *> vfields = Split(fields[0], ':');
+	if (vfields.size() != 2) {
+		cerr << ERROR << "Wrong format in defining custom variable (var: definition): " << fields[0] << ENDL;
+		return false;
+	}
+	var = vfields[0];
+	def = vfields[1];
+	fields.erase(fields.begin());
+	if (!SetCut(cut, fields))
+		return false;
 
   if (IsEmpty(var)) {
     cerr << ERROR << "Empty variable for custom. " << ENDL;
@@ -340,7 +337,7 @@ bool TConfig::ParseEntryCut(char *line) {
         return false;
       }
       start = atoi(fields[0]);
-      if (line[Size(line) - 1] == ':')  // xxxx:
+      if (line[strlen(line) - 1] == ':')  // xxxx:
         end = -1;
       else 
         end = start;
@@ -360,51 +357,21 @@ bool TConfig::ParseEntryCut(char *line) {
 
 bool TConfig::ParseComp(char *line) {
   vector<char*> fields = Split(line, ';');
-  VarCut cut = {1024, 1024, 1024};
+  VarCut cut;
   vector<char*> vars;
-  switch (fields.size()) {
-    case 4:
-      StripSpaces(fields[3]);
-      if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(ParseExpression(fields[3]));
-        if (val == -9999) {
-          cerr << ERROR << "Non-number value for diff cut" << ENDL;
-          return false;
-        }
-        cut.burplevel = val;
-      }
-    case 3:
-      StripSpaces(fields[2]);
-      if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(ParseExpression(fields[2]));
-        if (val == -9999) {
-          cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
-          return false;
-        }
-        cut.high = val;
-      }
-    case 2:
-      StripSpaces(fields[1]);
-      if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(ParseExpression(fields[1]));
-        if (val == -9999) {
-          cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
-          return false;
-        }
-        cut.low = val;
-      }
-    case 1:
-      vars = Split(fields[0], ',');
-      break;
-    default:
-      cerr << ERROR << "At most 4 fields per comparison line" << ENDL;
+	if (fields.size() > nFIELDS)
+	{
+      cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
-
+	vars = Split(fields[0], ',');
   if (vars.size() != 2) {
     cerr << ERROR << "wrong variables (should be: varA,varB) for comparison" << ENDL;
     return false;
   }
+	fields.erase(fields.begin());
+	if (!SetCut(cut, fields))
+		return false;
 
   char *alts[2];
   for (int i=0; i<2; i++) {
@@ -447,51 +414,21 @@ bool TConfig::ParseComp(char *line) {
 
 bool TConfig::ParseSlope(char *line) {
   vector<char*> fields = Split(line, ';');
-  VarCut cut = {1024, 1024, 1024};
+  VarCut cut;
   vector<char*> vars;
-  switch (fields.size()) {
-    case 4:
-      StripSpaces(fields[3]);
-      if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(ParseExpression(fields[3]));
-        if (val == -9999) {
-          cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
-          return false;
-        }
-        cut.burplevel = val;
-      }
-    case 3:
-      StripSpaces(fields[2]);
-      if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(ParseExpression(fields[2]));
-        if (val == -9999) {
-          cerr << ERROR << "Non-number value for upper limit cut" << ENDL;
-          return false;
-        }
-        cut.high = val;
-      }
-    case 2:
-      StripSpaces(fields[1]);
-      if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(ParseExpression(fields[1]));
-        if (val == -9999) {
-          cerr << ERROR << "Non-number value for lower limit cut" << ENDL;
-          return false;
-        }
-        cut.low = val;
-      }
-    case 1:
-      vars = Split(fields[0], ':');
-      break;
-    default:
-      cerr << ERROR << "At most 4 fields per slope line" << ENDL;
+	if (fields.size() > nFIELDS)
+	{
+      cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
-
+	vars = Split(fields[0], ':');
   if (vars.size() != 2) {
     cerr << ERROR << "wrong variables (should be: varA:varB) for slope" << ENDL;
     return false;
   }
+	fields.erase(fields.begin());
+	if (!SetCut(cut, fields))
+		return false;
 
   char *alts[2];
   for (int i=0; i<2; i++) {
@@ -530,51 +467,23 @@ bool TConfig::ParseSlope(char *line) {
 
 bool TConfig::ParseCor(char *line) {
   vector<char*> fields = Split(line, ';');
-  VarCut cut = {1024, 1024, 1024};
+  VarCut cut;
   vector<char*> vars;
-  switch (fields.size()) {
-    case 4:
-      StripSpaces(fields[3]);
-      if (!IsEmpty(fields[3])) {
-        double val = ExtractValue(ParseExpression(fields[3]));
-        if (val == -9999) {
-          cerr << ERROR << "Invalid value for burplevel cut" << ENDL;
-          return false;
-        }
-        cut.burplevel = val;
-      }
-    case 3:
-      StripSpaces(fields[2]);
-      if (!IsEmpty(fields[2])) {
-        double val = ExtractValue(ParseExpression(fields[2]));
-        if (val == -9999) {
-          cerr << ERROR << "Invalid value for correlation slope high cut" << ENDL;
-          return false;
-        }
-        cut.high = val;
-      }
-    case 2:
-      StripSpaces(fields[1]);
-      if (!IsEmpty(fields[1])) {
-        double val = ExtractValue(ParseExpression(fields[1]));
-        if (val == -9999) {
-          cerr << ERROR << "Invalid value for correlation slope low cut" << ENDL;
-          return false;
-        }
-        cut.low = val;
-      }
-    case 1:
-      vars = Split(fields[0], ':');
-      break;
-    default:
-      cerr << ERROR << "At most 2 fields per correlation line" << ENDL;
+	if (fields.size() > nFIELDS)
+	{
+      cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
+	vars = Split(fields[0], ':');
+	vars = Split(fields[0], ':');
 
   if (vars.size() != 2) {
     cerr << ERROR << "wrong variables (should be: varA:varB) for correlation" << ENDL;
     return false;
   }
+	fields.erase(fields.begin());
+	if (!SetCut(cut, fields))
+		return false;
 
   char *alts[2];
   for (int i=0; i<2; i++) {
@@ -637,18 +546,21 @@ bool TConfig::ParseOtherCommands(char *line) {
     return false;
   }
 
-  if (strcmp(command, "@dir") == 0) {
+  if (strcmp(command, "@dir") == 0) 
     dir = value;
-  } else if (strcmp(command, "@pattern") == 0) {
+  else if (strcmp(command, "@pattern") == 0) 
     pattern = value;
-  } else if (strcmp(command, "@tree") == 0) {
+  else if (strcmp(command, "@tree") == 0) 
     tree = value;
-  } else if (strcmp(command, "@cut") == 0) {
+  else if (strcmp(command, "@cut") == 0) 
     tcut = value;
-  } else if (strcmp(command, "@logy") == 0) {
+  else if (strcmp(command, "@logy") == 0) 
+	{
     if (strcmp(value, "true") == 0) 
       logy = true;
-  } else if (strcmp(command, "@friendtree") == 0) {
+  } 
+	else if (strcmp(command, "@friendtree") == 0) 
+	{
     int ind = Index(value, ';');
     const char * t = ind > 0 ? StripSpaces(Sub(value, 0, ind)) : value;
     const char * f = ind > 0 ? StripSpaces(Sub(value, ind+1)) : "";
@@ -658,9 +570,11 @@ bool TConfig::ParseOtherCommands(char *line) {
       return false;
     }
     ftrees[t] = f;
-	} else if (strcmp(command, "@highlightcut") == 0) {
+	} 
+	else if (strcmp(command, "@highlightcut") == 0) 
 		hcuts.push_back(value);
-  } else {
+  else 
+	{
     cerr << WARNING << "Unknow commands: " << command << ENDL;
     return false;
   }

@@ -71,7 +71,8 @@ class TCheckMini : public TRSbase {
 TCheckMini::TCheckMini() :
   TRSbase()
 {
-	out_name	= "checkmini";
+	if (!out_name)
+		out_name	= "checkmini";
 	// dir       = "/chafs2/work1/apar/postpan-outputs/";
 	// pattern   = "prexPrompt_xxxx_???_regress_postpan.root"; 
 	// tree      = "mini";
@@ -293,14 +294,17 @@ void TCheckMini::DrawSolos() {
     for(int i=0; i<nMiniruns; i++) {
       double val, err=0;
       val = fVarValue[solo][i];
+			if (std::isnan(val))
+				continue;
       if (mean) 
         err = fVarValue[err_var][i];
 
       h->SetBinContent(i+1, val);
-      g->SetPoint(i, i+1, val);
-      g->SetPointError(i, 0, err);
+			int ipoint = g->GetN();
+      g->SetPoint(ipoint, i+1, val);
+      g->SetPointError(ipoint, 0, err);
 
-      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
+      ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
       g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
       g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
     }
@@ -341,7 +345,7 @@ void TCheckMini::DrawSolos() {
       pull = new TH1F("pull", "", nMiniruns, 0.5, nMiniruns+0.5);
       for (int i=0; i<nMiniruns; i++) {
         double ratio = 0;
-        if (fVarValue[err_var][i]!= 0)
+        if (fVarValue[err_var][i]!= 0 && !std::isnan(fVarValue[solo][i]))
           ratio = (fVarValue[solo][i]-mean_value)/fVarValue[err_var][i];
 
         pull->Fill(i+1, ratio);
@@ -473,6 +477,8 @@ void TCheckMini::DrawComps() {
       for(int m=0; m<nMiniruns; m++) {
         double val, err=0;
         val = fVarValue[var[i]][m];
+				if (std::isnan(val))
+					continue;
         if (mean) 
           err = fVarValue[err_var[i]][m];
         if (m==0) 
@@ -588,6 +594,8 @@ void TCheckMini::DrawCors() {
       for(int m=0; m<nMiniruns; m++) {
         double val, err=0;
         val = fVarValue[var[i]][m];
+				if (std::isnan(val))
+					continue;
         if (mean[i]) 
           err = fVarValue[err_var[i]][m];
 

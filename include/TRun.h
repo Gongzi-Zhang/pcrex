@@ -11,6 +11,7 @@
 
 #include "TROOT.h"
 #include "TFile.h"
+#include "TList.h"
 #include "TTree.h"
 #include "TH1F.h"
 #include "TCanvas.h"
@@ -30,22 +31,25 @@ map<string, pair<double, double>> GetRegValues    (const int run, vector<char *>
 map<string, pair<double, double>> GetSlowValues   (const int run, vector<char *> vars, TCut cut);
 char *  FindCutFile(glob_t, const int run);
 
-const char * cut_dir =
+const char * map_dir =
   (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
     "/adaqfs/home/apar/PREX/japan/Parity/prminput" : 
-    ".";
+    (Contain(hostname, "ifarm") ? 
+      "/u/group/halla/parity/software/japan_offline/prompt/prex-prompt/Parity/prminput/" :
+    "."
+		);
 const char * japan_dir = 
   (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
     "/chafs2/work1/apar/japanOutput" : 
     (Contain(hostname, "ifarm") ? 
-      "/lustre/expphy/volatile/halla/parity/prex-respin2/japanOutput" :
+      "/lustre/expphy/volatile/halla/parity/crex-respin1/japanOutput" :
       "."
     );
 const char * reg_dir = 
   (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
     "/chafs2/work1/apar/postpan-outputs" :
     (Contain(hostname, "ifarm") ? 
-      "/lustre/expphy/volatile/halla/parity/prex-respin2/postpan_respin" :
+      "/lustre/expphy/volatile/halla/parity/crex-respin1/postpan_respin" :
       "."
     );
       
@@ -66,26 +70,40 @@ vector<const char *> GetCutFiles (const int run) {
   };
 
   for (int i=0; i<prefix.size(); i++) {
-    pattern = Form("%s/%s.*.map", cut_dir, prefix[i]);
+    pattern = Form("%s/%s.*.map", map_dir, prefix[i]);
     glob(pattern, 0, NULL, &globbuf);
     cut_files.push_back(FindCutFile(globbuf, run));
   }
 
   // bad event cut
-  pattern = Form("%s/prex_bad_events.%d.map", cut_dir, run);
+  pattern = Form("%s/prex_bad_events.%d.map", map_dir, run);
   glob(pattern, 0, NULL, &globbuf);
   if (globbuf.gl_pathc > 0)
     cut_files.push_back(basename(globbuf.gl_pathv[0]));
 
   globfree(&globbuf);
   if (cut_files.size() == 0) 
-    cut_files.push_back(Form("No cut files for run: %d founded in specified dir: %s/", run, cut_dir));
+    cut_files.push_back(Form("No cut files for run: %d founded in specified dir: %s/", run, map_dir));
 
   return cut_files;
 }
 
 vector<const char *> GetPedestals (const int run) {
   vector<const char *> pedestals;
+	const char * root_file = Form("%s/prexPrompt_pass2_%d.%03d.root", japan_dir, run, 0);
+	TFile fin(root_file, "read");
+	if (fin.IsOpen()) 
+	{
+		TList * peds = (TList *) fin.Get("mapfiles");
+		const int n = peds->GetSize();
+		for (int i=0; i<n; i++)
+			if (Contain(peds->At(i)->GetName(), "pedestal"))
+				pedestals.push_back(peds->At(i)->GetName());
+		return pedestals;
+	} 
+	else 
+		cerr << WARNING << "no japan rootfile found, deduce pedestals file from run number."  << ENDL;
+
   glob_t globbuf;
   const char * pattern;
   vector<const char *> prefix = {
@@ -96,14 +114,14 @@ vector<const char *> GetPedestals (const int run) {
   };
 
   for (int i=0; i<prefix.size(); i++) {
-    pattern = Form("%s/%s.*.map", cut_dir, prefix[i]);
+    pattern = Form("%s/%s.*.map", map_dir, prefix[i]);
     glob(pattern, 0, NULL, &globbuf);
     pedestals.push_back(FindCutFile(globbuf, run));
   }
 
   globfree(&globbuf);
   if (pedestals.size() == 0) 
-    pedestals.push_back(Form("No pedestal files for run: %d founded in specified dir: %s/", run, cut_dir));
+    pedestals.push_back(Form("No pedestal files for run: %d founded in specified dir: %s/", run, map_dir));
 
   return pedestals;
 }

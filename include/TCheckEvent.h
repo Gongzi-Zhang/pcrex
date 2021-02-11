@@ -32,7 +32,7 @@
 #include "TText.h"
 #include "TLine.h"
 
-// #include "rcdb.h"
+#include "rcdb.h"
 #include "const.h"
 #include "line.h"
 #include "TConfig.h"
@@ -41,27 +41,24 @@
 
 using namespace std;
 
-class TCheckRuns : public TRSbase {
+class TCheckEvent : public TRSbase {
 
-    // ClassDe (TCheckRuns, 0) // check statistics
+    // ClassDe (TCheckEvent, 0) // check statistics
 
   private:
-		const char *mCut;
-    vector<TCut> allCuts; // all cuts with mCut begin the first, highlight cuts follow
-		map<TCut, map<string, vector<double>>> fValues;
+		// const char *mCut;
+    // vector<TCut> allCuts; // all cuts with mCut begin the first, highlight cuts follow
+		vector<long> fEntryNumber_buf;
 
     map<string, set<int>>									fSoloBadPoints;
     map<string, set<int>>									fCustomBadPoints;
     map<pair<string, string>, set<int>>	  fCompBadPoints;
     map<pair<string, string>, set<int>>	  fCorBadPoints;
 
-    TCanvas * c;
-
   public:
-     TCheckRuns();
-     ~TCheckRuns();
+     TCheckEvent();
+     ~TCheckEvent();
 		 void GetConfig(const TConfig fConf);
-		 void  GetValues();
 		 void ProcessValues();
      void CheckValues();
      void Draw();
@@ -71,21 +68,23 @@ class TCheckRuns : public TRSbase {
      void DrawCors();
 };
 
-// ClassImp(TCheckRuns);
+// ClassImp(TCheckEvent);
 
-TCheckRuns::TCheckRuns() :
+TCheckEvent::TCheckEvent() :
 	TRSbase()
 {
-	out_name = "checkruns";
+	if (!out_name)
+		out_name = "checkruns";
 	// program = checkruns;
 	// dir = "/chafs2/work1/apar/japanOutput/";
 	// pattern = "prexPrompt_pass2_xxxx.???.root";
 	// tree = "evt";
 }
 
-void TCheckRuns::GetConfig(const TConfig fConf) {
+void TCheckEvent::GetConfig(const TConfig fConf) {
 	TBase::GetConfig(fConf);
-	mCut = cut;
+	/*
+	mCut = tcut;
 	allCuts.push_back(mCut);
 	vector<const char *> hCuts = fConf.GetHighlightCut();
 	for (const char *c : hCuts) {
@@ -95,42 +94,39 @@ void TCheckRuns::GetConfig(const TConfig fConf) {
 			fCutVars.insert(var);
 		DeleteNode(node);
 	}
+	*/
 }
 
-void TCheckRuns::GetValues() {
-	for (TCut c : allCuts) {
-		cut = c;
-		TBase::GetValues();
-		fValues[c] = fVarValue;
-	}
-
+TCheckEvent::~TCheckEvent() {
+  cerr << INFO << "Release TCheckEvent" << ENDL;
 }
 
-TCheckRuns::~TCheckRuns() {
-  cerr << INFO << "Release TCheckRuns" << ENDL;
-}
-
-void TCheckRuns::ProcessValues() {
+void TCheckEvent::ProcessValues() {
 	set<string> vars;
+	map<string, double> inUnit, outUnit;
 	for (string var : fVars)
 		vars.insert(var);
 	for (string var : fCustoms)
 		vars.insert(var);
-	for (const char *c : allCuts) {	
-		for (string var : vars) {
-			const int N = fValues[c][var].size();
-			for (long i=0; i<N; i++)
-				fValues[c][var][i] /= UNITS[GetUnit(var)];
-		}	
+	for (string var : vars)
+	{
+		inUnit[var] = UNITS[GetInUnit(fVarName[var].first, fVarName[var].second)];
+		outUnit[var] = UNITS[GetOutUnit(fVarName[var].first, fVarName[var].second)];
 	}
+	for (int run : fRuns)
+		for (int s=0; s<fRootFile[run].size(); s++)
+		{
+			const int n = fEntryNumber[run][s].size();
+			for (int i=0; i<n; i++)
+			{
+				fEntryNumber_buf.push_back(fEntryNumber[run][s][i]);
+				for (string var : vars)
+					fVarValue[var][i] *= inUnit[var]/outUnit[var];
+			}
+		}
 }
 
-void TCheckRuns::CheckValues() {
-	// check only the main cut values
-	map<string, vector<double>>& values = fValues[mCut];
-	const vector<long>& entries = fEntryNumber[mCut];
-	const int n = entries.size();
-
+void TCheckEvent::CheckValues() {
 	set<string> vars;
 	for (string var : fSolos)
 		vars.insert(var);
@@ -146,12 +142,12 @@ void TCheckRuns::CheckValues() {
 
 		// first loop: find out the mean value of largest consecutive events segments 
 		// (with large 1s = 120 events discontinuity)
-		long start_entry = entries[0];
+		long start_entry = fEntryNumber_buf[0];
 		pre_entry = start_entry;
 		double length = 1;  // length of consecutive segments
-		for (int i=0; i<n; i++) {
-			entry = entries[i];
-			val = values.at(solo)[i];
+		for (int i=0; i<nOk; i++) {
+			entry = fEntryNumber_buf[i];
+			val = fVarValue.at(solo)[i];
 
 			if (entry - pre_entry > discontinuity || (sigma != 0 && abs(val - mean) > 10*sigma)) {  // end previous segment, start a new segment  
 				if (pre_entry - start_entry > length) {
@@ -185,7 +181,7 @@ void TCheckRuns::CheckValues() {
 		// else if (high_cut == 1024 && low_cut != 1024)
 		//   high_cut = low_cut;
 
-		double unit = UNITS[GetUnit(solo)];
+		double unit = UNITS[GetInUnit(solo)];
 		if (low_cut != 1024) {
 			low_cut /= unit;
 			low_cut = mean - low_cut;
@@ -199,20 +195,20 @@ void TCheckRuns::CheckValues() {
 		else 
 			burp_cut = 10*sigma;
 
-		pre_entry = entries[0];
+		pre_entry = fEntryNumber_buf[0];
 		const int burp_length = 120;  // compare with the average value of previous 120 events
 		double burp_ring[burp_length] = {0};
 		int burp_index = 0;
 		int burp_events = 0;  // how many events in the burp ring now
-		mean = values.at(solo)[0];
+		mean = fVarValue[solo][0];
 		sum = 0;
 		bool outlier = false;
 		long start_outlier;
 		bool has_outlier = false;
 		bool has_glitch = false;
-		for (int i=0; i<n; i++) {
-			entry = entries[i];
-			val = values.at(solo)[i];
+		for (int i=0; i<nOk; i++) {
+			entry = fEntryNumber_buf[i];
+			val = fVarValue[solo][i];
 
 			if (   (low_cut  != 1024 && val < low_cut)
 					|| (high_cut != 1024 && val > high_cut) ) {  // outlier
@@ -221,10 +217,10 @@ void TCheckRuns::CheckValues() {
 					outlier = true;
 					has_outlier = true;
 				}
-				fSoloBadPoints[solo].insert(entries[i]);
+				fSoloBadPoints[solo].insert(fEntryNumber_buf[i]);
 			} else {
 				if (outlier) {
-					cerr << OUTLIER << "in variable: " << solo << "\tfrom entry: " << start_outlier << " to entry: " << entries[i-1] << ENDL;
+					cerr << OUTLIER << "in variable: " << solo << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber_buf[i-1] << ENDL;
 					// FIXME should I add run info in the OUTLIER output?
 					outlier = false;
 				}
@@ -239,7 +235,7 @@ void TCheckRuns::CheckValues() {
 			if (abs(val - mean) > burp_cut) {
 				cerr << GLITCH << "glitch in variable: " << solo << " in entry " << entry << "\tmean: " << mean << "\tvalue: " << val << ENDL;
 				has_glitch = true;
-				fSoloBadPoints[solo].insert(entries[i]);
+				fSoloBadPoints[solo].insert(fEntryNumber_buf[i]);
 			}
 
 			burp_ring[burp_index] = val;
@@ -255,7 +251,7 @@ void TCheckRuns::CheckValues() {
 			pre_entry = entry;
 		}
 		if (outlier)
-			cerr << OUTLIER << "in variable: " << solo << "\tfrom entry: " << start_outlier << " to entry: " << entries[n-1] << ENDL;
+			cerr << OUTLIER << "in variable: " << solo << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber_buf[nOk-1] << ENDL;
 	}
 
 	for (pair<string, string> comp : fComps) {
@@ -264,7 +260,7 @@ void TCheckRuns::CheckValues() {
 		double low_cut  = fCompCut[comp].low;
 		double high_cut = fCompCut[comp].high;
 		double burp_cut = fCompCut[comp].burplevel;
-		double unit = UNITS[GetUnit(var1)];
+		double unit = UNITS[GetInUnit(var1)];
 		if (low_cut != 1024)	low_cut /= unit;
 		if (high_cut != 1024) high_cut /= unit;
 		if (burp_cut != 1024) burp_cut /= unit;
@@ -272,31 +268,31 @@ void TCheckRuns::CheckValues() {
 		bool outlier = false;
 		long start_outlier;
 		bool has_outlier = false;
-		for (int i=0; i<n; i++) {
+		for (int i=0; i<nOk; i++) {
 			double val1, val2;
-			val1 = fValues[mCut][var1][i];
-			val2 = fValues[mCut][var2][i];
+			val1 = fVarValue[var1][i];
+			val2 = fVarValue[var2][i];
 			double diff = abs(val1 - val2);
 
 			if (  (low_cut  != 1024 && diff < low_cut)
 				 || (high_cut != 1024 && diff > high_cut) ) {
 				// || (stat != 1024 && abs(diff-mean) > stat*sigma
 				if (!outlier) {
-					start_outlier = entries[i];
+					start_outlier = fEntryNumber_buf[i];
 					outlier = true;
 					has_outlier = true;
 				}
-				fCompBadPoints[comp].insert(entries[i]);
+				fCompBadPoints[comp].insert(fEntryNumber_buf[i]);
 			} else {
 				if (outlier) {
-					cerr << OUTLIER << "in variable: " << var1 << " vs " << var2 << "\tfrom entry: " << start_outlier << " to entry: " << entries[i-1] << ENDL;
+					cerr << OUTLIER << "in variable: " << var1 << " vs " << var2 << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber_buf[i-1] << ENDL;
 					// FIXME should I add run info in the OUTLIER output?
 					outlier = false;
 				}
 			}
 		}
 		if (outlier)
-			cerr << OUTLIER << "in variable: " << var1 << " vs " << var2 << "\tfrom entry: " << start_outlier << " to entry: " << entries[n-1] << ENDL;
+			cerr << OUTLIER << "in variable: " << var1 << " vs " << var2 << "\tfrom entry: " << start_outlier << " to entry: " << fEntryNumber_buf[nOk-1] << ENDL;
 	}
 
 	/*
@@ -306,8 +302,7 @@ void TCheckRuns::CheckValues() {
 		const double low_cut  = fCorCut[cor].low;
 		const double high_cut = fCorCut[cor].high;
 		const double burp_cut = fCompCut[cor].burplevel;
-		const int n = entries.size();
-		for (int i=0; i<n; i++) {
+		for (int i=0; i<nOk; i++) {
 			double xval, yval;
 			xval = values.at(xvar)[i];
 			yval = values.at(yvar)[i];
@@ -323,7 +318,7 @@ void TCheckRuns::CheckValues() {
 	cout << INFO << "done with checking values" << ENDL;
 }
 
-void TCheckRuns::Draw() {
+void TCheckEvent::Draw() {
   c = new TCanvas("c", "c", 1800, 600);
   c->SetGridy();
   gStyle->SetOptFit(111);
@@ -335,6 +330,13 @@ void TCheckRuns::Draw() {
   if (format == pdf)
     c->Print(Form("%s.pdf[", out_name));
 
+	// for (TCut cut : allCuts)
+	// {
+	//	 SetTreeCut(cut);
+		GetValues();
+		ProcessValues();
+		CheckValues();
+	// }
   DrawSolos();
   // DrawComps();
   // DrawCors();
@@ -345,35 +347,35 @@ void TCheckRuns::Draw() {
   cout << INFO << "done with drawing plots" << ENDL;
 }
 
-void TCheckRuns::DrawSolos() {
+void TCheckEvent::DrawSolos() {
   vector<string> vars;
   for (string var : fSolos)
     vars.push_back(var);
   for (string var : fCustoms)
     vars.push_back(var); // assumes (and should be) no same name between solos and customs
   for (string var : vars) {
-    string unit = GetUnit(var);
+    string unit = GetOutUnit(var);
 
 		// draw for the main cut
     TGraphErrors * g = new TGraphErrors();      // all data points
     // TGraphErrors * g_err = new TGraphErrors();  // ErrorFlag != 0
     // TGraphErrors * g_bad = new TGraphErrors();  // ok data points that don't pass check
 
-    for(int i=0, ibad=0; i<nOk[mCut]; i++) {
-      double val;
-      val = fValues[mCut][var][i];
+		for(int i=0, ibad=0; i<nOk; i++) {
+			double val;
+			val = fVarValue[var][i];
 
-      // g->SetPoint(i, i+1, val);
+			// g->SetPoint(i, i+1, val);
 
-      // g_err->SetPoint(ierr, i+1, val);
-      // ierr++;
+			// g_err->SetPoint(ierr, i+1, val);
+			// ierr++;
 
-      g->SetPoint(i, fEntryNumber[mCut][i], val);
-      // if (fSoloBadPoints[var].find(i) != fSoloBadPoints[var].cend()) {
-      //   g_bad->SetPoint(ibad, fEntryNumber[mCut][i], val);
-      //   ibad++;
-      // }
-    }
+			g->SetPoint(i, fEntryNumber_buf[i], val);
+			// if (fSoloBadPoints[var].find(i) != fSoloBadPoints[var].cend()) {
+			//   g_bad->SetPoint(ibad, fEntryNumber_buf[i], val);
+			//   ibad++;
+			// }
+		}
     g->SetTitle((var + ";;" + unit).c_str());
     // g_err->SetMarkerStyle(1.2);
     // g_err->SetMarkerColor(kBlue);
@@ -392,11 +394,12 @@ void TCheckRuns::DrawSolos() {
 
     if (nRuns > 1) {
       for (int run : fRuns) {
-        TLine *l = new TLine(fEntries[run], ymin, fEntries[run], ymax);
+				const int s = fRootFile[run].size();
+        TLine *l = new TLine(fEntries[run][s-1], ymin, fEntries[run][s-1], ymax);
         l->SetLineStyle(2);
         l->SetLineColor(kRed);
         l->Draw("same");
-        TText *t = new TText(fEntries[run]-nTotal/(2*nRuns), ymin+(ymax-ymin)/30*(run%5 + 1), Form("%d", run));
+        TText *t = new TText(fEntries[run][s-1]-nTotal/(2*nRuns), ymin+(ymax-ymin)/30*(run%5 + 1), Form("%d", run));
         t->SetTextSize((t->GetTextSize())/(nRuns/7+1));
         t->SetTextColor(kRed);
         t->Draw("same");
@@ -405,20 +408,9 @@ void TCheckRuns::DrawSolos() {
 
     c->Modified();
 
-		// draw highlighted cut: assuming number of highlighted cut events are much less that that of the main cut
-		for (int ic=1; ic<allCuts.size(); ic++) {
-			const char * cut = allCuts[ic];
-			TGraphErrors * gc = new TGraphErrors();      // for extra cut
-			for(int i=0; i<nOk[cut]; i++) 
-				gc->SetPoint(i, fEntryNumber[cut][i], fValues[cut][var][i]);
-			gc->SetMarkerColor(1+ic);	// 2==red; 3==green; 4==blue; 5==yellow; 6==pink; 7==cyan; 8==dark green; 9==dark blue
-			if (fEntryNumber[cut].size()*1.0/fEntryNumber[mCut].size() < 0.05)
-				gc->SetMarkerStyle(10);
-			c->cd();
-			gc->Draw("P same");
-			c->Update();
-			c->Modified();
-		}
+		c->Update();
+		c->Modified();
+
     if (format == pdf)
       c->Print(Form("%s.pdf", out_name));
     else if (format == png)
@@ -430,13 +422,13 @@ void TCheckRuns::DrawSolos() {
 }
 
 // it looks like not a good idea to draw diff plots with a few hundred thousands points
-void TCheckRuns::DrawComps() {
+void TCheckEvent::DrawComps() {
   int MarkerStyles[] = {29, 33, 34, 31};
   for (pair<string, string> var : fComps) {
     string var1 = var.first;
     string var2 = var.second;
 
-    string unit = GetUnit(var1);
+    string unit = GetOutUnit(var1);
 
     TGraphErrors *g1 = new TGraphErrors();
     TGraphErrors *g2 = new TGraphErrors();
@@ -444,35 +436,29 @@ void TCheckRuns::DrawComps() {
     TGraphErrors *g_err2 = new TGraphErrors();
     TGraphErrors *g_bad1 = new TGraphErrors();
     TGraphErrors *g_bad2 = new TGraphErrors();
-    TH1F * h_diff = new TH1F("diff", "", nOk[mCut], 0, nOk[mCut]);
+    TH1F * h_diff = new TH1F("diff", "", nOk, 0, nOk);
 
-    double ymin, ymax;
-    for(int i=0, ibad=0; i<nOk[mCut]; i++) {
-      double val1;
-      double val2;
-			val1 = fValues[mCut][var1][i];
-			val2 = fValues[mCut][var2][i];
-      if (i==0) 
-        ymin = ymax = val1;
+    double ymin = fVarMin[var1] < fVarMin[var2] ? fVarMin[var1] : fVarMin[var2];
+    double ymax = fVarMax[var1] < fVarMax[var2] ? fVarMax[var1] : fVarMax[var2];
+		for(int i=0, ibad=0; i<nOk; i++) {
+			double val1;
+			double val2;
+			val1 = fVarValue[var1][i];
+			val2 = fVarValue[var2][i];
 
-      if (val1 < ymin) ymin = val1;
-      if (val1 > ymax) ymax = val1;
-      if (val2 < ymin) ymin = val2;
-      if (val2 > ymax) ymax = val2;
-
-      g1->SetPoint(i, fEntryNumber[mCut][i], val1);
-      g2->SetPoint(i, fEntryNumber[mCut][i], val2);
-      h_diff->SetBinContent(i+1, val1-val2);
-      
-      //  g_err1->SetPoint(ierr, i+1, val1);
-      //  g_err2->SetPoint(ierr, i+1, val2);
-      //  ierr++;
-      if (fCompBadPoints[var].find(i) != fCompBadPoints[var].cend()) {
-        g_bad1->SetPoint(ibad, fEntryNumber[mCut][i], val1);
-        g_bad2->SetPoint(ibad, fEntryNumber[mCut][i], val2);
-        ibad++;
-      }
-    }
+			g1->SetPoint(i, fEntryNumber_buf[i], val1);
+			g2->SetPoint(i, fEntryNumber_buf[i], val2);
+			h_diff->SetBinContent(i+1, val1-val2);
+			
+			//  g_err1->SetPoint(ierr, i+1, val1);
+			//  g_err2->SetPoint(ierr, i+1, val2);
+			//  ierr++;
+			if (fCompBadPoints[var].find(i) != fCompBadPoints[var].cend()) {
+				g_bad1->SetPoint(ibad, fEntryNumber_buf[i], val1);
+				g_bad2->SetPoint(ibad, fEntryNumber_buf[i], val2);
+				ibad++;
+			}
+		}
     double margin = (ymax-ymin)/10;
     ymin -= margin;
     ymax += margin;
@@ -526,11 +512,12 @@ void TCheckRuns::DrawComps() {
     if (nRuns > 1) {
       p1->cd();
       for (int run : fRuns) {
-        TLine *l = new TLine(fEntries[run], ymin, fEntries[run], ymax);
+				const int s = fRootFile[run].size();
+        TLine *l = new TLine(fEntries[run][s-1], ymin, fEntries[run][s-1], ymax);
         l->SetLineStyle(2);
         l->SetLineColor(kRed);
         l->Draw("same");
-        TText *t = new TText(fEntries[run]-nTotal/(5*nRuns), ymin+(ymax-ymin)/30, Form("%d", run));
+        TText *t = new TText(fEntries[run][s-1]-nTotal/(5*nRuns), ymin+(ymax-ymin)/30, Form("%d", run));
         t->Draw("same");
       }
     }
@@ -547,22 +534,22 @@ void TCheckRuns::DrawComps() {
   cout << INFO << "Done with drawing Comparisons." << ENDL;
 }
 
-void TCheckRuns::DrawCors() {
+void TCheckEvent::DrawCors() {
   for (pair<string, string> var : fCors) {
     string xvar = var.second;
     string yvar = var.first;
-    string xunit = GetUnit(xvar);
-    string yunit = GetUnit(yvar);
+    string xunit = GetOutUnit(xvar);
+    string yunit = GetOutUnit(yvar);
 
     TGraphErrors * g = new TGraphErrors();
     TGraphErrors * g_bad  = new TGraphErrors();
     // TGraphErrors * g_good = new TGraphErrors();
 
-    for(int i=0, ibad=0; i<nOk[mCut]; i++) {
+    for(int i=0, ibad=0; i<nOk; i++) {
       double xval;
       double yval;
-			xval = fValues[mCut][xvar][i];
-			yval = fValues[mCut][yvar][i];
+			xval = fVarValue[xvar][i];
+			yval = fVarValue[yvar][i];
 
       g->SetPoint(i, xval, yval);
       

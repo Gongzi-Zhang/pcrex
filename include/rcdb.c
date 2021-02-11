@@ -85,7 +85,7 @@ string gwienflip;
 string gexp = "CREX";
 string gruntype = "Production|A_T";
 string grunflag = "Good";
-string gtarget = "48Ca";
+string gtarget = "48Ca|40Ca|Carbon 1%|D-208Pb4-D";
 // string gexp = "PREX2";
 // string gruntype;
 // string grunflag;
@@ -128,7 +128,7 @@ void SetArmFlag(const char *fs) {
 
 	garmflag.clear();
 	for (char *f : Split(fs, ',')) {
-		char af[Size(f) + 1];
+		char af[strlen(f) + 1];
 		strcpy(af, f);
 		StripSpaces(af);
 		string af_tmp(af);
@@ -152,7 +152,7 @@ void SetWienFlip(const char *fs) {
 
 	gwienflip.clear();
 	for (char *f : Split(fs, ',')) {
-		char wf[Size(f) + 1];
+		char wf[strlen(f) + 1];
 		strcpy(wf, f);
 		StripSpaces(wf);
 		if (wienflips.find(wf) == wienflips.end()) {
@@ -174,7 +174,7 @@ void SetIHWP(const char *ps) {
 
 	gihwp.clear();
 	for (char *p : Split(ps, ',')) {
-		char ip[Size(p) + 1];
+		char ip[strlen(p) + 1];
 		strcpy(ip, p);
 		StripSpaces(ip);
 		if (ihwps.find(ip) == ihwps.end()) {
@@ -196,7 +196,7 @@ void SetExp(const char *es) {
 
 	gexp.clear();
 	for (char *e : Split(es, ',')) {
-		char exp[Size(e) + 1];
+		char exp[strlen(e) + 1];
 		strcpy(exp, e);
 		StripSpaces(exp);
 		if (exps.find(exp) == exps.end()) {
@@ -218,7 +218,7 @@ void SetRunType(const char *ts) {
 
 	gruntype.clear();
 	for (char *t : Split(ts, ',')) {
-		char tp[Size(t) + 1];
+		char tp[strlen(t) + 1];
 		strcpy(tp, t);
 		StripSpaces(tp);
 		if (runtypes.find(tp) == runtypes.end()) {
@@ -240,7 +240,7 @@ void SetRunFlag(const char *fs) {
 
 	grunflag.clear();
 	for (char *f : Split(fs, ',')) {
-		char rf[Size(f) + 1];
+		char rf[strlen(f) + 1];
 		strcpy(rf, f);
 		StripSpaces(rf);
 		if (runflags.find(rf) == runflags.end()) {
@@ -262,7 +262,7 @@ void SetTarget(const char *ts) {
 
 	gtarget.clear();
 	for (char *t : Split(ts, ',')) {
-		char tg[Size(t) + 1];
+		char tg[strlen(t) + 1];
 		strcpy(tg, t);
 		StripSpaces(tg);
 		if (targets.find(tg) == targets.end()) {

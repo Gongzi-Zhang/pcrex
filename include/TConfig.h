@@ -9,6 +9,8 @@
 
 #include "math_eval.h"
 
+#define	 nFIELDS 4
+
 using namespace std;
 
 typedef struct { double low, high, burplevel; } VarCut;
@@ -57,6 +59,7 @@ public:
 
 	void SetRS(const char *rs_list) {fRSfile = rs_list;}
 
+	bool SetCut(VarCut &cut, vector<char *>fields);
   bool ParseSolo(char *line);
   bool ParseComp(char *line);
   bool ParseSlope(char *line);

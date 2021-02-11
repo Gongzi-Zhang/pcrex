@@ -53,15 +53,15 @@ int main(int argc, char* argv[]) {
 	TConfig fConf(config_file);
 	fConf.ParseConfFile();
 
-  TCheckRuns fCheckRuns;
-	fCheckRuns.GetConfig(fConf);
-	fCheckRuns.SetRuns(runs);
-  fCheckRuns.CheckRuns();
-  fCheckRuns.CheckVars();
-  fCheckRuns.GetValues();
-	fCheckRuns.ProcessValues();
-  // fCheckRuns.CheckValues();
-  fCheckRuns.Draw();
+  TCheckEvent fCheckEvent;
+	fCheckEvent.GetConfig(fConf);
+	fCheckEvent.SetRuns(runs);
+  fCheckEvent.CheckRuns();
+  fCheckEvent.CheckVars();
+  fCheckEvent.GetValues();
+	fCheckEvent.ProcessValues();
+  // fCheckEvent.CheckValues();
+  fCheckEvent.Draw();
 
   return 0;
 }
