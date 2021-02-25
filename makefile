@@ -3,12 +3,12 @@ CXXFLAGS		:= -std=c++11 -Iinclude
 root_libs 	 = `root-config --libs --glibs --cflags`
 mysql_libs   = `mysql_config --libs --include`
 
-line_obj				:= bin/line.o
-rcdb_obj				:= bin/rcdb.o
-TConfig_obj			:= bin/TConfig.o
-math_eval_obj		:= bin/math_eval.o
-TBase_obj				:= bin/TBase.o
-TRun_obj				:= bin/TRun.o
+line_obj				:= bin/line.so
+rcdb_obj				:= bin/rcdb.so
+TConfig_obj			:= bin/TConfig.so
+math_eval_obj		:= bin/math_eval.so
+TBase_obj				:= bin/TBase.so
+TRun_obj				:= bin/TRun.so
 
 io					:= io.h
 TRSbase			:= TRSbase.h
@@ -23,14 +23,14 @@ aggslug			:= TAggSlug.h
 VPATH := include:src
 # rcdb
 $(rcdb_obj): rcdb.c $(io) 
-	g++ $(CXXFLAGS) -c -o $@ $< $(mysql_libs)
+	g++ $(CXXFLAGS) -fPIC --shared -o $@ $< $(mysql_libs)
 $(TBase_obj): TBase.c $(io) 
-	g++ $(CXXFLAGS) -c -o $@ $< $(root_libs)
+	g++ $(CXXFLAGS) -fPIC --shared -o $@ $< $(root_libs)
 
 assist_obj := $(TConfig_obj) $(line_obj) $(math_eval_obj)
-$(assist_obj): bin/%.o: %.c
+$(assist_obj): bin/%.so: %.c
 	@echo "compiling $@"
-	g++ $(CXXFLAGS) -c -o $@ $<
+	g++ $(CXXFLAGS) -fPIC --shared -o $@ $<
 
 check := checkrs checkmini checkevent mulplot
 agg		:= aggregate aggslug
