@@ -10,7 +10,7 @@
 using namespace std;
 
 /* condition_type_id
- * 1    float_value   event_rate  
+ * 1		float_value   event_rate  
  * 2      int_value   event_count
  * 3     text_value   run_type
  * 4     text_value   run_config    (config file: ALL_PREX/CH_INJ/CntHouse/Injector...)
@@ -68,13 +68,18 @@ char *  GetRunFlag(const int run);
 char *  GetRunTarget(const int run);
 int     GetRunSlugNumber(const int run);
 int     GetRunArmFlag(const int run);
+int			GetRunSign(const int run);
 char *  GetRunIHWP(const int run);
 char *  GetRunWienFlip(const int run);
 float	  GetRunHelicityHz(const int run);
 char *  GetRunUserComment(const int run);
 char *  GetRunWacNote(const int run);
-int			GetRunSign(const int run);
+
+char *  GetSlugIHWP(const int slug);
+char *  GetSlugWienFlip(const int slug);
+char *	GetSlugTarget(const int slug);
 int     GetSlugSign(const int slug);
+int     GetSlugArmFlag(const int slug);
 
 void    RunTests();
 #endif

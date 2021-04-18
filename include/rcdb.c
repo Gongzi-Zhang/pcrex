@@ -10,10 +10,20 @@
 
 #include "io.h"
 #include "line.h"
-#include "slug_info.h"
 #include "rcdb.h"
 
 using namespace std;
+int _GetFirstValidRun(const int slug)
+{
+	set<int> runs = GetRunsFromSlug(slug);
+	for (int run : runs)
+	{
+		if ((strcmp(GetRunType(run), "Production") == 0 || strcmp(GetRunType(run), "A_T") == 0)
+				&& strcmp(GetRunFlag(run), "Good") == 0)
+			return run;
+	}
+	return 0;
+}
 
 vector<string> armflags = {
 	"both",
@@ -83,9 +93,11 @@ string garmflag;
 string gihwp;
 string gwienflip;
 string gexp = "CREX";
-string gruntype = "Production|A_T";
+string gruntype = "Production|A_T|Calibration";
+// string gruntype = "Production|Calibration|Test|Pedestal|ParityScan";
 string grunflag = "Good";
-string gtarget = "48Ca|40Ca|Carbon 1%|D-208Pb4-D";
+// string gtarget = "48Ca|40Ca|Carbon 1%|D-208Pb4-D";
+string gtarget;
 // string gexp = "PREX2";
 // string gruntype;
 // string grunflag;
@@ -280,7 +292,7 @@ void SetTarget(const char *ts) {
 
 set<int> GetRuns() {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return {};
   }
 
@@ -349,7 +361,7 @@ set<int> GetRuns() {
 
 set<int> GetRunsFromSlug(const int slug) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return {};
   }
 
@@ -367,7 +379,7 @@ set<int> GetRunsFromSlug(const int slug) {
 
 char * GetRunExperiment(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=26", run);
@@ -384,7 +396,7 @@ char * GetRunExperiment(const int run) {
 
 char * GetRunType(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=3", run);
@@ -402,7 +414,7 @@ char * GetRunType(const int run) {
 /*
 float GetRunCurrent(const int run) {  // this is inaccurate
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return -1;
   }
   sprintf(query, "SELECT float_value FROM conditions WHERE run_number=%d AND condition_type_id=16", run);
@@ -419,7 +431,7 @@ float GetRunCurrent(const int run) {  // this is inaccurate
 
 char * GetRunFlag(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=28", run);
@@ -436,7 +448,7 @@ char * GetRunFlag(const int run) {
 
 char * GetRunTarget(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=18", run);
@@ -453,7 +465,7 @@ char * GetRunTarget(const int run) {
 
 int GetRunSlugNumber(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return -1;
   }
   sprintf(query, "SELECT int_value FROM conditions WHERE run_number=%d AND condition_type_id=34", run);
@@ -472,7 +484,7 @@ int GetRunArmFlag(const int run) {
   // 1: right
   // 2: left
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return -1;
   }
   sprintf(query, "SELECT int_value FROM conditions WHERE run_number=%d AND condition_type_id=39", run);
@@ -488,7 +500,7 @@ int GetRunArmFlag(const int run) {
 
 char * GetRunIHWP(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=20", run);
@@ -505,7 +517,7 @@ char * GetRunIHWP(const int run) {
 
 char * GetRunWienFlip(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=38", run);
@@ -522,7 +534,7 @@ char * GetRunWienFlip(const int run) {
 
 float GetRunHelicityHz(const int run) {  // helicity frequency
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return -1;
   }
   sprintf(query, "SELECT float_value FROM conditions WHERE run_number=%d AND condition_type_id=25", run);
@@ -538,7 +550,7 @@ float GetRunHelicityHz(const int run) {  // helicity frequency
 
 char * GetRunUserComment(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=6", run);
@@ -554,7 +566,7 @@ char * GetRunUserComment(const int run) {
 
 char * GetRunWacNote(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=27", run);
@@ -570,7 +582,7 @@ char * GetRunWacNote(const int run) {
 
 void GetValidRuns(set<int> &runs) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else" << ENDL;
+    cerr << ERROR << "please Start Connection before anything else" << ENDL;
     return;
   }
 
@@ -589,9 +601,9 @@ void GetValidRuns(set<int> &runs) {
 void GetValidSlugs(set<int> &slugs) {
   for(set<int>::const_iterator it=slugs.cbegin(); it!=slugs.cend(); ) {
     int slug = *it;
-		if (   (gwienflip.size() && gwienflip.find(SLUGINFO[slug].wienflip) == string::npos)
-        || (gihwp.size() && gihwp.find(SLUGINFO[slug].ihwp) == string::npos)
-        || (garmflag.size() && garmflag.find(to_string(SLUGINFO[slug].arm)) == string::npos) )
+		if (   (gwienflip.size() && gwienflip.find(GetSlugWienFlip(slug)) == string::npos)
+        || (gihwp.size() && gihwp.find(GetSlugIHWP(slug)) == string::npos)
+        || (garmflag.size() && garmflag.find(to_string(GetSlugArmFlag(slug))) == string::npos) )
 			it = slugs.erase(it);
 		else 
 			it++;
@@ -600,7 +612,7 @@ void GetValidSlugs(set<int> &slugs) {
 
 int GetRunSign(const int run) {
   if (!con) {
-    cerr << ERROR << "please StartConnection before anything else." << ENDL;
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return 0;
   }
 
@@ -652,10 +664,29 @@ int GetRunSign(const int run) {
   return sign;
 }
 
-int GetSlugSign(const int slug) {
+char * GetSlugTarget(const int slug)
+{
+	int run = _GetFirstValidRun(slug);
+	return GetRunTarget(run);
+}
+
+char * GetSlugWienFlip(const int slug)
+{
+	int run = _GetFirstValidRun(slug);
+	return GetRunWienFlip(run);
+}
+
+char * GetSlugIHWP(const int slug)
+{
+	int run = _GetFirstValidRun(slug);
+	return GetRunIHWP(run);
+}
+
+int GetSlugSign(const int slug) 
+{
 	int sign = 1;
-  const char *wien_flip = SLUGINFO[slug].wienflip;
-  const char *ihwp = SLUGINFO[slug].ihwp;
+  const char *wien_flip = GetSlugWienFlip(slug);
+  const char *ihwp = GetSlugIHWP(slug);
 
 	if (strcmp(wien_flip, "FLIP-LEFT") == 0) 
 		sign = 1;
@@ -680,6 +711,17 @@ int GetSlugSign(const int slug) {
 	}
 
   return sign;
+}
+
+int GetSlugArmFlag(const int slug)
+{
+	// remember to update this single arm slug list if there is any changes
+	for (int s : {123, 124, 143})
+	{
+		if (slug == s)
+			return 1;
+	}
+	return 0;
 }
 
 void RunTests() {

@@ -421,11 +421,11 @@ vector<char*> Split(const char *line, const char *del) {
   int n=strlen(line);
 	int m=strlen(del);
 	int pi = 0;
-	int i = Index(line, del, pi);	// if del is null, return minus value
-	while (i>=pi) {
+	int i;
+	// int i = Index(line, del, pi);	// if del is null, return minus value
+	while (pi < n && (i=Index(line, del, pi)) >= pi) {
 		fields.push_back(Sub(line, pi, i-pi));
 		pi = i+m;
-		i = Index(line, del, pi);
 	}
 	if (line[pi] != '\0')
 		fields.push_back(Sub(line, pi));	// last field

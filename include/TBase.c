@@ -50,24 +50,24 @@ void TBase::GetConfig(const TConfig &fConf)
   fVarAlt = fConf.GetVarAlts();
 
   fSolos    = fConf.GetSolos();
-  fSoloCut = fConf.GetSoloCut();
+  fSoloCut	= fConf.GetSoloCut();
   nSolos    = fSolos.size();
 
   fCustoms    = fConf.GetCustoms();
-  fCustomDef = fConf.GetCustomDef();
-  fCustomCut = fConf.GetCustomCut();
+  fCustomDef	= fConf.GetCustomDef();
+  fCustomCut	= fConf.GetCustomCut();
   nCustoms    = fCustoms.size();
 
   fComps    = fConf.GetComps();
-  fCompCut = fConf.GetCompCut();
+  fCompCut	= fConf.GetCompCut();
   nComps    = fComps.size();
 
-  fSlopes = fConf.GetSlopes();
-  fSlopeCut  = fConf.GetSlopeCut();
-  nSlopes = fSlopes.size();
+  fSlopes		= fConf.GetSlopes();
+  fSlopeCut = fConf.GetSlopeCut();
+  nSlopes		= fSlopes.size();
 
   fCors	    = fConf.GetCors();
-  fCorCut  = fConf.GetCorCut();
+  fCorCut		= fConf.GetCorCut();
 	nCors			= fCors.size();
 
   if (fConf.GetDir())       SetDir(fConf.GetDir());
@@ -484,19 +484,21 @@ bool TBase::CheckCustomVar(Node * node) {
  * 5. special variables: bpm11X
  * 7. provide some statistical features of the values
  */
-void TBase::GetValues() {  
+int TBase::GetValues() {  
 	// initialization
   for (string var : fVars) {
     fVarValue[var].clear();
-    // fVarSum[var] = 0;
+    fVarSum[var] = 0;
     // fVarSum2[var] = 0;
-    fVarMax[var] = 0;
+    fVarMax[var] = -1e9;
+		fVarMin[var] = 1e9;
   }
   for (string custom : fCustoms) {
     fVarValue[custom].clear();
-		// fVarSum[custom] = 0;
+		fVarSum[custom] = 0;
 		// fVarSum2[custom] = 0;
-		fVarMax[custom] = 0;
+		fVarMax[custom] = -1e9;
+		fVarMin[custom] = 1e9;
   }
 
 	nTotal = 0;
@@ -596,11 +598,13 @@ void TBase::GetValues() {
 
           vars_buf[var] = val;
           fVarValue[var].push_back(val);
-          // fVarSum[var]	+= val;
+          fVarSum[var]	+= val;
           // fVarSum2[var] += val * val;
 
-          if (abs(val) > fVarMax[var])
-            fVarMax[var] = abs(val);
+          if (val > fVarMax[var])
+            fVarMax[var] = val;
+					if (val < fVarMin[var])
+						fVarMin[var] = val;
         }
       }
 
@@ -613,6 +617,7 @@ void TBase::GetValues() {
   }
 
   cout << INFO << "with cut: " << tcut <<  "--read " << nOk << "/" << nTotal << " good entries." << ENDL;
+	return nOk;
 }
 
 void TBase::GetCustomValues() {
@@ -635,8 +640,12 @@ void TBase::GetCustomValues() {
 			// fVarSum[c]  += val;
 			// fVarSum2[c] += val * val;
 
-			if (abs(val) > fVarMax[c]) 
-				fVarMax[c] = abs(val);
+			if (val > fVarMax[c]) 
+				fVarMax[c] = val;
+			if (val < fVarMin[c]) 
+				fVarMin[c] = val;
+
+			fVarSum[c] += val;
     }
   }
 }

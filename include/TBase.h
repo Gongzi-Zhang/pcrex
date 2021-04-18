@@ -86,7 +86,7 @@ class TBase
      virtual void CheckVars();
      bool CheckVar(string var);
      bool CheckCustomVar(Node * node);
-     virtual void GetValues();
+     virtual int GetValues();
      void GetCustomValues();
      bool CheckEntryCut(const long entry);
 

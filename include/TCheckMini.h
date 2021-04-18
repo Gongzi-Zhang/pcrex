@@ -106,7 +106,11 @@ void TCheckMini::ProcessValues() {
 		}
 
 		// sign correction: only for mean value
-		if (sign && fVarName[var].second == "mean") {
+		if (sign && fVarName[var].second == "mean" 
+				&& (var.find("asym") != string::npos ^ var.find("diff") != string::npos)
+				// slope don't need sign correction
+				)
+		{
       int m = 0;
 			for (int run : fRuns) {
         const size_t sessions = fRootFile[run].size();
@@ -126,28 +130,6 @@ void TCheckMini::ProcessValues() {
 		// 	fVarValue[var][m] *= (UNITS[fVarInUnit[var]]/UNITS[fVarOutUnit[var]]);
 		// }
   }
-
-  /*
-	for (string var : fVars) {	// weight raw det asym with lagr. det asym error
-		TString v = var;
-		if (v.CountChar('.') == 2)
-			v = var.substr(var.find('.')+1);
-		if (	 v == "asym_us_avg.err"
-				|| v == "asym_bcm_target.err"	
-				|| v == "asym_bcm_target.hw_sum_err"	
-				|| (var.find("diff_bpm") != string::npos && (v.EndsWith(".hw_sum_err") || v.EndsWith(".err"))))
-		{
-      int m = 0;
-			for (int run : fRuns) {
-        const size_t sessions = fRootFile[run].size();
-        for (size_t session=0; session < sessions; session++) {
-          for (int i = 0; i < fEntryNumber[run][session].size(); i++, m++)
-            fVarValue[var][m] = fVarValue["lagr_asym_us_avg.err"][m];	// weighted by lagr_asym_us_avg err bar
-        }
-			}
-		}
-	}
-  */
 }
 
 void TCheckMini::CheckValues() {  // looks like Chicken ribs
@@ -251,7 +233,7 @@ void TCheckMini::Draw() {
 	if (nMiniruns > 100)
 		c = new TCanvas("c", "c", 1800, 600);
 	else 
-		c = new TCanvas("c", "c", 1200, 600);
+		c = new TCanvas("c", "c", 1200, 900);
   c->SetGridy();
   gStyle->SetOptFit(111);
   gStyle->SetOptStat(1110);

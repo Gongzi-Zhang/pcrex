@@ -400,9 +400,12 @@ void TCheckRS::DrawSolos() {
             i++;
             continue;
           }
+					double ratio = 0;
           double err = fVarValue[errvar][i];
-          h_pull->Fill(rs, (val - mean_value)/err);
-          pull->Fill((val - mean_value)/err);
+					if (!std::isnan(err) && 0 != err)
+						ratio = (val - mean_value)/err;
+          h_pull->Fill(rs, ratio);
+          pull->Fill(ratio);
           i++;
         }
       }
@@ -421,26 +424,26 @@ void TCheckRS::DrawSolos() {
     c->cd();
 		// c->SetGridx();
     TPad *p1, *p2, *p3;
-    if (mean) {
-      p1 = new TPad("p1", "p1", 0.0, 0.3, 0.7, 1.0);
-      p2 = new TPad("p2", "p2", 0.0, 0.0, 0.7, 0.3);
-      p3 = new TPad("p3", "p3", 0.7, 0.0, 1.0, 1.0);
-      p1->SetBottomMargin(0);
-      p1->SetRightMargin(0.05);
-      p1->Draw();
-      p1->SetGridy();
-      p2->SetTopMargin(0);
-      p2->SetRightMargin(0.05);
-      p2->SetBottomMargin(0.16);
-      p2->Draw();
-      p2->SetGrid();
-      p3->SetRightMargin(0.05);
-      p3->Draw();
-    } else {
+    // if (mean) {
+    //   p1 = new TPad("p1", "p1", 0.0, 0.3, 0.7, 1.0);
+    //   p2 = new TPad("p2", "p2", 0.0, 0.0, 0.7, 0.3);
+    //   p3 = new TPad("p3", "p3", 0.7, 0.0, 1.0, 1.0);
+    //   p1->SetBottomMargin(0);
+    //   p1->SetRightMargin(0.05);
+    //   p1->Draw();
+    //   p1->SetGridy();
+    //   p2->SetTopMargin(0);
+    //   p2->SetRightMargin(0.05);
+    //   p2->SetBottomMargin(0.16);
+    //   p2->Draw();
+    //   p2->SetGrid();
+    //   p3->SetRightMargin(0.05);
+    //   p3->Draw();
+    // } else {
       p1 = new TPad("p1", "p1", 0.0, 0.0, 1.0, 1.0);
       p1->Draw();
       p1->SetGridy();
-    }
+    // }
 
     p1->cd();
     h->Sumw2(kFALSE);
@@ -469,14 +472,14 @@ void TCheckRS::DrawSolos() {
     if (t)
       t->SetTextSize(0.07);
 
-    if (mean) {
-      p2->cd();
-      h_pull->Draw("HIST");
-      h_pull->GetXaxis()->SetTitle(granularity);
-      h_pull->GetXaxis()->SetTitleSize(0.1);
-      p3->cd();
-      pull->Draw();
-    }
+    // if (mean) {
+    //   p2->cd();
+    //   h_pull->Draw("HIST");
+    //   h_pull->GetXaxis()->SetTitle(granularity);
+    //   h_pull->GetXaxis()->SetTitleSize(0.1);
+    //   p3->cd();
+    //   pull->Draw();
+    // }
 
     if (std::isnan(g->GetYaxis()->GetXmax())) {
       c->Clear();

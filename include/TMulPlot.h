@@ -98,6 +98,7 @@ void TMulPlot::Draw() {
 
 void TMulPlot::FillHistograms() {
 	map<string, double> up;
+	map<string, double> down;
 	map<string, double> vUnit;
 	map<string, const char *> inUnit;
 	map<string, const char *> outUnit;
@@ -109,6 +110,8 @@ void TMulPlot::FillHistograms() {
 		double unit = UNITS[inUnit[var]]/UNITS[outUnit[var]];
 		vUnit[var] = unit;
 		fVarMax[var] *= unit;
+		fVarMin[var] *= unit;
+		fVarSum[var] *= unit;
 		// sign correction, only for asym/diff values
 		bool sflag = (var.find("asym") != string::npos ^ var.find("diff") != string::npos); 
 
@@ -139,21 +142,37 @@ void TMulPlot::FillHistograms() {
 	}
 
 	for (string var : fVars) {
-    long max = ceil(fVarMax[var]);
-    int power = floor(log(max)/log(10));
-    int  a = max*10 / pow(10, power);
-    up[var] = (a+1) * pow(10, power) / 10.;
+		int sign = fVarMax[var] < 0 ? -1 : 1;
+    double val = abs(fVarMax[var]);
+    int power = floor(log(val)/log(10));
+    int  a = val*10 / pow(10, power);
+    up[var] = sign * (a+1*sign) * pow(10, power) / 10.;
+
+		sign = fVarMin[var] < 0 ? -1 : 1;
+		val = abs(fVarMin[var]);
+    power = floor(log(val)/log(10));
+    a = val*10 / pow(10, power);
+    down[var] = sign * (a-1*sign) * pow(10, power) / 10.;
 	}
 
   // initialize histogram
   for (string solo : fSolos) {
 		double unit = vUnit[solo];
-		double high = up[solo];
-		double low  = -high;
+		double high, low;
+		if (abs(fVarSum[solo]/nOk/fVarMax[solo]) < 0.001)
+		{
+			high = abs(up[solo]) > abs(down[solo]) ? abs(up[solo]) : abs(down[solo]);	
+			low = -high;
+		}
+		else
+		{
+			high = up[solo];
+			low = down[solo];
+		}
     if (fSoloCut[solo].low != 1024)
-      low = fSoloCut[solo].low*unit;
+      low = fSoloCut[solo].low/UNITS[outUnit[solo]];
     if (fSoloCut[solo].high != 1024)
-      high = fSoloCut[solo].high*unit;
+      high = fSoloCut[solo].high/UNITS[outUnit[solo]];
     
     fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), outUnit[solo]), 100, low, high);
     for (int i=0; i<nOk; i++)
@@ -167,9 +186,9 @@ void TMulPlot::FillHistograms() {
 		double high = (up[var1] > up[var2] ? up[var1] : up[var2]) * 1.05;
 		double low  = -high;
     if (fCompCut[comp].low != 1024)
-      low = fCompCut[comp].low*unit;
+      low = fCompCut[comp].low/UNITS[outUnit[var1]];
     if (fCompCut[comp].high != 1024)
-      high = fCompCut[comp].high*unit;
+      high = fCompCut[comp].high/UNITS[outUnit[var1]];
 
     size_t h = hash<string>{}(var1+var2);
     fCompHists[comp].first  = new TH1F(Form("%s_%ld", var1.c_str(), h), Form("%s;%s", var1.c_str(), outUnit[var1]), 100, low, high);
@@ -192,9 +211,9 @@ void TMulPlot::FillHistograms() {
 		double ylow = -yhigh;
 
     // if (fCorCut[cor].low != 1024)
-    //   min = fCorCut[cor].low*unit[xvar];
+    //   min = fCorCut[cor].low/UNITS[outUnit[xvar]];
     // if (fCompCut[comp].high != 1024)
-    //   min = fCompCut[comp].high*unit[yvar];
+    //   min = fCompCut[comp].high/UNITS[outUnit[yvar]];
 
     fCorHists[cor] = new TH2F((yvar + xvar).c_str(), 
 				Form("%s vs %s; %s/%s; %s/%s", yvar.c_str(), xvar.c_str(), xvar.c_str(), outUnit[xvar], yvar.c_str(), outUnit[yvar]),
@@ -322,6 +341,11 @@ void TMulPlot::GetOutliers() {
 		fSoloOutliers[solo].second = 9999;
 		const int nBins = fSoloHists[solo]->GetNbinsX();
 		TF1 * func = fSoloHists[solo]->GetFunction("gaus");
+		if (!func)
+		{
+			cerr << WARNING << "no fit function with solo: " << solo << ENDL;
+			continue;
+		}
 		// get fit parameters, define range of outliers
 		for (int i=nBins/2; i>0; i--) {
 			double hVal = fSoloHists[solo]->GetBinContent(i);

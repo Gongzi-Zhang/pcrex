@@ -147,7 +147,10 @@ void TAggSlug::AggSlug()
     else {
       stat[var].mean = sum[var]/sum_weight[var];
       stat[var].err = sqrt(1/sum_weight[var]);
-      stat[var].rms = sqrt(dev1[var]/(n1[var]-1));
+			if (1 == n1[var])
+				stat[var].rms = 0;
+			else
+				stat[var].rms = sqrt(dev1[var]/(n1[var]-1));
     }
 	}
 	fout.cd();

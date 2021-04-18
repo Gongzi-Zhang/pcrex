@@ -61,7 +61,7 @@ void TAggregate::CheckSlopeVars()
 	while (it_r != fRuns.cend())
 	{
 		int r = *it_r;
-		const char *file_name = Form("/lustre19/expphy/volatile/halla/parity/crex-respin1/postpan_respin/prexPrompt_%d_000_regress_postpan.root", r);
+		const char *file_name = Form("/lustre19/expphy/volatile/halla/parity/crex-respin2/postpan_respin/prexPrompt_%d_000_regress_postpan.root", r);
 		cerr << INFO << "use run: " << file_name << " to check slope variables" << ENDL;
 		TFile * f_rootfile = new TFile(file_name, "read");
 		if (!f_rootfile->IsOpen()) {
@@ -134,11 +134,12 @@ void TAggregate::CheckVars() {
     return;
   }
 
-  for (string var : fVars) {
-    if (trun->GetBranch(var.c_str())) {
-      fVars.erase(var);
+  for (vector<string>::iterator it=fSolos.begin(); it!=fSolos.end();) {
+    if (trun->GetBranch(it->c_str())) {
+      it = fSolos.erase(it);
       continue;
     } 
+		it++;
   }
   for (vector<string>::iterator it=fCustoms.begin(); it!=fCustoms.end(); ) {
     if (trun->GetBranch(it->c_str())) {
@@ -148,7 +149,7 @@ void TAggregate::CheckVars() {
     it++;
   }
   for (vector<pair<string, string>>::iterator it=fSlopes.begin(); it != fSlopes.end(); ) { 
-    string var = it->first + '_' + it->second;
+    string var = "reg_" + it->first + '_' + it->second;	// check only reg slope
     if (trun->GetBranch(var.c_str())) {
       it = fSlopes.erase(it);
       continue;
@@ -167,19 +168,13 @@ void TAggregate::GetSlopeValues()
   char hostname[32];
   gethostname(hostname, 32);
   const char *lrb_prefix = "./", *reg_prefix = "./";
-  int nlrb_dv = 56;
-  vector<string> LRB_DV = LRB_DV2;	// for respin
+  int nlrb_dv = 80;
   if (Contain(hostname, "aonl") || Contain(hostname, "adaq")) {
     lrb_prefix  = "/adaqfs/home/apar/PREX/prompt/japanOutput/";
     reg_prefix = "/adaqfs/home/apar/PREX/prompt/results/"; 
-		if (run <= 6464)
-		{
-			nlrb_dv = 48;
-			LRB_DV = LRB_DV1;
-		}
   } else if (Contain(hostname, "ifarm")) {
-    lrb_prefix  = "/lustre19/expphy/volatile/halla/parity/crex-respin1/japanOutput/";
-    reg_prefix = "/lustre19/expphy/volatile/halla/parity/crex-respin1/postpan_respin/";
+    lrb_prefix  = "/lustre19/expphy/volatile/halla/parity/crex-respin2/japanOutput/";
+    reg_prefix = "/lustre19/expphy/volatile/halla/parity/crex-respin2/postpan_respin/";
   }
 
   // double lrb_run[5][nlrb_dv], lrb_run_err[5][nlrb_dv];
@@ -375,9 +370,9 @@ void TAggregate::Aggregate()
     update=false;
   } 
 
-  for (string custom : fCustoms)
-    fVars.insert(custom);
-  set<string> allVars = fVars; // fVars + fCustoms
+  set<string> allVars; // fSolos + fCustoms
+  for (string solo : fSolos)
+		allVars.insert(solo);
   for (string custom : fCustoms)
     allVars.insert(custom);
 
@@ -457,7 +452,10 @@ void TAggregate::Aggregate()
       for (string var : allVars) 
 			{
         mini_stat[var].mean = mini_sum[var]/num_samples;
-        mini_stat[var].rms = sqrt((mini_sum2[var] - mini_sum[var]*mini_sum[var]/num_samples)/(num_samples-1));
+				if (1 == num_samples)
+					mini_stat[var].rms = 0;
+				else
+					mini_stat[var].rms = sqrt((mini_sum2[var] - mini_sum[var]*mini_sum[var]/num_samples)/(num_samples-1));
         mini_stat[var].err = mini_stat[var].rms / sqrt(num_samples);
 				sum[var] += mini_sum[var];
 				sum2[var] += mini_sum2[var];
@@ -484,7 +482,10 @@ void TAggregate::Aggregate()
 
   for (string var : allVars) {
     stat[var].mean = sum[var]/N;
-    stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/N)/(N-1));
+		if (1 == N)
+			stat[var].rms = 0;
+		else
+			stat[var].rms = sqrt((sum2[var] - sum[var]*sum[var]/N)/(N-1));
     stat[var].err = stat[var].rms / sqrt(N);
     sum[var] = 0;
     sum2[var] = 0;
@@ -522,43 +523,52 @@ void TAggregate::Aggregate()
 
 void TAggregate::AggregateRuns() {
   set<int> runs = fRuns;
+	vector<string> soloBuf = fSolos;
+	vector<string> cusBuf = fCustoms;
+	vector<pair<string, string>> slopeBuf = fSlopes;
   for (int r : runs) {
     cout << INFO << "aggregating run: " << r << ENDL;
-    set<string> varBuf = fVars;
-    vector<string> cusBuf = fCustoms;
-    vector<pair<string, string>> slopeBuf = fSlopes;
 		SetAggRun(r);
     CheckVars();
-    if (!(fVars.size() + fCustoms.size() + fSlopes.size())) {
+		fVars.clear();
+    if (!(fSolos.size() + fCustoms.size() + fSlopes.size())) {
       cerr << WARNING << "run: " << run << ". No new variables in update mode, skip it" << ENDL;
-      fVars = varBuf;
+      fSolos = soloBuf;
       fCustoms = cusBuf;
       fSlopes = slopeBuf;
       continue;
     }
-    if (fVars.size()) {
-      cout << INFO << fVars.size() << " new variables: ";
-      for (string var : fVars)
-        cout << endl << "\t" << var;
-      cout << ENDL;
+    if (fSolos.size()) {
+      cout << INFO << fSolos.size() << " new variables: " << ENDL;
+      for (string solo : fSolos)
+			{
+        cout << "\t" << solo << endl;
+				fVars.insert(solo);
+			}
     }
     if (fCustoms.size()) {
-      cout << INFO << fCustoms.size() << " new custom variables: ";
-      for (string var : fCustoms)
-        cout << endl << "\t" << var;
-      cout << ENDL;
+      cout << INFO << fCustoms.size() << " new custom variables: " << ENDL;
+      for (string custom : fCustoms)
+			{
+        cout << "\t" << custom << endl;
+				for (string var : GetVariables(fCustomDef[custom]))
+					fVars.insert(var);
+			}
     }
     if (fSlopes.size()) {
-      cout << INFO << fSlopes.size() << " new slope variables: ";
+      cout << INFO << fSlopes.size() << " new slope variables: " << ENDL;
       for (pair<string, string> slope : fSlopes)
-        cout << endl << "\t" << slope.first << " : " << slope.second;
-      cout << ENDL;
+        cout << "\t" << slope.first << " : " << slope.second << endl;
     }
-    GetValues();
+    int n = GetValues();
+		if (0 == n)
+		{
+			cerr << WARNING << "run: " << r << ". No event for aggregation." << ENDL;
+			continue;
+		}
 		GetSlopeValues();
     ProcessValues();
     Aggregate();
-    fVars = varBuf;
     fCustoms = cusBuf;
     fSlopes = slopeBuf;
   }
