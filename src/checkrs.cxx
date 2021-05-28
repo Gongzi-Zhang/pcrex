@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
   bool dconf = true; // use default config file
 
   char opt;
-  while((opt = getopt(argc, argv, "hc:s:r:a:i:w:t:f:n:SR")) != -1)
+  while((opt = getopt(argc, argv, "hc:s:r:f:n:SR")) != -1)
     switch (opt) {
       case 'h':
         usage();
@@ -38,18 +38,6 @@ int main(int argc, char* argv[]) {
         break;
       case 'r':
         runs = ParseRS(optarg);
-        break;
-			case 'a':
-				SetArmFlag(optarg);
-				break;
-			case 'i':
-				SetIHWP(optarg);
-				break;
-			case 'w':
-				SetWienFlip(optarg);
-				break;
-      case 't':
-        SetRunType(optarg);
         break;
       case 'f':
         out_format = optarg;
@@ -78,6 +66,7 @@ int main(int argc, char* argv[]) {
     else
       runs.insert(rs);
   }
+	SetupRCDB();
 
   TCheckRS fCheckRS(type);
   fCheckRS.GetConfig(fConf);
@@ -108,10 +97,6 @@ void usage() {
        << "\t -h: print this help message" << endl
        << "\t -c: specify config file (default: check.conf)" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-			 << "\t -a: set arm flag (both, left, right)" << endl
-			 << "\t -i: set wanted ihwp state (IN, OUT)" << endl
-			 << "\t -w: set wien flip (FLIP-LEFT, FLIP-RIGHT, Vertical(UP), Version(DOWN))" << endl
-			 << "\t -t: set run type (Production, A-T...)" << endl
        << "\t -f: set output file format: pdf or png" << endl
        << "\t -n: prefix of output pdf file" << endl
        << "\t -S: make sign correction" << endl

@@ -26,8 +26,10 @@ $(rcdb_obj): rcdb.c $(io)
 	g++ $(CXXFLAGS) -fPIC --shared -o $@ $< $(mysql_libs)
 $(TBase_obj): TBase.c $(io) 
 	g++ $(CXXFLAGS) -fPIC --shared -o $@ $< $(root_libs)
+$(TConfig_obj): TConfig.c $(const) 
+	g++ $(CXXFLAGS) -fPIC --shared -o $@ $<
 
-assist_obj := $(TConfig_obj) $(line_obj) $(math_eval_obj)
+assist_obj := $(line_obj) $(math_eval_obj)
 $(assist_obj): bin/%.so: %.c
 	@echo "compiling $@"
 	g++ $(CXXFLAGS) -fPIC --shared -o $@ $<
@@ -37,8 +39,6 @@ agg		:= aggregate aggslug
 run		:= runinfo getrun 
 check_obj := $(addprefix bin/, $(check))
 agg_obj := $(addprefix bin/, $(agg))
-test:
-	echo $(agg_obj)
 run_obj := $(addprefix bin/, $(run))
 
 all: $(checkobj) $(aggobj) $(runojb) | bin
@@ -54,6 +54,8 @@ $(run_obj): bin/%: %.cxx $(rcdb_obj) $(line_obj)
 
 bin/delbranch: delbranch.cxx $(line_obj) 
 	g++ $(CXXFLAGS) -o $@ $^ $(root_libs)
+test: test.cxx $(TConfig_obj) $(line_obj) $(math_eval_obj)
+	g++ $(CXXFLAGS) -o $@ $^ $(root_libs) 
 
 # aggregate: src/Aggregate.cxx TAggregate.h 
 # 	g++ $(CXXFLAGS) -o $@ $< $(root_libs) $(mysql_libs)

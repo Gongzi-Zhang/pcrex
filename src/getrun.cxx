@@ -69,6 +69,7 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+	SetupRCDB();
 	StartConnection();
 	set<int> vruns = GetRuns();
 	if (slugs.size()) {

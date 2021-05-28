@@ -162,14 +162,14 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+	StartConnection();
   for (set<int>::iterator it=slugs.cbegin(); it != slugs.cend(); it++) {
-    StartConnection();
     set<int> sruns = GetRunsFromSlug(*it);
     for (set<int>::iterator it_r = sruns.cbegin(); it_r != sruns.cend(); it_r++) {
       runs.insert(*it_r);
     }
-    EndConnection();
   }
+	EndConnection();
 
   if (runs.size() == 0) {
     cerr << "FATAL:\t no run specified" << ENDL;

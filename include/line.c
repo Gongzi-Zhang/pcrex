@@ -11,8 +11,10 @@
 using namespace std;
 
 vector<char *> subs;
-
-void Reg(char * s) {subs.push_back(s);}
+void Reg(char * s) {
+	if (s)
+		subs.push_back(s);
+}
 void Free()
 {
 	while (subs.size())
@@ -316,11 +318,11 @@ char * Sub(const char *line, const int start) {
 
   // char *sub = (char*) malloc(sizeof(char) * (start>0 ? n-start+1 : -start+1));
   char *sub = new char[start>=0 ? n-start+1 : -start+1];
-	Reg(sub);	// register new allocated memory
   if (start >= 0)
     strcpy(sub, line+start);
   else
     strcpy(sub, line+n+start);
+	Reg(sub);	// register new allocated memory
 
   return sub;
 }
@@ -348,9 +350,9 @@ char * Sub(const char *line, const int start, const int length) {
 
   // char *sub = (char*) malloc(sizeof(char) * (size+1));
   char *sub = new char[size+1];
-	Reg(sub);
   strncpy(sub, (start>=0 ? line+start : line+n+start), size);
   sub[size] = '\0';
+	Reg(sub);
   return sub;
 }
 

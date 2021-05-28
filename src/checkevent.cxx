@@ -52,6 +52,7 @@ int main(int argc, char* argv[]) {
     cout << INFO << "no config file specified, use default one: " << config_file << ENDL;
 	TConfig fConf(config_file);
 	fConf.ParseConfFile();
+	SetupRCDB();
 
   TCheckEvent fCheckEvent;
 	fCheckEvent.GetConfig(fConf);

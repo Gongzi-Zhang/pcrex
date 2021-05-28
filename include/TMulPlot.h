@@ -239,6 +239,8 @@ void TMulPlot::DrawHistograms() {
 
   for (string solo : fSolos) {
     c.cd();
+		if (fVarTitles[solo].size())
+			fSoloHists[solo]->SetTitle(fVarTitles[solo].c_str());
     fSoloHists[solo]->Fit("gaus");
     TH1F * hc = (TH1F*) fSoloHists[solo]->DrawClone();
 		cout << OUTPUT << solo << "--mean:\t" << fSoloHists[solo]->GetMean() << " ± " << fSoloHists[solo]->GetMeanError() << ENDL;

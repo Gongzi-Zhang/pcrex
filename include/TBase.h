@@ -39,7 +39,8 @@ class TBase
     const char *granularity = "run";
     set<int>    fGrans;	// FIXME how to use reference here
     set<string> fVars;
-    map<string, string> fVarAlt;
+    map<string, string> fVarErrs;
+    map<string, string> fVarTitles;
 		set<string> fCutVars;
 
     vector<string>      fSolos;
@@ -60,7 +61,6 @@ class TBase
 
     map<int, vector<string>> fRootFile;
     map<string, pair<string, string>> fVarName;
-    map<string, string> fBrAlt;
     map<string, vector<int>> fVarUseAlt;
     map<string, TLeaf *> fVarLeaf;
 		long nTotal = 0;

@@ -49,6 +49,7 @@ using namespace std;
 void StartConnection();
 void EndConnection();
 
+void SetupRCDB();
 void SetArmFlag(const char *f);
 void SetIHWP(const char *ip);
 void SetWienFlip(const char *wf);

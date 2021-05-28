@@ -53,6 +53,8 @@ int main(int argc, char* argv[]) {
     SetOutDir(out_dir);
 	CheckOutDir();
 
+	SetupRCDB();
+
   TAggregate fAgg = TAggregate();
 	fAgg.GetConfig(fConf);
 

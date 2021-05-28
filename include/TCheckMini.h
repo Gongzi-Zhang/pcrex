@@ -18,6 +18,7 @@
 
 #include "TROOT.h"
 #include "TStyle.h"
+#include "TGaxis.h"
 #include "TFile.h"
 #include "TTree.h"
 #include "TBranch.h"
@@ -71,8 +72,7 @@ class TCheckMini : public TRSbase {
 TCheckMini::TCheckMini() :
   TRSbase()
 {
-	if (!out_name)
-		out_name	= "checkmini";
+	out_name	= "checkmini";
 	// dir       = "/chafs2/work1/apar/postpan-outputs/";
 	// pattern   = "prexPrompt_xxxx_???_regress_postpan.root"; 
 	// tree      = "mini";
@@ -106,11 +106,7 @@ void TCheckMini::ProcessValues() {
 		}
 
 		// sign correction: only for mean value
-		if (sign && fVarName[var].second == "mean" 
-				&& (var.find("asym") != string::npos ^ var.find("diff") != string::npos)
-				// slope don't need sign correction
-				)
-		{
+		if (sign && fVarName[var].second == "mean") {
       int m = 0;
 			for (int run : fRuns) {
         const size_t sessions = fRootFile[run].size();
@@ -130,6 +126,28 @@ void TCheckMini::ProcessValues() {
 		// 	fVarValue[var][m] *= (UNITS[fVarInUnit[var]]/UNITS[fVarOutUnit[var]]);
 		// }
   }
+
+  /*
+	for (string var : fVars) {	// weight raw det asym with lagr. det asym error
+		TString v = var;
+		if (v.CountChar('.') == 2)
+			v = var.substr(var.find('.')+1);
+		if (	 v == "asym_us_avg.err"
+				|| v == "asym_bcm_target.err"	
+				|| v == "asym_bcm_target.hw_sum_err"	
+				|| (var.find("diff_bpm") != string::npos && (v.EndsWith(".hw_sum_err") || v.EndsWith(".err"))))
+		{
+      int m = 0;
+			for (int run : fRuns) {
+        const size_t sessions = fRootFile[run].size();
+        for (size_t session=0; session < sessions; session++) {
+          for (int i = 0; i < fEntryNumber[run][session].size(); i++, m++)
+            fVarValue[var][m] = fVarValue["lagr_asym_us_avg.err"][m];	// weighted by lagr_asym_us_avg err bar
+        }
+			}
+		}
+	}
+  */
 }
 
 void TCheckMini::CheckValues() {  // looks like Chicken ribs
@@ -219,7 +237,7 @@ void TCheckMini::CheckValues() {  // looks like Chicken ribs
 void TCheckMini::Draw() {
 	// make sure get err for mean values
 	for (string var : fVars) {
-		if (var.find(".mean") != string::npos) {
+		if (var.find(".mean") != string::npos && !fVarErrs.count(var)) {
 			fVars.insert(var.substr(0, var.find(".mean")) + ".err");	// add new elements while looping the set
 		}
 	}
@@ -233,7 +251,7 @@ void TCheckMini::Draw() {
 	if (nMiniruns > 100)
 		c = new TCanvas("c", "c", 1800, 600);
 	else 
-		c = new TCanvas("c", "c", 1200, 900);
+		c = new TCanvas("c", "c", 1200, 600);
   c->SetGridy();
   gStyle->SetOptFit(111);
   gStyle->SetOptStat(1110);
@@ -241,6 +259,7 @@ void TCheckMini::Draw() {
   gStyle->SetTitleAlign(23);
   gStyle->SetTitleSize(0.07, "Y");
   gStyle->SetTitleYOffset(0.55);
+	TGaxis::SetMaxDigits(3);
 
   if (format == pdf)
     c->Print(Form("%s.pdf[", out_name));
@@ -264,7 +283,7 @@ void TCheckMini::DrawSolos() {
     string err_var;
 		bool mean = leaf == "mean" ? true : false;
     if (mean)
-      err_var = branch + ".err";
+      err_var = fVarErrs[solo];
 
     TH1F *h = new TH1F(solo.c_str(), "", nMiniruns, 0.5, nMiniruns+0.5);
     TGraphErrors *g = new TGraphErrors();
@@ -276,17 +295,14 @@ void TCheckMini::DrawSolos() {
     for(int i=0; i<nMiniruns; i++) {
       double val, err=0;
       val = fVarValue[solo][i];
-			if (std::isnan(val))
-				continue;
       if (mean) 
         err = fVarValue[err_var][i];
 
       h->SetBinContent(i+1, val);
-			int ipoint = g->GetN();
-      g->SetPoint(ipoint, i+1, val);
-      g->SetPointError(ipoint, 0, err);
+      g->SetPoint(i, i+1, val);
+      g->SetPointError(i, 0, err);
 
-      ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
+      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
       g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
       g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
     }
@@ -327,7 +343,7 @@ void TCheckMini::DrawSolos() {
       pull = new TH1F("pull", "", nMiniruns, 0.5, nMiniruns+0.5);
       for (int i=0; i<nMiniruns; i++) {
         double ratio = 0;
-        if (fVarValue[err_var][i]!= 0 && !std::isnan(fVarValue[solo][i]))
+        if (fVarValue[err_var][i]!= 0)
           ratio = (fVarValue[solo][i]-mean_value)/fVarValue[err_var][i];
 
         pull->Fill(i+1, ratio);
@@ -459,8 +475,6 @@ void TCheckMini::DrawComps() {
       for(int m=0; m<nMiniruns; m++) {
         double val, err=0;
         val = fVarValue[var[i]][m];
-				if (std::isnan(val))
-					continue;
         if (mean) 
           err = fVarValue[err_var[i]][m];
         if (m==0) 
@@ -561,6 +575,7 @@ void TCheckMini::DrawCors() {
     string err_var[2];
     TH1F *h[2];
     TGraphErrors * g[2];
+    TH1F * h_diff = new TH1F("diff", "", nMiniruns, 0.5, nMiniruns+0.5);
     
     for (int i=0; i<2; i++) {
       branch[i] = fVarName[var[i]].first;
@@ -576,8 +591,6 @@ void TCheckMini::DrawCors() {
       for(int m=0; m<nMiniruns; m++) {
         double val, err=0;
         val = fVarValue[var[i]][m];
-				if (std::isnan(val))
-					continue;
         if (mean[i]) 
           err = fVarValue[err_var[i]][m];
 
@@ -646,9 +659,10 @@ void TCheckMini::DrawCors() {
       c->Print(Form("%s_%s-%s.png", out_name, var[0].c_str(), var[1].c_str()));
     c->Clear();
     for (int i=0; i<2; i++) {
-      h[i]->Delete();
       g[i]->Delete();
     }
+    h_diff->Delete();
+    h_diff = NULL;
   }
   cout << INFO << "Done with drawing corarisons." << ENDL;
 }

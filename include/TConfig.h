@@ -13,6 +13,7 @@
 
 using namespace std;
 
+typedef struct { char *vname, *verr; } VAR;
 typedef struct { double low, high, burplevel; } VarCut;
 typedef VarCut CompCut;
 typedef VarCut CorCut;
@@ -34,7 +35,8 @@ public:
   bool		    GetLogy()	      const {return logy;}
   set<int>	  GetRS()					const {return fRS;}			// for ChectStat
   set<string> GetVars()	      const {return fVars;}
-  map<string, string> GetVarAlts()  const {return fVarAlts;}
+  map<string, string>			 GetVarErrs()				const {return fVarErrs;}
+  map<string, string>			 GetVarTitles()			const {return fVarTitles;}
 	map<string, const char*> GetFriendTrees()		const {return ftrees;}
   vector<pair<long, long>> GetEntryCut()			const {return ecuts;}
 	vector<const char *>		 GetHighlightCut()	const {return hcuts;}
@@ -59,7 +61,6 @@ public:
 
 	void SetRS(const char *rs_list) {fRSfile = rs_list;}
 
-	bool SetCut(VarCut &cut, vector<char *>fields);
   bool ParseSolo(char *line);
   bool ParseComp(char *line);
   bool ParseSlope(char *line);
@@ -69,7 +70,10 @@ public:
   bool ParseOtherCommands(char *line);
   void ParseConfFile();
   void ParseRSfile();
-  double ExtractValue(Node *node); // parse mathematical expression to extract value
+
+	static bool SetCut(VarCut &cut, vector<char *>fields);
+	static bool ParseVar(VAR &var, const char* str);
+  static double ExtractValue(Node *node); // parse mathematical expression to extract value
 
 private:
   const char *fConfFile;
@@ -87,7 +91,8 @@ private:
   set<string> fVars;    // all variables that are going to be checked.
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
-  map<string, string> fVarAlts;
+  map<string, string> fVarErrs;
+  map<string, string> fVarTitles;
   vector<string>      fSolos;
   map<string, VarCut>	fSoloCut;
 

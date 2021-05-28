@@ -1,3 +1,4 @@
+# run list before respin
 run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag | 
 -----------------------------------------------------------------------------------
 5350 | 100  | Test        | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -12,14 +13,14 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5359 | 100  | Parityscan  | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5360 | 100  | Parityscan  | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5361 | 100  | Parityscan  | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-5362 | 100  | Parityscan  | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5363 | 100  | Parityscan  | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5362 | 100  | Parityscan  | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+5363 | 100  | Parityscan  | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5364 | 100  | Parityscan  | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-5365 | 100  | Parityscan  | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5365 | 100  | Parityscan  | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5366 | 100  | Calibration | Unknown   | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5367 | 100  | Test        | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5368 | 100  | Test        | 40Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-5369 | 100  | Calibration | Carbon 0.25% | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5369 | 100  | Calibration | Carbon 0.25% | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5370 | 100  | Test        | Carbon 0.25% | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5371 | 100  | Test        | Unknown   | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5372 | 100  | Test        | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -59,7 +60,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5406 | 100  | Test        | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 5407 | 100  | Test        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5408 | 100  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5409 | 100  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5409 | 100  | Test        | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5410 | 100  | Test        | 40Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5411 | 100  | Test        | 40Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5412 | 100  | Test        | 40Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -67,7 +68,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5414 | 100  | Test        | 40Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5415 | 100  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5416 | 100  | Production  | 48Ca      | Bad      | OUT  | FLIP-RIGHT  | 0        | 
-5417 | 100  | Calibration | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5417 | 100  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5418 | 100  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5419 | 100  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5420 | 100  | Test        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -83,12 +84,12 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5430 | 101  | Junk        | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5431 | 101  | Junk        | Carbon 1% | Bad      | IN   | FLIP-RIGHT  | 0        | 
 5432 | 101  | Test        | Carbon 1% | Bad      | IN   | FLIP-RIGHT  | 0        | 
-5433 | 101  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5434 | 101  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5435 | 101  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5436 | 101  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5437 | 101  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5438 | 101  | Parityscan  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+5433 | 101  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5434 | 101  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5435 | 101  | Calibration | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5436 | 101  | Calibration | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5437 | 101  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
+5438 | 101  | Parityscan  | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5439 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5440 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5441 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -102,7 +103,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5449 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5450 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5451 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5452 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+5452 | 101  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
 5453 | 101  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5454 | 102  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5455 | 102  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -216,16 +217,16 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5564 | 105  | Junk        | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5565 | 105  | Junk        | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5566 | 105  | Junk        | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
-5568 | 105  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5569 | 105  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5570 | 105  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5571 | 105  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5572 | 105  | Parityscan  | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5573 | 105  | Parityscan  | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5574 | 105  | Parityscan  | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5575 | 105  | Parityscan  | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
-5576 | 103  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5577 | 105  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+5568 | 105  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5569 | 105  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5570 | 105  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5571 | 105  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5572 | 105  | Parityscan  | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5573 | 105  | Parityscan  | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5574 | 105  | Parityscan  | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5575 | 105  | Parityscan  | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5576 | 105  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+5577 | 105  | Calibration | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5578 | 105  | Junk        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5579 | 106  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5580 | 106  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -266,8 +267,8 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5615 | 106  | Junk        | 48Ca      | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 5616 | 106  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5617 | 106  | Production  | 48Ca      | Bad      | OUT  | FLIP-RIGHT  | 0        | 
-5618 | 106  | Parityscan  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5619 | 106  | Production  | 48Ca      | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
+5618 | 106  | Parityscan  | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+5619 | 106  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5620 | 106  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5621 | 106  | Test        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5622 | 106  | Test        | Carbon 1% | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -346,14 +347,14 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5761 | 109  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5762 | 109  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5763 | 109  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-5764 | 109  | Calibration | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5765 | 109  | Calibration | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5764 | 109  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+5765 | 109  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5766 | 109  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5767 | 109  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5768 | 109  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5769 | 109  | Calibration | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5770 | 109  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5771 | 109  | Production  | 48Ca      | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
+5771 | 109  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5772 | 109  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5773 | 109  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5774 | 109  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -389,7 +390,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5804 | 112  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5805 | 112  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5806 | 112  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5807 | 112  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
+5807 | 112  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5808 | 113  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5809 | 113  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5810 | 113  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -465,11 +466,11 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5880 | 115  | Calibration | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5881 | 115  | Calibration | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5882 | 115  | Calibration | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
-5883 | 115  | Calibration | Home      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5884 | 115  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
+5883 | 115  | Calibration | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
+5884 | 115  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5885 | 115  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5886 | 115  | Calibration | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
-5887 | 115  | Calibration | Carbon 1% | Good     | IN   | FLIP-RIGHT  | 0        | 
+5887 | 115  | Calibration | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5888 | 115  | Test        | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5889 | 115  | Test        | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5890 | 115  | Test        | Carbon 1% | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -489,7 +490,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5904 | 115  | Test        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5905 | 115  | Test        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5906 | 115  | Test        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
-5907 | 115  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+5907 | 115  | Test        | 48Ca      | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 5908 | 115  | Test        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5909 | 115  | Test        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5910 | 115  | Test        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -510,8 +511,8 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5925 | 116  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5926 | 116  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5927 | 116  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-5928 | 119  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5929 | 119  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5928 | 117  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+5929 | 117  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 5930 | 117  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5931 | 117  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5932 | 117  | Test        | Carbon 1% | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -521,9 +522,9 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5936 | 117  | Test        | Carbon Hole (Cold) | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5937 | 117  | Test        | Carbon 1% | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 5938 | 117  | Test        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-5939 | 119  | Calibration | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5940 | 119  | Calibration | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-5941 | 118  | Production  | 48Ca      | Bad      | IN   | FLIP-RIGHT  | 0        | 
+5939 | 117  | Production  | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
+5940 | 117  | Production  | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
+5941 | 118  | Production  | 48Ca      | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 5942 | 118  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5943 | 118  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5944 | 118  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -533,7 +534,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5948 | 118  | Calibration | 40Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5949 | 118  | Calibration | 40Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5950 | 118  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5951 | 118  | Production  | 48Ca      | Bad      | IN   | FLIP-RIGHT  | 0        | 
+5951 | 118  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
 5952 | 118  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5953 | 118  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5954 | 118  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -554,7 +555,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 5969 | 120  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5970 | 120  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 5971 | 120  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-5972 | 120  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+5972 | 120  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
 5973 | 120  | Junk        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5974 | 120  | Junk        | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 5975 | 120  | Junk        | Home      | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -606,19 +607,19 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6027 | 121  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 6028 | 121  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 6029 | 121  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-6030 | 121  | Production  | 48Ca      | Bad      | OUT  | FLIP-RIGHT  | 0        | 
-6031 | 121  | Production  | 48Ca      | Bad      | OUT  | FLIP-RIGHT  | 0        | 
+6030 | 121  | Production  | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
+6031 | 121  | Production  | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 6032 | 121  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6033 | 121  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6034 | 121  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6035 | 121  | Production  | 48Ca      | Bad      | OUT  | FLIP-RIGHT  | 0        | 
+6035 | 121  | Production  | 48Ca      | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
 6036 | 121  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6038 | 121  | Junk        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6039 | 121  | Junk        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6040 | 121  | Junk        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6041 | 121  | Junk        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6042 | 121  | Junk        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6043 | 121  | Junk        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6038 | 121  | Test        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6039 | 121  | Test        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6040 | 121  | Test        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6041 | 121  | Test        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6042 | 121  | Test        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6043 | 121  | Test        | Home      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6044 | 121  | Test        | Carbon 1% | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6045 | 121  | Test        | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6046 | 121  | Junk        | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
@@ -680,8 +681,8 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6102 | 122  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6103 | 122  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6104 | 122  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6105 | 122  | Production  | 48Ca      | Bad      | IN   | FLIP-RIGHT  | 0        | 
-6106 | 123  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 1        | 
+6105 | 122  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+6106 | 123  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 1        | 
 6107 | 124  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 1        | 
 6108 | 124  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 1        | 
 6109 | 124  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 1        | 
@@ -690,7 +691,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6112 | 125  | Test        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 6113 | 125  | Test        | Home      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 6114 | 125  | Test        | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6115 | 125  | Calibration | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6115 | 125  | Test        | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6116 | 125  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6117 | 125  | Test        | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6118 | 125  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -736,7 +737,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6158 | 127  | Junk        | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6159 | 127  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6160 | 127  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
-6161 | 127  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6161 | 127  | Production  | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 6162 | 127  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6163 | 128  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6164 | 128  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -776,16 +777,16 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6198 | 129  | Calibration | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6199 | 129  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6200 | 129  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6201 | 129  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
+6201 | 129  | Production  | 48Ca      | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 6202 | 129  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6203 | 129  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6204 | 129  | Production  | 48Ca      | Good     | OUT  | FLIP-RIGHT  | 0        | 
 6205 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6206 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+6206 | 130  | Production  | 48Ca      | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 6207 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6208 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6209 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6210 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+6210 | 130  | Production  | 48Ca      | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 6211 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6212 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6213 | 130  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -817,7 +818,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6239 | 132  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6240 | 132  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6241 | 132  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6242 | 132  | Calibration | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+6242 | 132  | Calibration | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 6243 | 132  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 6244 | 132  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 6245 | 132  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -904,9 +905,9 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6327 | 134  | Junk        | Carbon 1% | Bad      | IN   | FLIP-RIGHT  | 0        | 
 6328 | 134  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6329 | 134  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6330 | 134  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6331 | 134  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6332 | 134  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
+6330 | 134  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
+6331 | 134  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
+6332 | 134  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
 6333 | 134  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6334 | 134  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6335 | 134  | Junk        | Home      | (null)   | IN   | Vertical(UP) | 0        | 
@@ -927,7 +928,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6350 | 4002 | Production  | 40Ca      | Good     | OUT  | Vertical(UP) | 0        | 
 6351 | 4003 | Production  | 40Ca      | Good     | IN   | Vertical(UP) | 0        | 
 6352 | 4003 | Production  | 40Ca      | Good     | IN   | Vertical(UP) | 0        | 
-6353 | 4004 | Calibration | Carbon 1% | Good     | IN   | Vertical(UP) | 0        | 
+6353 | 4004 | Calibration | Carbon 1% | (null)   | IN   | Vertical(UP) | 0        | 
 6354 | 4004 | Production  | 48Ca      | Good     | IN   | Vertical(UP) | 0        | 
 6355 | 4004 | Production  | 48Ca      | Good     | IN   | Vertical(UP) | 0        | 
 6356 | 4005 | Production  | 48Ca      | Good     | OUT  | Vertical(UP) | 0        | 
@@ -1015,7 +1016,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6438 | 135  | Junk        | 48Ca      | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 6439 | 136  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6440 | 136  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
-6441 | 136  | Production  | 48Ca      | Suspicious | IN   | FLIP-RIGHT  | 0        | 
+6441 | 136  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6442 | 136  | Junk        | 48Ca      | (null)   | IN   | FLIP-RIGHT  | 0        | 
 6443 | 136  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
 6444 | 136  | Production  | 48Ca      | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -1087,7 +1088,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6510 | 138  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6511 | 138  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6512 | 138  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
-6513 | 138  | Calibration | Carbon 1% | Good     | OUT  | FLIP-LEFT   | 0        | 
+6513 | 138  | Production  | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6514 | 138  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6515 | 138  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6516 | 138  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1099,7 +1100,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6522 | 138  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6523 | 138  | Test        | Unknown   | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6524 | 138  | Test        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
-6525 | 138  | Production  | Unknown   | Bad      | OUT  | FLIP-LEFT   | 0        | 
+6525 | 138  | Test        | Unknown   | Good     | OUT  | FLIP-LEFT   | 0        | 
 6526 | 138  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6527 | 138  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6528 | 138  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1130,13 +1131,13 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6553 | 139  | Test        | Home      | (null)   | IN   | FLIP-LEFT   | 0        | 
 6555 | 139  | Junk        | Home      | (null)   | IN   | FLIP-LEFT   | 0        | 
 6556 | 139  | Junk        | Home      | (null)   | IN   | FLIP-LEFT   | 0        | 
-6557 | 139  | Calibration | Home      | Good     | IN   | FLIP-LEFT   | 0        | 
-6558 | 139  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
-6559 | 139  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
-6560 | 139  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
-6561 | 139  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
-6562 | 139  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
-6563 | 139  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
+6557 | 139  | Calibration | Home      | (null)   | IN   | FLIP-LEFT   | 0        | 
+6558 | 139  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
+6559 | 139  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
+6560 | 139  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
+6561 | 139  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
+6562 | 139  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
+6563 | 139  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
 6564 | 139  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6565 | 139  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6566 | 139  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
@@ -1153,10 +1154,10 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6577 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6578 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6579 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-6580 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
+6580 | 140  | Production  | 48Ca      | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6581 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-6582 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-6583 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
+6582 | 140  | Production  | 48Ca      | (null)   | OUT  | FLIP-LEFT   | 0        | 
+6583 | 140  | Production  | 48Ca      | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6584 | 140  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6585 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6586 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
@@ -1166,10 +1167,10 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6590 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6591 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6592 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-6593 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
+6593 | 141  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
 6594 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-6595 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-6596 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
+6595 | 141  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
+6596 | 141  | Production  | 48Ca      | (null)   | IN   | FLIP-LEFT   | 0        | 
 6597 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6598 | 141  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6599 | 142  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1180,10 +1181,10 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6604 | 142  | Junk        | 48Ca      | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6605 | 142  | Junk        | 48Ca      | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6606 | 142  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
-6607 | 142  | Production  | 48Ca      | Bad      | OUT  | FLIP-LEFT   | 0        | 
+6607 | 142  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6608 | 142  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6609 | 142  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
-6610 | 142  | Production  | 48Ca      | Bad      | OUT  | FLIP-LEFT   | 0        | 
+6610 | 142  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6611 | 142  | Junk        | 48Ca      | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6612 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 1        | 
 6613 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 1        | 
@@ -1197,8 +1198,8 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6621 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 1        | 
 6622 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 1        | 
 6623 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 1        | 
-6624 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 1        | 
-6625 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 1        | 
+6624 | 143  | Production  | 48Ca      | Suspicious | OUT  | FLIP-LEFT   | 0        | 
+6625 | 143  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6626 | 143  | Junk        | 48Ca      | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6627 | 142  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6628 | 142  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1308,11 +1309,11 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6732 | 146  | Calibration | D-208Pb4-D | Good     | IN   | FLIP-LEFT   | 0        | 
 6733 | 146  | Parityscan  | D-208Pb4-D | Good     | IN   | FLIP-LEFT   | 0        | 
 6734 | 146  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
-6735 | 146  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
-6736 | 146  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
+6735 | 146  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
+6736 | 146  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
 6737 | 146  | Junk        | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
 6738 | 146  | Junk        | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
-6739 | 146  | Calibration | Carbon 1% | Good     | IN   | FLIP-LEFT   | 0        | 
+6739 | 146  | Calibration | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
 6740 | 146  | Junk        | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
 6741 | 146  | Junk        | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
 6742 | 146  | Junk        | Carbon 1% | (null)   | IN   | FLIP-LEFT   | 0        | 
@@ -1342,7 +1343,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6766 | 146  | Parityscan  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6767 | 146  | Parityscan  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6768 | 146  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-6769 | 146  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
+6769 | 146  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 6770 | 146  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
 6771 | 146  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
 6772 | 146  | Junk        | Home      | (null)   | IN   | FLIP-LEFT   | 0        | 
@@ -1424,7 +1425,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 6848 | 151  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6849 | 151  | Junk        | Carbon 1% | (null)   | OUT  | FLIP-LEFT   | 0        | 
 6851 | 151  | Junk        | Carbon 1% | Bad      | OUT  | FLIP-LEFT   | 0        | 
-6852 | 151  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
+6852 | 151  | Production  | Unknown   | Good     | OUT  | FLIP-LEFT   | 0        | 
 6853 | 151  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6854 | 151  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 6855 | 151  | Junk        | 48Ca      | Bad      | OUT  | FLIP-LEFT   | 0        | 
@@ -1595,7 +1596,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7020 | 160  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 7021 | 160  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 7022 | 160  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-7023 | 160  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
+7023 | 160  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
 7024 | 160  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 7025 | 160  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 7026 | 160  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
@@ -1632,7 +1633,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7057 | 161  | Junk        | Carbon Hole (Cold) | Good     | OUT  | FLIP-LEFT   | 0        | 
 7058 | 161  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7059 | 161  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-7060 | 161  | Production  | 48Ca      | Suspicious | OUT  | FLIP-LEFT   | 0        | 
+7060 | 161  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7061 | 161  | Parityscan  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7062 | 161  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7063 | 161  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1655,7 +1656,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7080 | 163  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7081 | 163  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7082 | 163  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-7083 | 163  | Production  | 48Ca      | Suspicious | OUT  | FLIP-LEFT   | 0        | 
+7083 | 163  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7084 | 163  | Junk        | 48Ca      | Bad      | OUT  | FLIP-LEFT   | 0        | 
 7085 | 163  | Junk        | Carbon Hole (Cold) | Bad      | OUT  | FLIP-LEFT   | 0        | 
 7086 | 163  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1687,7 +1688,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7112 | 165  | Junk        | Carbon Hole (Cold) | Bad      | OUT  | FLIP-LEFT   | 0        | 
 7113 | 165  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7114 | 165  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-7115 | 165  | Production  | 48Ca      | Suspicious | OUT  | FLIP-LEFT   | 0        | 
+7115 | 165  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7116 | 165  | Junk        | 48Ca      | Bad      | OUT  | FLIP-LEFT   | 0        | 
 7117 | 165  | Junk        | 48Ca      | Bad      | OUT  | FLIP-LEFT   | 0        | 
 7118 | 165  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1803,7 +1804,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7229 | 172  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 7230 | 172  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 7231 | 172  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
-7232 | 172  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
+7232 | 172  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
 7233 | 172  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
 7234 | 172  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-LEFT   | 0        | 
 7235 | 172  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
@@ -1862,23 +1863,23 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7288 | 175  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7289 | 175  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7290 | 175  | Junk        | Carbon Hole (Cold) | Bad      | OUT  | FLIP-LEFT   | 0        | 
-7291 | 175  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
+7291 | 175  | Production  | 48Ca      | Suspicious | OUT  | FLIP-LEFT   | 0        | 
 7292 | 175  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7293 | 175  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-7294 | 175  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
+7294 | 175  | Production  | 48Ca      | Suspicious | OUT  | FLIP-LEFT   | 0        | 
 7295 | 176  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-7296 | 176  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-7297 | 176  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
+7296 | 176  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
+7297 | 176  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
 7298 | 176  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
 7299 | 176  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
 7300 | 176  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
 7301 | 176  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-LEFT   | 0        | 
 7302 | 176  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-LEFT   | 0        | 
 7303 | 176  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-LEFT   | 0        | 
-7304 | 176  | Production  | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
-7305 | 176  | Production  | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
+7304 | 176  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
+7305 | 176  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
 7306 | 176  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-7307 | 176  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
+7307 | 176  | Production  | 48Ca      | Suspicious | IN   | FLIP-LEFT   | 0        | 
 7308 | 176  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-LEFT   | 0        | 
 7309 | 176  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-LEFT   | 0        | 
 7310 | 176  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
@@ -1918,7 +1919,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7344 | 179  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7345 | 179  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7346 | 179  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
-7347 | 179  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
+7347 | 179  | Production  | 48Ca      | Suspicious | OUT  | FLIP-LEFT   | 0        | 
 7348 | 179  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7349 | 179  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7350 | 179  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -1973,7 +1974,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7399 | 182  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
 7400 | 182  | Junk        | 48Ca      | Bad      | IN   | FLIP-LEFT   | 0        | 
 7401 | 182  | Production  | 48Ca      | Good     | IN   | FLIP-LEFT   | 0        | 
-7402 | 183  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
+7402 | 183  | Production  | 48Ca      | NeedCut  | OUT  | FLIP-LEFT   | 0        | 
 7403 | 183  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7404 | 183  | Production  | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
 7405 | 183  | Calibration | 48Ca      | Good     | OUT  | FLIP-LEFT   | 0        | 
@@ -2015,7 +2016,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7623 | 186  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7624 | 186  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7625 | 186  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
-7626 | 186  | Calibration | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+7626 | 186  | Production  | 48Ca       | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
 7627 | 186  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7628 | 186  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7629 | 186  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2049,8 +2050,8 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7657 | 187  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7658 | 187  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7659 | 187  | Optics      | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
-7660 | 187  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7661 | 187  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+7660 | 187  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+7661 | 187  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7662 | 187  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7663 | 187  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7664 | 187  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -2067,7 +2068,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7675 | 188  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7676 | 188  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7677 | 188  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-7678 | 188  | Calibration | Carbon 1%  | Good     | OUT  | FLIP-RIGHT  | 0        | 
+7678 | 188  | Production  | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7679 | 188  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7680 | 188  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7681 | 188  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2097,20 +2098,20 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7705 | 188  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7706 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7707 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7708 | 189  | Parityscan  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7709 | 189  | Pedestal    | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
-7710 | 189  | Pedestal    | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
-7711 | 189  | Pedestal    | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
-7712 | 189  | Calibration | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+7708 | 189  | Parityscan  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+7709 | 189  | Pedestal    | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
+7710 | 189  | Pedestal    | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
+7711 | 189  | Pedestal    | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
+7712 | 189  | Calibration | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7713 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7714 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7715 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7716 | 189  | Production  | 48Ca       | Suspicious | IN   | FLIP-RIGHT  | 2        | 
-7717 | 189  | Production  | 48Ca       | Suspicious | IN   | FLIP-RIGHT  | 2        | 
+7716 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 2        | 
+7717 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 2        | 
 7718 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7719 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7720 | 189  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7721 | 189  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+7721 | 189  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7722 | 189  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7723 | 190  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7724 | 190  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -2132,7 +2133,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7740 | 190  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7741 | 190  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7742 | 190  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7743 | 190  | Production  | 48Ca       | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
+7743 | 190  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7744 | 190  | Junk        | Home       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7745 | 190  | Junk        | Home       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7746 | 190  | Junk        | Home       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -2254,11 +2255,11 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7862 | 194  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7863 | 194  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7864 | 194  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7865 | 195  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7866 | 195  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7867 | 196  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+7865 | 195  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
+7866 | 195  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
+7867 | 196  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 7868 | 196  | Junk        | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-7869 | 196  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+7869 | 196  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 7870 | 196  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7871 | 196  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7872 | 196  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2267,7 +2268,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7875 | 196  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7876 | 197  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7877 | 197  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7878 | 197  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+7878 | 197  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7879 | 197  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7880 | 197  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 7881 | 197  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -2327,7 +2328,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7936 | 200  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7937 | 200  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7938 | 200  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7939 | 200  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+7939 | 200  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7940 | 200  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7941 | 200  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7942 | 200  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2345,17 +2346,17 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7954 | 201  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7955 | 201  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7956 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7957 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7958 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7959 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7960 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7961 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7962 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+7957 | 202  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
+7958 | 202  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+7959 | 202  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+7960 | 202  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
+7961 | 202  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
+7962 | 202  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 7963 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7964 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 7965 | 202  | Junk        | Carbon Hole (Cold) | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7966 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-7967 | 202  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+7967 | 202  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 7968 | 202  | Junk        | Carbon Hole (Cold) | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7969 | 202  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 7970 | 202  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
@@ -2382,7 +2383,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 7991 | 203  | Junk        | Carbon 1%  | Bad      | IN   | FLIP-RIGHT  | 0        | 
 7992 | 203  | Junk        | Carbon 1%  | Bad      | IN   | FLIP-RIGHT  | 0        | 
 7993 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-7994 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+7994 | 203  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 7995 | 203  | Junk        | 48Ca       | Suspicious | IN   | FLIP-RIGHT  | 0        | 
 7996 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 7997 | 203  | Junk        | Carbon Hole (Cold) | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2402,12 +2403,12 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8011 | 203  | Junk        | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
 8012 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8013 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8014 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8014 | 203  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 8015 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8016 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8017 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8018 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8019 | 203  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8019 | 203  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 8020 | 204  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8021 | 204  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8022 | 204  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2420,9 +2421,9 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8029 | 204  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8030 | 204  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8031 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8032 | 205  | Junk        | 48Ca       | Bad      | IN   | FLIP-RIGHT  | 0        | 
+8032 | 205  | Junk        | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8033 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8034 | 205  | Junk        | 48Ca       | Bad      | IN   | FLIP-RIGHT  | 0        | 
+8034 | 205  | Junk        | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8035 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8036 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8037 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2434,9 +2435,9 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8043 | 205  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-RIGHT  | 0        | 
 8044 | 205  | Junk        | Carbon Hole (Cold) | Bad      | IN   | FLIP-RIGHT  | 0        | 
 8045 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8046 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8046 | 205  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 8047 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8048 | 205  | Production  | 48Ca       | Suspicious | IN   | FLIP-RIGHT  | 0        | 
+8048 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8049 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8050 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8051 | 206  | Junk        | Carbon Hole (Cold) | Bad      | OUT  | FLIP-RIGHT  | 0        | 
@@ -2470,21 +2471,21 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8079 | 206  | Junk        | Home       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8080 | 206  | Junk        | Home       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 8081 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
-8082 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+8082 | 206  | Production  | 48Ca       | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
 8083 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8084 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8085 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8086 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+8086 | 206  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 8087 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8088 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8089 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8090 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
-8091 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+8091 | 206  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 8092 | 206  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8093 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8094 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8095 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8096 | 206  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+8096 | 206  | Production  | 48Ca       | NeedCut  | OUT  | FLIP-RIGHT  | 0        | 
 8097 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8098 | 205  | Junk        | 48Ca       | Bad      | IN   | FLIP-RIGHT  | 0        | 
 8099 | 205  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2557,7 +2558,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8166 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8167 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8168 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8169 | 211  | Production  | 48Ca       | Bad      | IN   | FLIP-RIGHT  | 0        | 
+8169 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8170 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8171 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8172 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2572,12 +2573,12 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8181 | 211  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8182 | 211  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8183 | 211  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8184 | 210  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
+8184 | 210  | Production  | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8185 | 210  | Production  | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8186 | 210  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8187 | 210  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8188 | 210  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-8189 | 210  | Pedestal    | Carbon 1%  | Good     | OUT  | FLIP-RIGHT  | 0        | 
+8189 | 210  | Pedestal    | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 8190 | 210  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8191 | 210  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8192 | 210  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2630,7 +2631,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8240 | 214  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8241 | 214  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8242 | 214  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8243 | 213  | Production  | 48Ca       | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
+8243 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8244 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8245 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8246 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2644,9 +2645,9 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8254 | 213  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 8255 | 213  | Production  | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8256 | 213  | Junk        | Carbon Hole (Cold) | Bad      | OUT  | FLIP-RIGHT  | 0        | 
-8257 | 213  | Production  | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
+8257 | 213  | Production  | 48Ca       | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
 8258 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8259 | 213  | Production  | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
+8259 | 213  | Production  | 48Ca       | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
 8260 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8261 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8262 | 214  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2680,8 +2681,8 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8291 | 213  | Junk        | Carbon Hole (Cold) | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8292 | 213  | Junk        | Carbon Hole (Cold) | Bad      | OUT  | FLIP-RIGHT  | 0        | 
 8293 | 213  | Test        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-8294 | 213  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8295 | 215  | Production  | 48Ca       | Bad      | IN   | FLIP-RIGHT  | 0        | 
+8294 | 213  | Production  | 48Ca       | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
+8295 | 215  | Production  | 48Ca       | Suspicious | IN   | FLIP-RIGHT  | 0        | 
 8296 | 215  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8297 | 215  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8298 | 215  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2729,14 +2730,14 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8341 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8342 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8343 | 217  | Junk        | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-8344 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
+8344 | 217  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 8345 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8346 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8347 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8348 | 218  | Parityscan  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8349 | 218  | Calibration | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8350 | 218  | Calibration | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8351 | 218  | Calibration | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
+8348 | 218  | Parityscan  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8349 | 218  | Calibration | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8350 | 218  | Calibration | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8351 | 218  | Calibration | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8352 | 218  | Junk        | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8353 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8354 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2752,10 +2753,10 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8364 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8365 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8366 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8367 | 217  | Junk        | Carbon 1%  | Suspicious | OUT  | FLIP-RIGHT  | 0        | 
+8367 | 217  | Test        | Carbon 1%  | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8368 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8369 | 217  | Junk        | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8370 | 217  | Junk        | 48Ca       | Bad      | OUT  | FLIP-RIGHT  | 0        | 
+8370 | 217  | Junk        | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8371 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8372 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
 8373 | 217  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
@@ -2773,9 +2774,9 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8385 | 218  | Junk        | 48Ca       | Bad      | IN   | FLIP-RIGHT  | 0        | 
 8386 | 218  | Junk        | Carbon 1%  | Bad      | IN   | FLIP-RIGHT  | 0        | 
 8387 | 218  | Junk        | Carbon 1%  | Bad      | IN   | FLIP-RIGHT  | 0        | 
-8388 | 218  | Junk        | Carbon 1%  | Suspicious | IN   | FLIP-RIGHT  | 0        | 
-8389 | 218  | Junk        | Carbon 1%  | Suspicious | IN   | FLIP-RIGHT  | 0        | 
-8390 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8388 | 218  | Test        | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
+8389 | 218  | Test        | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
+8390 | 218  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 8391 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8392 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8393 | 218  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2788,7 +2789,7 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8400 | 220  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8401 | 220  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8402 | 220  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8403 | 220  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8403 | 220  | Production  | 48Ca       | NeedCut  | IN   | FLIP-RIGHT  | 0        | 
 8404 | 220  | Junk        | 48Ca       | Bad      | IN   | FLIP-RIGHT  | 0        | 
 8405 | 220  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
 8406 | 220  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
@@ -2806,17 +2807,17 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8418 | 219  | Junk        | Carbon Hole (Cold) | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 8419 | 219  | Junk        | Carbon Hole (Cold) | (null)   | OUT  | FLIP-RIGHT  | 0        | 
 8420 | 219  | Junk        | Carbon 1%  | (null)   | OUT  | FLIP-RIGHT  | 0        | 
-8421 | 219  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8422 | 219  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8423 | 219  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8424 | 219  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8425 | 219  | Production  | 48Ca       | Good     | OUT  | FLIP-RIGHT  | 0        | 
-8426 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8427 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8428 | 221  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8429 | 221  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8430 | 221  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8431 | 221  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8421 | 219  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+8422 | 219  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+8423 | 219  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+8424 | 219  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+8425 | 219  | Production  | 48Ca       | (null)   | OUT  | FLIP-RIGHT  | 0        | 
+8426 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8427 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8428 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8429 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8430 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8431 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8432 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8433 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8434 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -2832,13 +2833,13 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8461 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8462 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8463 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8464 | 221  | Parityscan  | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
+8464 | 221  | Parityscan  | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8465 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8466 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8467 | 221  | Parityscan  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8468 | 221  | Parityscan  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8469 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8470 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8466 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8467 | 221  | Parityscan  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8468 | 221  | Parityscan  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8469 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8470 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8471 | 221  | Junk        | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8472 | 221  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8473 | 221  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
@@ -2854,29 +2855,29 @@ run  | slug | type        | target    | run_flag | ihwp | wien_flip   | arm_flag
 8503 | 221  | Junk        | Home       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8504 | 221  | Test        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8505 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8506 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8507 | 221  | Production  | 40Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8506 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8507 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8508 | 221  | Test        | 40Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8509 | 221  | Test        | 40Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8510 | 221  | Test        | 40Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8511 | 221  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8512 | 221  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8531 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8532 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8533 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8534 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8535 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8536 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8537 | 221  | Parityscan  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8538 | 221  | Calibration | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8531 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8532 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8533 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8534 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8535 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8536 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8537 | 221  | Parityscan  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8538 | 221  | Calibration | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8539 | 221  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8540 | 221  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8541 | 221  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8542 | 221  | Junk        | Carbon Hole (Cold) | (null)   | IN   | FLIP-RIGHT  | 0        | 
 8543 | 221  | Junk        | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
-8544 | 221  | Calibration | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
-8545 | 221  | Calibration | Carbon 1%  | Good     | IN   | FLIP-RIGHT  | 0        | 
-8546 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8547 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
-8548 | 221  | Production  | 48Ca       | Good     | IN   | FLIP-RIGHT  | 0        | 
+8544 | 221  | Calibration | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8545 | 221  | Calibration | Carbon 1%  | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8546 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8547 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
+8548 | 221  | Production  | 48Ca       | (null)   | IN   | FLIP-RIGHT  | 0        | 
 -----------------------------------------------------------------------------------

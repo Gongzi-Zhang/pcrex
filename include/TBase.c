@@ -47,7 +47,8 @@ void TBase::GetConfig(const TConfig &fConf)
   // fConf.ParseConfFile();
   fVars	= fConf.GetVars();
   nVars = fVars.size();
-  fVarAlt = fConf.GetVarAlts();
+  fVarErrs = fConf.GetVarErrs();
+  fVarTitles = fConf.GetVarTitles();
 
   fSolos    = fConf.GetSolos();
   fSoloCut	= fConf.GetSoloCut();
@@ -164,22 +165,6 @@ pair<string, string> TBase::ParseVar(const string var) {
 }
 
 void TBase::CheckVars() {
-  for (pair<string, string> var : fVarAlt) {
-    string ori = var.first;
-    string alt = var.second;
-    pair<string, string> bl1 = ParseVar(ori);
-    pair<string, string> bl2 = ParseVar(alt);
-    string b1 = bl1.first;
-    string l1 = bl1.second;
-    string b2 = bl2.first;
-    string l2 = bl2.second;
-    if (l1.size() && l2.size() && l1 != l2) {
-      cerr << ERROR << "different leave in original variable: " << ori
-        << " and alternative: " << alt << ENDL;
-      exit(84);
-    }
-    fBrAlt[b1] = b2;
-  }
   for (string var : fCustoms) 
     fVarName[var] = {var, ""};  // no leaf for custom variables
 
@@ -273,13 +258,6 @@ void TBase::CheckVars() {
 					}
 				}
       }
-      if (!bbuf) {  // try alternatvie, if there is one
-        if (fBrAlt.find(branch) != fBrAlt.end()) {
-          // Note: we don't replace leaf here, so leaf must be specified 
-          // in original variable if you want a specific leaf 
-          bbuf = tin->GetBranch(fBrAlt[branch].c_str());
-        }
-      }
       if (!bbuf) {
         cerr << ERROR << "no branch (leaf): " << branch << " as in var: " << var << ENDL;
         tin->Delete();
@@ -293,7 +271,7 @@ void TBase::CheckVars() {
 			}
 			TLeaf * lbuf = (TLeaf *) l_leaf->FindObject(leaf.c_str());
 			if (!lbuf) {
-				cerr << WARNING << "No such leaf: " << leaf << " in var: " << var << ENDL;
+				cerr << ERROR << "No such leaf: " << leaf << " in var: " << var << ENDL;
 				cout << DEBUG << "List of valid leaves:" << ENDL;
 				TIter next(l_leaf);
 				TLeaf *l;
@@ -305,11 +283,13 @@ void TBase::CheckVars() {
 				exit(24);
 			}
 			fVarName[var] = make_pair(branch, leaf);
-      if (leaf == "mean") { // add corresponding err variables
+			/*
+      if (leaf == "mean" && !fVarErrs[var].size()) { // add corresponding err variables
         string errvar = branch + ".err";  
         fVars.insert(errvar);
         fVarName[errvar] = make_pair(branch, "err");
       }
+			 */
 			used_ftrees.insert(bbuf->GetTree()->GetName());
 		}
 		tmp_vars.clear();
@@ -547,14 +527,6 @@ int TBase::GetValues() {
         string branch = fVarName[var].first;
         string leaf   = fVarName[var].second;
         TBranch *br = tin->GetBranch(branch.c_str());
-        if (!br) {
-          if (fBrAlt.find(branch) != fBrAlt.end()) {
-            br = tin->GetBranch(fBrAlt[branch].c_str());
-            fVarUseAlt[branch].push_back(g);
-            cerr << WARNING << "use alternative branch: " << fBrAlt[branch] 
-              << " for branch: " << branch << " in var: " << var << ENDL;
-          }
-        }
         if (!br) {
 					cerr << ERROR << "no branch: " << branch << " in tree: " << tree
 						<< " of file: " << file_name << ENDL;

@@ -11,14 +11,24 @@
   in rcdb.h; (the SetExp() function is there, but I think it is needless for current analysis,
   so I there is no -e option to set exp type)
 
+# conf file
+* custom variables must be defined before its usage
+
+## global rcdb setup
+    you can select runs from rcdb by setting up corresponding env variables:
+    RCDB_EXP		:: CREX,PREX2			:: default CREX
+    RCDB_TARGET		:: 48Ca,40Ca			:: default 48Ca
+    RCDB_WIENFLIP	:: FLIP-LEFT,FLIT-RIGHT,...	:: default left and right
+    RCDB_IHWP		:: IN,OUT		        :: default all
+    RCDB_ARMFLAG	:: both,left,right		:: default all
+    RCDB_RUNTYPE	:: Production,Test,...		:: default Production
+    RCDB_RUNFLAG	:: Good,NeedCut,...		:: default Good
+
 ## common options
   -c config_file 
   -r 1234-2345,4356,2345-4566   :: specify runs, seperated by comma, support range
   -s 123-124,125,136-148        :: specify slugs, same syntax as runs
   -S                            :: do sign correction
-  -a both,left,right            :: wanted arm flags (default all values)
-  -w FLIP-LEFT,FLIT-RIGHT       :: wanted wien flips (default all states)
-  -i IN,OUT                     :: wanted IHWP state (default all states)
   -f png                        :: output format (default pdf)
   -n name                       :: output name (prefix)
 
@@ -82,16 +92,3 @@
 * TCheckRuns: check the diff between bcms and bpms, maybe one see something while others not
 * TCheckRuns: cor? how to use it?
 * TCheckRuns: Correlation, two (more) variables along time
-
-# problem
-* munmap_chunk(): invalid pointer
-* end of run: double free or corruption
-  -- if you have more than 2 lines in the config file that has only variable name and no ending semicomment,
-  -- then you will find this bug. Which is caused by this line:
-      vector<char *> fields = Split(line, ';');
-  -- in ParseComp() and ParseCor() functions.
-
-  -- I do not know why? Though by googling, i can know that is caused by invalid pointer passed
-  -- to free() function.
-
-  -- looks like no invalid-variable-name-chars (like ',', ':') are allowed in the variable name

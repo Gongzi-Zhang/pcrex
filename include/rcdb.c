@@ -3,6 +3,7 @@
 #include <glob.h>
 #include <assert.h>
 #include <cstring>
+#include <cstdlib>
 #include <set>
 #include <map>
 
@@ -93,15 +94,9 @@ string garmflag;
 string gihwp;
 string gwienflip;
 string gexp = "CREX";
-string gruntype = "Production|A_T|Calibration";
-// string gruntype = "Production|Calibration|Test|Pedestal|ParityScan";
+string gruntype = "Production";
 string grunflag = "Good";
-// string gtarget = "48Ca|40Ca|Carbon 1%|D-208Pb4-D";
-string gtarget;
-// string gexp = "PREX2";
-// string gruntype;
-// string grunflag;
-// string gtarget = "D-208Pb8-D";
+string gtarget = "48Ca";
 
 MYSQL *con;
 MYSQL_RES  *res;
@@ -132,6 +127,41 @@ void EndConnection() {
   con = NULL;
   res = NULL;
   row = NULL;
+}
+
+void SetupRCDB()
+{
+	if (const char *val = getenv("RCDB_EXP"))
+		SetExp(val);
+	if (const char *val = getenv("RCDB_TARGET"))
+		SetTarget(val);
+	if (const char *val = getenv("RCDB_WIENFLIP"))
+		SetWienFlip(val);
+	if (const char *val = getenv("RCDB_IHWP"))
+		SetIHWP(val);
+	if (const char *val = getenv("RCDB_ARMFLAG"))
+		SetArmFlag(val);
+	if (const char *val = getenv("RCDB_RUNTYPE"))
+		SetRunType(val);
+	if (const char *val = getenv("RCDB_RUNFLAG"))
+		SetRunFlag(val);
+
+	cerr << BINFO;
+		if (gexp.size())
+			fprintf(stderr, "\n\t%9s:\t%s", "exp", gexp.c_str());
+		if (gtarget.size())
+			fprintf(stderr, "\n\t%9s:\t%s", "target", gtarget.c_str());
+		if (gwienflip.size())
+			fprintf(stderr, "\n\t%9s:\t%s", "wien flip", gwienflip.c_str());
+		if (gihwp.size())
+			fprintf(stderr, "\n\t%9s:\t%s", "ihwp", gihwp.c_str());
+		if (garmflag.size())
+			fprintf(stderr, "\n\t%9s:\t%s", "arm flag", garmflag.c_str());
+		if (gruntype.size())
+			fprintf(stderr, "\n\t%9s:\t%s", "run type", gruntype.c_str());
+		if (grunflag.size())
+			fprintf(stderr, "\n\t%9s:\t%s", "run flag", grunflag.c_str());
+	cerr << ENDL;
 }
 
 void SetArmFlag(const char *fs) {
@@ -295,23 +325,6 @@ set<int> GetRuns() {
     cerr << ERROR << "please Start Connection before anything else." << ENDL;
     return {};
   }
-
-	cerr << BINFO;
-		if (gexp.size())
-			fprintf(stderr, "\n\t%9s:\t%s", "exp", gexp.c_str());
-		if (gruntype.size())
-			fprintf(stderr, "\n\t%9s:\t%s", "run type", gruntype.c_str());
-		if (grunflag.size())
-			fprintf(stderr, "\n\t%9s:\t%s", "run flag", grunflag.c_str());
-		if (gtarget.size())
-			fprintf(stderr, "\n\t%9s:\t%s", "target", gtarget.c_str());
-		if (garmflag.size())
-			fprintf(stderr, "\n\t%9s:\t%s", "arm flag", garmflag.c_str());
-		if (gihwp.size())
-			fprintf(stderr, "\n\t%9s:\t%s", "ihwp", gihwp.c_str());
-		if (gwienflip.size())
-			fprintf(stderr, "\n\t%9s:\t%s", "wien flip", gwienflip.c_str());
-	cerr << ENDL;
 
   set<int> runs;
 	char q_exp[128], q_runtype[128*2], q_runflag[128*3], q_target[128*4], q_armflag[128*5], q_ihwp[128*6], q_wienflip[128*7];

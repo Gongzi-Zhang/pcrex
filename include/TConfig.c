@@ -14,6 +14,7 @@
 
 using namespace std;
 extern map<string, const double> UNITS;
+// map<string, const double> UNITS;
 
 // ClassImp(TConfig);
 
@@ -174,6 +175,23 @@ void TConfig::ParseRSfile() {
   }
 }
 
+bool TConfig::ParseVar(VAR &var, const char * str)
+{
+	if (!str)
+		return false;
+
+	var = {NULL, NULL};
+	int end_pos = strlen(str)-1;
+	int i;
+  if ((i=Index(str, "+-")) >= 0)
+	{
+		var.verr = StripSpaces(Sub(str, i+2, end_pos-i-1));
+		end_pos = i-1;
+	}
+	var.vname = StripSpaces(Sub(str, 0, end_pos+1));
+	return true;
+}
+
 bool TConfig::SetCut(VarCut &cut, vector<char *> fields) 
 {
 	cut = {1024, 1024, 1024};
@@ -226,70 +244,92 @@ bool TConfig::SetCut(VarCut &cut, vector<char *> fields)
 }
 
 bool TConfig::ParseSolo(char *line) {
-  vector<char*> fields = Split(line, ';');
+  char *var=NULL;
   VarCut cut;
-  char *var=NULL, *alt=NULL;
 
+	VAR var_tmp;
+
+  vector<char*> fields = Split(line, ';');
 	if (fields.size() > nFIELDS)
 	{
       cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
-	var = fields[0];
+	char * title = NULL;
+	int i;
+	if ((i=Index(fields[0], '|')) >= 0)
+	{
+		title = StripSpaces(Sub(fields[0], i+1));
+		fields[0][i] = '\0';
+	}
+	if (!ParseVar(var_tmp, fields[0]))
+	{
+		cerr << ERROR << "Can't parse var declaration" << ENDL;
+		return false;
+	}
 	fields.erase(fields.begin());
 	if (!SetCut(cut, fields))
 		return false;
 
-  // alternative
-  if (Contain(var, "(") && Contain(var, ")") &&
-      Index(var, "(") < Index(var, ")")) {
-    fields = Split(var, "(");
-    var = fields[0];
-    alt = fields[1];
-    alt[Index(alt, ")")] = '\0';  // remove closing )
-    StripSpaces(alt);
-  }
-
-  StripSpaces(var);
-  if (IsEmpty(var)) {
-    cerr << ERROR << "Empty variable or alternative. " << ENDL;
+	var = var_tmp.vname;
+  if (!var || IsEmpty(var)) {
+    cerr << ERROR << "Empty variable. " << ENDL;
     return false;
   }
   if (find(fSolos.cbegin(), fSolos.cend(), var) != fSolos.cend()) {
     cerr << WARNING << "repeated solo variable, ignore it. " << ENDL;
     return false;
   }
-  if (alt)
-    fVarAlts[var] = alt;
 
   fSolos.push_back(var);
+	if (var_tmp.verr && !IsEmpty(var_tmp.verr))
+	{
+		fVarErrs[var] = var_tmp.verr;	// FIXME: what if variable has different error from other session
+		fVars.insert(var_tmp.verr);
+	}
+	if (title && !IsEmpty(title))
+		fVarTitles[var] = title;
   fSoloCut[var] = cut;
   fVars.insert(var);
   return true;
 }
 
-// no alternative in custom definition right now, if you want alternative for a variable 
-// in custom definition, then define it in solo (or other) part
 bool TConfig::ParseCustom(char *line) {
-  vector<char*> fields = Split(line, ';');
-  VarCut cut;
   char *var;
   char *def;
+  VarCut cut;
+
+	VAR var_tmp;
+
+  vector<char*> fields = Split(line, ';');
 	if (fields.size() > nFIELDS)
 	{
       cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
-	vector<char *> vfields = Split(fields[0], ':');
+	char * title = NULL;
+	int i;
+	if ((i=Index(fields[0], '|')) >= 0)
+	{
+		title = StripSpaces(Sub(fields[0], i+1));
+		fields[0][i] = '\0';
+	}
+	if (!ParseVar(var_tmp, fields[0]))
+	{
+		cerr << ERROR << "Can't parse var declaration" << ENDL;
+		return false;
+	}
+	fields.erase(fields.begin());
+	if (!SetCut(cut, fields))
+		return false;
+
+	vector<char *> vfields = Split(var_tmp.vname, ':');
 	if (vfields.size() != 2) {
 		cerr << ERROR << "Wrong format in defining custom variable (var: definition): " << fields[0] << ENDL;
 		return false;
 	}
 	var = vfields[0];
 	def = vfields[1];
-	fields.erase(fields.begin());
-	if (!SetCut(cut, fields))
-		return false;
 
   if (IsEmpty(var)) {
     cerr << ERROR << "Empty variable for custom. " << ENDL;
@@ -310,6 +350,13 @@ bool TConfig::ParseCustom(char *line) {
   fCustoms.push_back(var);
 	for (string v : GetVariables(node)) 
 		fVars.insert(v);
+	if (var_tmp.verr && !IsEmpty(var_tmp.verr))
+	{
+		fVarErrs[var] = var_tmp.verr;
+		fVars.insert(var_tmp.verr);
+	}
+	if (title && !IsEmpty(title))
+		fVarTitles[var] = title;
   fCustomCut[var] = cut;
 	fCustomDef[var] = node;
   return true;
@@ -356,15 +403,25 @@ bool TConfig::ParseEntryCut(char *line) {
 
 
 bool TConfig::ParseComp(char *line) {
-  vector<char*> fields = Split(line, ';');
+	char *var1, *var2;
   VarCut cut;
-  vector<char*> vars;
+
+	VAR var_tmp1, var_tmp2;
+
+  vector<char*> fields = Split(line, ';');
 	if (fields.size() > nFIELDS)
 	{
       cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
-	vars = Split(fields[0], ',');
+	char * title = NULL;
+	int i;
+	if ((i=Index(fields[0], '|')) >= 0)
+	{
+		title = StripSpaces(Sub(fields[0], i+1));
+		fields[0][i] = '\0';
+	}
+  vector<char*> vars = Split(fields[0], ',');
   if (vars.size() != 2) {
     cerr << ERROR << "wrong variables (should be: varA,varB) for comparison" << ENDL;
     return false;
@@ -373,42 +430,40 @@ bool TConfig::ParseComp(char *line) {
 	if (!SetCut(cut, fields))
 		return false;
 
-  char *alts[2];
-  for (int i=0; i<2; i++) {
-    alts[i] = NULL;
-    char *var = vars[i];
-    if (Contain(var, "(") && Contain(var, ")") &&
-        Index(var, "(") < Index(var, ")")) {
-      fields = Split(var, "(");
-      vars[i] = fields[0];
-      char *alt = fields[1];
-      alt[Index(alt, ")")] = '\0';  // remove closing )
-      StripSpaces(alt);
-      alts[i] = alt;
-    }
-  }
-
-  StripSpaces(vars[0]);
-  StripSpaces(vars[1]);
-  if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
+	if (!ParseVar(var_tmp1, vars[0]) || !ParseVar(var_tmp2, vars[1]))
+	{
+		cerr << ERROR << "Can't parse var declaration" << ENDL;
+		return false;
+	}
+	var1 = var_tmp1.vname;
+	var2 = var_tmp2.vname;
+  if (IsEmpty(var1) || IsEmpty(var2)) {
     cerr << ERROR << "empty variable for comparison" << ENDL;
     return false;
   }
-  if (find(fComps.cbegin(), fComps.cend(), make_pair(string(vars[0]), string(vars[1]))) != fComps.cend()) {
+  if (find(fComps.cbegin(), fComps.cend(), make_pair(string(var1), string(var2))) != fComps.cend()) {
     cerr << WARNING << "repeated comparison variables, ignore it. " << ENDL;
     return false;
   }
 
-  for (int i=0; i<2; i++)
-    if (alts[i])
-      fVarAlts[vars[i]] = alts[i];
-
-  fComps.push_back(make_pair(vars[0], vars[1]));
-  fCompCut[make_pair(vars[0], vars[1])] = cut;
-  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
-    fVars.insert(vars[0]);
-  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[1]) == fCustoms.cend())
-    fVars.insert(vars[1]);
+  fComps.push_back(make_pair(var1, var2));
+  fCompCut[make_pair(var1, var2)] = cut;
+  if (find(fCustoms.cbegin(), fCustoms.cend(), var1) == fCustoms.cend())
+    fVars.insert(var1);
+  if (find(fCustoms.cbegin(), fCustoms.cend(), var2) == fCustoms.cend())
+    fVars.insert(var2);
+	if (var_tmp1.verr && !IsEmpty(var_tmp1.verr))
+	{
+		fVarErrs[var1] = var_tmp1.verr;
+		fVars.insert(var_tmp1.verr);
+	}
+	if (var_tmp2.verr && !IsEmpty(var_tmp2.verr))
+	{
+		fVarErrs[var2] = var_tmp2.verr;
+		fVars.insert(var_tmp2.verr);
+	}
+	if (title && !IsEmpty(title))
+		fVarTitles[string(var1) + string(var2)] = title;
   return true;
 }
 
@@ -430,21 +485,6 @@ bool TConfig::ParseSlope(char *line) {
 	if (!SetCut(cut, fields))
 		return false;
 
-  char *alts[2];
-  for (int i=0; i<2; i++) {
-    alts[i] = NULL;
-    char *var = vars[i];
-    if (Contain(var, "(") && Contain(var, ")") &&
-        Index(var, "(") < Index(var, ")")) {
-      fields = Split(var, "(");
-      vars[i] = fields[0];
-      char *alt = fields[1];
-      alt[Index(alt, ")")] = '\0';  // remove closing )
-      StripSpaces(alt);
-      alts[i] = alt;
-    }
-  }
-
   StripSpaces(vars[0]);
   StripSpaces(vars[1]);
   if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
@@ -456,27 +496,32 @@ bool TConfig::ParseSlope(char *line) {
     return false;
   }
 
-  for (int i=0; i<2; i++) 
-    if (alts[i])
-      fVarAlts[vars[i]] = alts[i];
-
   fSlopes.push_back(make_pair(vars[0], vars[1]));
   fSlopeCut[make_pair(vars[0], vars[1])] = cut;
   return true;
 }
 
 bool TConfig::ParseCor(char *line) {
-  vector<char*> fields = Split(line, ';');
+	char *xvar, *yvar;
   VarCut cut;
-  vector<char*> vars;
+
+	VAR xvar_tmp, yvar_tmp;
+
+  vector<char*> fields = Split(line, ';');
 	if (fields.size() > nFIELDS)
 	{
       cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
       return false;
   }
-	vars = Split(fields[0], ':');
-	vars = Split(fields[0], ':');
+	char * title = NULL;
+	int i;
+	if ((i=Index(fields[0], '|')) >= 0)
+	{
+		title = StripSpaces(Sub(fields[0], i+1));
+		fields[0][i] = '\0';
+	}
 
+  vector<char*> vars = Split(fields[0], ':');
   if (vars.size() != 2) {
     cerr << ERROR << "wrong variables (should be: varA:varB) for correlation" << ENDL;
     return false;
@@ -485,42 +530,40 @@ bool TConfig::ParseCor(char *line) {
 	if (!SetCut(cut, fields))
 		return false;
 
-  char *alts[2];
-  for (int i=0; i<2; i++) {
-    alts[i] = NULL;
-    char *var = vars[i];
-    if (Contain(var, "(") && Contain(var, ")") &&
-        Index(var, "(") < Index(var, ")")) {
-      fields = Split(var, "(");
-      vars[i] = fields[0];
-      char *alt = fields[1];
-      alt[Index(alt, ")")] = '\0';  // remove closing )
-      StripSpaces(alt);
-      alts[i] = alt;
-    }
-  }
-
-  StripSpaces(vars[0]);
-  StripSpaces(vars[1]);
-  if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
+	if (!ParseVar(xvar_tmp, vars[0]) || !ParseVar(yvar_tmp, vars[1]))
+	{
+		cerr << ERROR << "Can't parse var declaration" << ENDL;
+		return false;
+	}
+	xvar = xvar_tmp.vname;
+	yvar = yvar_tmp.vname;
+  if (IsEmpty(xvar) || IsEmpty(yvar)) {
     cerr << ERROR << "empty variable for correlation" << ENDL;
     return false;
   }
-  if (find(fCors.cbegin(), fCors.cend(), make_pair(string(vars[0]), string(vars[1]))) != fCors.cend()) {
+  if (find(fCors.cbegin(), fCors.cend(), make_pair(string(xvar), string(yvar))) != fCors.cend()) {
     cerr << WARNING << "repeated correlation variables, ignore it. " << ENDL;
     return false;
   }
 
-  for (int i=0; i<2; i++)
-    if (alts[i])
-      fVarAlts[vars[i]] = alts[i];
-
-  fCors.push_back(make_pair(vars[0], vars[1]));
-  fCorCut[make_pair(vars[0], vars[1])] = cut;
-  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[0]) == fCustoms.cend())
-    fVars.insert(vars[0]);
-  if (find(fCustoms.cbegin(), fCustoms.cend(), vars[1]) == fCustoms.cend())
-    fVars.insert(vars[1]);
+  fCors.push_back(make_pair(xvar, yvar));
+  fCorCut[make_pair(xvar, yvar)] = cut;
+  if (find(fCustoms.cbegin(), fCustoms.cend(), xvar) == fCustoms.cend())
+    fVars.insert(xvar);
+  if (find(fCustoms.cbegin(), fCustoms.cend(), yvar) == fCustoms.cend())
+    fVars.insert(yvar);
+	if (xvar_tmp.verr && !IsEmpty(xvar_tmp.verr))
+	{
+		fVarErrs[xvar] = xvar_tmp.verr;
+		fVars.insert(xvar_tmp.verr);
+	}
+	if (yvar_tmp.verr && !IsEmpty(yvar_tmp.verr))
+	{
+		fVarErrs[yvar] = yvar_tmp.verr;
+		fVars.insert(yvar_tmp.verr);
+	}
+	if (title && !IsEmpty(title))
+		fVarTitles[string(xvar) + string(yvar)] = title;
   return true;
 }
 
