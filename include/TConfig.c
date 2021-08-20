@@ -82,8 +82,8 @@ void TConfig::ParseConfFile() {
       else if (ParseOtherCommands(current_line)) 
 	      ;
       else {
-        cerr << WARNING << "Can't parse line " << nline << ". Ignore it" << ENDL;
-        session = 0;
+        cerr << WARNING << "Can't parse line " << nline << "." << ENDL;
+        exit(4);
       }
       continue;
     }

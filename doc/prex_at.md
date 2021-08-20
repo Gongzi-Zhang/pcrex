@@ -22,49 +22,49 @@ Runs 4102-4135
 
 
 
-
-run  | type        | target     | run_flag | 
---------------------------------------------
-4102 | Junk        | Carbon 1%  | Suspicious | 
-4103 | Junk        | Carbon 1%  | Suspicious | 
-4104 | Parityscan  | Carbon 1%  | Good     | 
-4105 | Parityscan  | Carbon 1%  | Good     | 
---------------------------------------------
-4106 | A_T         | Carbon 1%  | Good     | 
-4107 | A_T         | Carbon 1%  | Good     | 
-4108 | A_T         | Carbon 1%  | Good     | 
-4109 | A_T         | Carbon 1%  | Good     | 
---------------------------------------------
-4110 | A_T         | D-208Pb8-D | Good     | 
-4111 | A_T         | D-208Pb8-D | Good     | 
-4112 | A_T         | D-208Pb8-D | Good     | 
-4113 | A_T         | D-208Pb8-D | Good     | 
-4114 | A_T         | D-208Pb8-D | Good     | 
-4115 | A_T         | D-208Pb8-D | Good     | 
-4116 | A_T         | D-208Pb8-D | Good     | 
-4117 | A_T         | D-208Pb8-D | Good     | 
-4118 | A_T         | D-208Pb8-D | Good     | 
-4119 | A_T         | D-208Pb8-D | Good     | 
---------------------------------------------
-4120 | A_T         | 40Ca 6%    | Bad      | 
-4121 | A_T         | 40Ca 6%    | Bad      | 
-4122 | Test        | Halo       | Bad      | 
---------------------------------------------
-4123 | A_T         | 40Ca 6%    | Good     | 
-4124 | A_T         | 40Ca 6%    | Good     | 
-4125 | A_T         | 40Ca 6%    | Good     | 
-4126 | A_T         | 40Ca 6%    | Good     | 
-4127 | A_T         | 40Ca 6%    | Good     | 
---------------------------------------------
-4128 | A_T         | D-208Pb9-D | Good     | 
-4129 | A_T         | D-208Pb9-D | Good     | 
-4130 | A_T         | D-208Pb9-D | Good     | 
---------------------------------------------
-4131 | A_T         | Carbon 1%  | Good     | 
-4132 | A_T         | Carbon 1%  | Good     | 
-4133 | A_T         | Carbon 1%  | Good     | 
---------------------------------------------
-4134 | Cosmics     | Carbon 1%  | Good     | 
-4135 | Cosmics     | Carbon 1%  | (null)   | 
---------------------------------------------
-
+----------------------------------------------------------------------------------------
+run  | slug | type        | target     | run_flag   | ihwp | wien_flip      | arm_flag | 
+----------------------------------------------------------------------------------------
+4102 | 501  | Junk        | Carbon 1%  | Suspicious | IN   | Vertical(DOWN) | 0        | 
+4103 | 501  | Junk        | Carbon 1%  | Suspicious | IN   | Vertical(DOWN) | 0        | 
+4104 | 501  | Parityscan  | Carbon 1%  | Good       | IN   | Vertical(DOWN) | 0        | 
+4105 | 501  | Parityscan  | Carbon 1%  | Good       | IN   | Vertical(DOWN) | 0        | 
+----------------------------------------------------------------------------------------
+4106 | 501  | A_T         | Carbon 1%  | Good       | IN   | Vertical(DOWN) | 0        | 
+4107 | 501  | A_T         | Carbon 1%  | Good       | IN   | Vertical(DOWN) | 0        | 
+4108 | 502  | A_T         | Carbon 1%  | Good       | OUT  | Vertical(DOWN) | 0        | 
+4109 | 502  | A_T         | Carbon 1%  | Good       | OUT  | Vertical(DOWN) | 0        | 
+----------------------------------------------------------------------------------------
+4110 | 503  | A_T         | D-208Pb8-D | Good       | OUT  | Vertical(DOWN) | 0        | 
+4111 | 503  | A_T         | D-208Pb8-D | Good       | OUT  | Vertical(DOWN) | 0        | 
+4112 | 503  | A_T         | D-208Pb8-D | Good       | OUT  | Vertical(DOWN) | 0        | 
+4113 | 503  | A_T         | D-208Pb8-D | Good       | OUT  | Vertical(DOWN) | 0        | 
+4114 | 503  | A_T         | D-208Pb8-D | Good       | OUT  | Vertical(DOWN) | 0        | 
+4115 | 504  | A_T         | D-208Pb8-D | Good       | IN   | Vertical(DOWN) | 0        | 
+4116 | 504  | A_T         | D-208Pb8-D | Good       | IN   | Vertical(DOWN) | 0        | 
+4117 | 504  | A_T         | D-208Pb8-D | Good       | IN   | Vertical(DOWN) | 0        | 
+4118 | 504  | A_T         | D-208Pb8-D | Good       | IN   | Vertical(DOWN) | 0        | 
+4119 | 504  | A_T         | D-208Pb8-D | Good       | IN   | Vertical(DOWN) | 0        | 
+----------------------------------------------------------------------------------------
+4120 | 505  | A_T         | 40Ca 6%    | Bad        | IN   | Vertical(DOWN) | 0        | 
+4121 | 505  | A_T         | 40Ca 6%    | Bad        | IN   | Vertical(DOWN) | 0        | 
+4122 | 505  | Test        | Halo       | Bad        | IN   | Vertical(DOWN) | 0        | 
+----------------------------------------------------------------------------------------
+4123 | 505  | A_T         | 40Ca 6%    | Good       | IN   | Vertical(DOWN) | 0        | 
+4124 | 505  | A_T         | 40Ca 6%    | Good       | IN   | Vertical(DOWN) | 0        | 
+4125 | 505  | A_T         | 40Ca 6%    | Good       | IN   | Vertical(DOWN) | 0        | 
+4126 | 506  | A_T         | 40Ca 6%    | Good       | OUT  | Vertical(DOWN) | 0        | 
+4127 | 506  | A_T         | 40Ca 6%    | Good       | OUT  | Vertical(DOWN) | 0        | 
+----------------------------------------------------------------------------------------
+4128 | 507  | A_T         | D-208Pb9-D | Good       | OUT  | Vertical(DOWN) | 0        | 
+4129 | 508  | A_T         | D-208Pb9-D | Good       | IN   | Vertical(DOWN) | 0        | 
+4130 | 508  | A_T         | D-208Pb9-D | Good       | IN   | Vertical(DOWN) | 0        | 
+----------------------------------------------------------------------------------------
+4131 | 509  | A_T         | Carbon 1%  | Good       | OUT  | Vertical(DOWN) | 0        | 
+4132 | 509  | A_T         | Carbon 1%  | Good       | OUT  | Vertical(DOWN) | 0        | 
+4133 | 510  | A_T         | Carbon 1%  | Good       | IN   | Vertical(DOWN) | 0        | 
+----------------------------------------------------------------------------------------
+4134 | 501  | Cosmics     | Carbon 1%  | Good       | IN   | Vertical(DOWN) | 0        | 
+4135 | 501  | Cosmics     | Carbon 1%  | (null)     | IN   | Vertical(DOWN) | 0        | 
+4136 | 503  | Cosmics     | Carbon 1%  | (null)     | IN   | FLIP-RIGHT	    | 0        | 
+----------------------------------------------------------------------------------------

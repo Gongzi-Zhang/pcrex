@@ -18,7 +18,6 @@
 
 #include "TROOT.h"
 #include "TStyle.h"
-#include "TGaxis.h"
 #include "TFile.h"
 #include "TTree.h"
 #include "TBranch.h"
@@ -32,6 +31,7 @@
 #include "TCanvas.h"
 #include "TPad.h"
 #include "TAxis.h"
+#include "TGaxis.h"
 #include "TLegend.h"
 
 #include "const.h"
@@ -72,7 +72,8 @@ class TCheckMini : public TRSbase {
 TCheckMini::TCheckMini() :
   TRSbase()
 {
-	out_name	= "checkmini";
+	if (!out_name)
+		out_name	= "checkmini";
 	// dir       = "/chafs2/work1/apar/postpan-outputs/";
 	// pattern   = "prexPrompt_xxxx_???_regress_postpan.root"; 
 	// tree      = "mini";
@@ -108,7 +109,9 @@ void TCheckMini::ProcessValues() {
 		// sign correction: only for mean value
 		if (sign && fVarName[var].second == "mean" 
 				&& (var.find("asym") != string::npos ^ var.find("diff") != string::npos)
-				) {
+				// slope don't need sign correction
+				)
+		{
       int m = 0;
 			for (int run : fRuns) {
         const size_t sessions = fRootFile[run].size();
@@ -128,28 +131,6 @@ void TCheckMini::ProcessValues() {
 		// 	fVarValue[var][m] *= (UNITS[fVarInUnit[var]]/UNITS[fVarOutUnit[var]]);
 		// }
   }
-
-  /*
-	for (string var : fVars) {	// weight raw det asym with lagr. det asym error
-		TString v = var;
-		if (v.CountChar('.') == 2)
-			v = var.substr(var.find('.')+1);
-		if (	 v == "asym_us_avg.err"
-				|| v == "asym_bcm_target.err"	
-				|| v == "asym_bcm_target.hw_sum_err"	
-				|| (var.find("diff_bpm") != string::npos && (v.EndsWith(".hw_sum_err") || v.EndsWith(".err"))))
-		{
-      int m = 0;
-			for (int run : fRuns) {
-        const size_t sessions = fRootFile[run].size();
-        for (size_t session=0; session < sessions; session++) {
-          for (int i = 0; i < fEntryNumber[run][session].size(); i++, m++)
-            fVarValue[var][m] = fVarValue["lagr_asym_us_avg.err"][m];	// weighted by lagr_asym_us_avg err bar
-        }
-			}
-		}
-	}
-  */
 }
 
 void TCheckMini::CheckValues() {  // looks like Chicken ribs
@@ -239,16 +220,10 @@ void TCheckMini::CheckValues() {  // looks like Chicken ribs
 void TCheckMini::Draw() {
 	// make sure get err for mean values
 	for (string var : fVars) {
-		if ((var.find('.') == string::npos || var.find(".mean") != string::npos) 
-				&& !fVarErrs.count(var)) {
-			string err_var;
-			if (var.find('.') == string::npos)
-				err_var = var + ".err";
-			else 
-				err_var = var.substr(0, var.find(".mean")) + ".err";
-
-			fVars.insert(err_var);	// add new elements while looping the set
+		if (var.find(".mean") != string::npos && !fVarErrs[var].size()) {
+			string err_var = var.substr(0, var.find(".mean")) + ".err";
 			fVarErrs[var] = err_var;
+			fVars.insert(err_var);	// add new elements while looping the set
 		}
 	}
 
@@ -261,7 +236,7 @@ void TCheckMini::Draw() {
 	if (nMiniruns > 100)
 		c = new TCanvas("c", "c", 1800, 600);
 	else 
-		c = new TCanvas("c", "c", 1200, 600);
+		c = new TCanvas("c", "c", 1200, 900);
   c->SetGridy();
   gStyle->SetOptFit(111);
   gStyle->SetOptStat(1110);
@@ -295,7 +270,6 @@ void TCheckMini::DrawSolos() {
     if (mean)
       err_var = fVarErrs[solo];
 
-    TH1F *h = new TH1F(solo.c_str(), "", nMiniruns, 0.5, nMiniruns+0.5);
     TGraphErrors *g = new TGraphErrors();
     map<int, TGraphErrors *> g_flips;
     for (int i=0; i<flips.size(); i++) {
@@ -305,41 +279,18 @@ void TCheckMini::DrawSolos() {
     for(int i=0; i<nMiniruns; i++) {
       double val, err=0;
       val = fVarValue[solo][i];
+			if (std::isnan(val))
+				continue;
       if (mean) 
         err = fVarValue[err_var][i];
 
-      h->SetBinContent(i+1, val);
-      g->SetPoint(i, i+1, val);
-      g->SetPointError(i, 0, err);
+			int ipoint = g->GetN();
+      g->SetPoint(ipoint, i+1, val);
+      g->SetPointError(ipoint, 0, err);
 
-      int ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
+      ipoint = g_flips[fRunSign[fMiniruns[i].first]]->GetN();
       g_flips[fRunSign[fMiniruns[i].first]]->SetPoint(ipoint, i+1, val);
       g_flips[fRunSign[fMiniruns[i].first]]->SetPointError(ipoint, 0, err);
-    }
-
-    // style
-    double min = g->GetYaxis()->GetXmin();
-    double max = g->GetYaxis()->GetXmax();
-    h->GetYaxis()->SetRangeUser(min, max+(max-min)/10);
-    h->GetXaxis()->SetNdivisions(nMiniruns, 0, 0, kTRUE);
-    h->SetStats(kFALSE);
-		string title = solo;
-		if (count(title.begin(), title.end(), '.') == 2)
-			title = title.substr(title.find('.')+1);
-    if (sign)
-      title += " (sign corrected)";
-    h->SetTitle((title + ";;" + fVarOutUnit[solo]).c_str());
-
-    if (flips.size() == 1)
-      g->SetMarkerStyle(20);
-    for (int i=0; i<flips.size(); i++) {
-      g_flips[flips[i]]->SetMarkerStyle(mstyles[i]);
-      g_flips[flips[i]]->SetMarkerColor(mcolors[i]);
-      if (flips.size() > 1) {
-        g_flips[flips[i]]->Fit("pol0");
-        g_flips[flips[i]]->GetFunction("pol0")->SetLineColor(mcolors[i]);
-        g_flips[flips[i]]->GetFunction("pol0")->SetLineWidth(1);
-      }
     }
 
     g->Fit("pol0");
@@ -347,31 +298,18 @@ void TCheckMini::DrawSolos() {
     double mean_value = fit->GetParameter(0);
 		cout << OUTPUT << solo << "\t" << mean_value << " ± " << fit->GetParError(0) << ENDL;
 
-    TAxis *ax = h->GetXaxis();
     TH1F *pull = NULL; 
     if (mean) {
       pull = new TH1F("pull", "", nMiniruns, 0.5, nMiniruns+0.5);
       for (int i=0; i<nMiniruns; i++) {
         double ratio = 0;
-        if (fVarValue[err_var][i]!= 0)
+        if (fVarValue[err_var][i]!= 0 && !std::isnan(fVarValue[solo][i]))
           ratio = (fVarValue[solo][i]-mean_value)/fVarValue[err_var][i];
 
         pull->Fill(i+1, ratio);
       }
-      pull->GetXaxis()->SetNdivisions(nMiniruns, 0, 0, kTRUE);
-      ax = pull->GetXaxis();
-      ax->SetLabelSize(0.06);
-      pull->GetYaxis()->SetLabelSize(0.12);
-      h->GetYaxis()->SetLabelSize(0.08);
     }
-    for (int i=0; i<nMiniruns; i++) {
-      ax->SetBinLabel(i+1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
-    }
-    // ax->SetTitle("Minirun");
 
-    TLegend *l = new TLegend(0.1, 0.9-0.05*flips.size(), 0.25, 0.9);
-    TPaveStats *st;
-    map<int, TPaveStats *> sts;
     TPad *p1;
     TPad *p2;
     c->cd();
@@ -399,9 +337,55 @@ void TCheckMini::DrawSolos() {
       p1->SetGridy();
     }
 
+		// frame
     p1->cd();
-    h->Draw("*");
-    g->Draw("P SAME");
+    double min = g->GetYaxis()->GetXmin();
+    double max = g->GetYaxis()->GetXmax();
+		TH1 * frame = p1->DrawFrame(0.5, min, nMiniruns+0.5, max + (max-min)/10);
+		string title = fVarTitles[solo];
+		if (!title.size())
+		{
+			title = solo;
+			if (count(title.begin(), title.end(), '.') == 2)
+				title = title.substr(title.find('.')+1);
+		}
+    if (sign)
+      title += " (sign corrected)";
+    frame->SetTitle((title + ";;" + fVarOutUnit[solo]).c_str());
+
+		TAxis *ax = frame->GetXaxis();
+    ax->SetNdivisions(nMiniruns, 0, 0, kTRUE);
+		if (mean)
+		{
+      ax = pull->GetXaxis();
+      ax->SetNdivisions(nMiniruns, 0, 0, kTRUE);
+      ax->SetLabelSize(0.06);
+      pull->GetYaxis()->SetLabelSize(0.12);
+      frame->GetYaxis()->SetLabelSize(0.08);
+		}
+
+    // for (int i=0; i<nMiniruns; i++) {
+    //   ax->SetBinLabel(i+1, Form("%d_%02d", fMiniruns[i].first, fMiniruns[i].second));
+    // }
+
+    TLegend *l = new TLegend(0.1, 0.9-0.05*flips.size(), 0.25, 0.9);
+    TPaveStats *st;
+    map<int, TPaveStats *> sts;
+
+    if (flips.size() == 1)
+      g->SetMarkerStyle(20);
+    for (int i=0; i<flips.size(); i++) {
+      g_flips[flips[i]]->SetMarkerStyle(mstyles[i]);
+      g_flips[flips[i]]->SetMarkerColor(mcolors[i]);
+      if (flips.size() > 1) {
+        g_flips[flips[i]]->Fit("pol0");
+        g_flips[flips[i]]->GetFunction("pol0")->SetLineColor(mcolors[i]);
+        g_flips[flips[i]]->GetFunction("pol0")->SetLineWidth(1);
+      }
+    }
+
+		p1->cd();
+    g->Draw("P SAMES");
     p1->Update();
     ((TPaveText *)p1->GetPrimitive("title"))->SetTextSize(0.08);
     st = (TPaveStats *) g->FindObject("stats");
@@ -414,7 +398,7 @@ void TCheckMini::DrawSolos() {
 
     if (flips.size()>1) {
       for (int i=0; i<flips.size(); i++) {
-        g_flips[flips[i]]->Draw("P same");
+        g_flips[flips[i]]->Draw("P sames");
         gPad->Update();
         if (flips.size() > 1) {
           sts[flips[i]] = (TPaveStats *) g_flips[flips[i]]->FindObject("stats");
@@ -450,7 +434,7 @@ void TCheckMini::DrawSolos() {
     c->Clear();
     if (pull) 
       pull->Delete();
-    h->Delete();
+    // frame->Delete();
     g->Delete();
     for (int i=0; i<flips.size(); i++) {
       g_flips[flips[i]]->Delete();
@@ -485,9 +469,11 @@ void TCheckMini::DrawComps() {
       for(int m=0; m<nMiniruns; m++) {
         double val, err=0;
         val = fVarValue[var[i]][m];
+				if (std::isnan(val))
+					continue;
         if (mean) 
           err = fVarValue[err_var[i]][m];
-        if (m==0) 
+        if (0==m && 0==i) 
           min = max = val;
 
         if ((val-err) < min) min = val-err;
@@ -585,7 +571,6 @@ void TCheckMini::DrawCors() {
     string err_var[2];
     TH1F *h[2];
     TGraphErrors * g[2];
-    TH1F * h_diff = new TH1F("diff", "", nMiniruns, 0.5, nMiniruns+0.5);
     
     for (int i=0; i<2; i++) {
       branch[i] = fVarName[var[i]].first;
@@ -601,6 +586,8 @@ void TCheckMini::DrawCors() {
       for(int m=0; m<nMiniruns; m++) {
         double val, err=0;
         val = fVarValue[var[i]][m];
+				if (std::isnan(val))
+					continue;
         if (mean[i]) 
           err = fVarValue[err_var[i]][m];
 
@@ -669,10 +656,9 @@ void TCheckMini::DrawCors() {
       c->Print(Form("%s_%s-%s.png", out_name, var[0].c_str(), var[1].c_str()));
     c->Clear();
     for (int i=0; i<2; i++) {
+      h[i]->Delete();
       g[i]->Delete();
     }
-    h_diff->Delete();
-    h_diff = NULL;
   }
   cout << INFO << "Done with drawing corarisons." << ENDL;
 }
