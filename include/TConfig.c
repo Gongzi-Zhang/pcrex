@@ -79,6 +79,10 @@ void TConfig::ParseConfFile() {
         session = 32;
       else if (strcmp(current_line, "@entrycuts") == 0)
         session = 64; 
+      else if (strcmp(current_line, "@dv") == 0)
+        session = 128; 
+      else if (strcmp(current_line, "@iv") == 0)
+        session = 256; 
       else if (ParseOtherCommands(current_line)) 
 	      ;
       else {
@@ -107,6 +111,10 @@ void TConfig::ParseConfFile() {
       parsed = ParseCustom(current_line);
     else if (session & 64)
       parsed = ParseEntryCut(current_line);
+    else if (session & 128)
+      parsed = ParseDv(current_line);
+    else if (session & 256)
+      parsed = ParseIv(current_line);
     else 
 		{
       cerr << WARNING << "unknown session, ignore line " << nline << ENDL;
@@ -567,7 +575,50 @@ bool TConfig::ParseCor(char *line) {
   return true;
 }
 
-bool TConfig::ParseOtherCommands(char *line) {
+bool TConfig::ParseDv(char *line)
+{
+	for (char *dv : Split(line, ','))
+	{
+		StripSpaces(dv);
+		if (!dv || IsEmpty(dv)) {
+			cerr << ERROR << "Empty variable. " << ENDL;
+			return false;
+		}
+
+		if (find(fDv.cbegin(), fDv.cend(), dv) != fDv.cend()) {
+			cerr << WARNING << "repeated dv, ignore it." << ENDL;
+			return false;
+		}
+
+		fDv.push_back(dv);
+		fVars.insert(dv);
+	}
+	return true;
+}
+
+bool TConfig::ParseIv(char *line)
+{
+	for (char *iv : Split(line, ','))
+	{
+		StripSpaces(iv);
+		if (!iv || IsEmpty(iv)) {
+			cerr << ERROR << "Empty variable. " << ENDL;
+			return false;
+		}
+
+		if (find(fIv.cbegin(), fIv.cend(), iv) != fIv.cend()) {
+			cerr << WARNING << "repeated iv, ignore it." << ENDL;
+			return false;
+		}
+
+		fIv.push_back(iv);
+		fVars.insert(iv);
+	}
+	return true;
+}
+
+bool TConfig::ParseOtherCommands(char *line) 
+{
   if (IsEmpty(line)) {
     return true;
   }

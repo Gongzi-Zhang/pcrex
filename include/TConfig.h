@@ -59,6 +59,9 @@ public:
   vector<pair<string, string>>			GetCors()			const {return fCors;}
   map<pair<string, string>, VarCut> GetCorCut()		const {return fCorCut;}
 
+	vector<string>					 GetDv() const {return fDv;};
+	vector<string>					 GetIv() const {return fIv;};
+
 	void SetRS(const char *rs_list) {fRSfile = rs_list;}
 
   bool ParseSolo(char *line);
@@ -67,6 +70,8 @@ public:
   bool ParseCor(char *line);
   bool ParseCustom(char *line);
   bool ParseEntryCut(char *line);
+	bool ParseDv(char *line);
+	bool ParseIv(char *line);
   bool ParseOtherCommands(char *line);
   void ParseConfFile();
   void ParseRSfile();
@@ -108,6 +113,10 @@ private:
 
   vector<pair<string, string>>			fCors;
   map<pair<string, string>, VarCut>	fCorCut;
+
+	// for regression only
+	vector<string>			fDv;
+	vector<string>			fIv;
 };
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

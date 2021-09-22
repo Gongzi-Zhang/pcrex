@@ -7,14 +7,7 @@
 #include "TBase.h"
 
 const char *out_dir = "rootfiles";
-void SetOutDir(const char *dir) 
-{
-	if (!dir) {
-		cerr << FATAL << "Null out dir value!" << ENDL;
-		exit(104);
-	}
-	out_dir = dir;
-}
+
 void CheckOutDir() 
 {
 	struct stat info;
@@ -35,6 +28,16 @@ void CheckOutDir()
 		}
 	}
 	*/
+}
+
+void SetOutDir(const char *dir) 
+{
+	if (!dir) {
+		cerr << FATAL << "Null out dir value!" << ENDL;
+		exit(104);
+	}
+	out_dir = dir;
+	CheckOutDir();
 }
 
 class TRSbase : public TBase {

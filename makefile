@@ -19,6 +19,7 @@ checkevent	:= TCheckEvent.h
 mulplot			:= TMulPlot.h
 aggregate		:= TAggregate.h
 aggslug			:= TAggSlug.h
+regress			:= TRegress.h
 
 VPATH := include:src
 # rcdb
@@ -37,17 +38,19 @@ $(assist_obj): bin/%.so: %.c
 check := checkrs checkmini checkevent mulplot
 agg		:= aggregate aggslug
 run		:= runinfo getrun 
+ana		:= regress
 check_obj := $(addprefix bin/, $(check))
 agg_obj := $(addprefix bin/, $(agg))
 run_obj := $(addprefix bin/, $(run))
+ana_obj := $(addprefix bin/, $(ana))
 
-all: $(checkobj) $(aggobj) $(runojb) | bin
+all: $(check_obj) $(agg_obj) $(run_ojb) $(anaobj) | bin
 
 bin:
 	mkdir bin
 
 .SECONDEXPANSION:
-$(check_obj) $(agg_obj): bin/%: %.cxx $$(%) $(TRSbase) $(TConfig_obj) $(TBase_obj) $(rcdb_obj) $(line_obj) $(math_eval_obj)
+$(check_obj) $(agg_obj) $(ana_obj): bin/%: %.cxx $$(%) $(TRSbase) $(TConfig_obj) $(TBase_obj) $(rcdb_obj) $(line_obj) $(math_eval_obj)
 	g++ $(CXXFLAGS) -o $@ $^ $(root_libs) $(mysql_libs)
 $(run_obj): bin/%: %.cxx $(rcdb_obj) $(line_obj)
 	g++ $(CXXFLAGS) -o $@ $^ $(root_libs) $(mysql_libs)
