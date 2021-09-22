@@ -63,10 +63,6 @@ void TBase::GetConfig(const TConfig &fConf)
   fCompCut	= fConf.GetCompCut();
   nComps    = fComps.size();
 
-  fSlopes		= fConf.GetSlopes();
-  fSlopeCut = fConf.GetSlopeCut();
-  nSlopes		= fSlopes.size();
-
   fCors	    = fConf.GetCors();
   fCorCut		= fConf.GetCorCut();
 	nCors			= fCors.size();
@@ -342,8 +338,7 @@ next:
   }
 
   nVars = fVars.size();
-  nSlopes = fSlopes.size();
-  if (nVars == 0 && nSlopes == 0) {
+  if (nVars == 0) {
     cerr << FATAL << "no valid variables specified, aborting." << ENDL;
     exit(11);
   }
@@ -413,12 +408,6 @@ next:
 		cout << INFO << "" << nComps << " valid comparisons specified:" << ENDL;
 		for(pair<string, string> comp : fComps)
 			cout << "\t" << comp.first << " , " << comp.second << endl;
-  }
-	if (nSlopes)
-	{
-		cout << INFO << "" << nSlopes << " valid slopes specified:" << ENDL;
-		for(pair<string, string> slope : fSlopes)
-			cout << "\t" << slope.first << " : " << slope.second << endl;
   }
 	if (nCors)
 	{

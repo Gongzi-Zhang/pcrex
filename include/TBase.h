@@ -33,7 +33,6 @@ class TBase
     int	    nSolos;
 		int		  nCustoms;
     int	    nComps;
-    int	    nSlopes;
     int	    nCors;
 
     const char *granularity = "run";
@@ -52,9 +51,6 @@ class TBase
 
     vector<pair<string, string>>      fComps;
     map<pair<string, string>, VarCut>	fCompCut;
-
-    vector<pair<string, string>>      fSlopes;
-    map<pair<string, string>, VarCut> fSlopeCut;
 
     vector<pair<string, string>>      fCors;
     map<pair<string, string>, VarCut> fCorCut;
