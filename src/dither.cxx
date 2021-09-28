@@ -3,14 +3,14 @@
 #include <set>
 
 #include "line.h"
-#include "TAggregate.h"
+#include "TDither.h"
 
 using namespace std;
 
 void usage();
 
 int main(int argc, char* argv[]) {
-  const char * config_file("conf/aggregate.conf");
+  const char * config_file("conf/dither.conf");
   const char * run_list = NULL;
   const char * out_dir = NULL;
   bool dconf = true;
@@ -44,14 +44,6 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-	for (int rs : ParseRSfile(run_list))
-	{
-		if (rs < 500)
-			slugs.insert(rs);
-		else
-			runs.insert(rs);
-	}
-
   if (dconf)
     cout << INFO << "use default config file: " << config_file << ENDL;
 	TConfig fConf(config_file);
@@ -62,34 +54,45 @@ int main(int argc, char* argv[]) {
 
 	SetupRCDB();
 
-  TAggregate fAgg = TAggregate();
-	fAgg.GetConfig(fConf);
+  TDither fDit = TDither();
+	fDit.GetConfig(fConf);
 
+	if (run_list)
+	{
+		for (int rs : ParseRSfile(run_list))
+		{
+			if (rs < 500)
+				slugs.insert(rs);
+			else
+				runs.insert(rs);
+		}
+	}
   if (runs.size())
-    fAgg.SetRuns(runs);
-  fAgg.SetRuns(fConf.GetRS());
+    fDit.SetRuns(runs);
+  fDit.SetRuns(fConf.GetRS());
   if (slugs.size())
-    fAgg.SetSlugs(slugs);
+    fDit.SetSlugs(slugs);
 
-	fAgg.CheckRuns();
-	fAgg.TBase::CheckVars();
-  fAgg.AggregateRuns();
+	fDit.CheckRuns();
+	fDit.CheckVars();
+  fDit.DitherRuns();
 
   return 0;
 }
 
 void usage() {
-  cout << "Aggregate (minirun) for specified runs/slugs" << endl
+  cout << "Dithering analysis for specified runs/slugs" << endl
        << "  Options:" << endl
        << "\t -h: print this help message" << endl
-       << "\t -c: specify config file (default: conf/aggregate.conf)" << endl
+			 << "\t -v: verbose level (0: no running info; 1: basic info; 2: verbose info; 3: debug info)"
+       << "\t -c: specify config file (default: conf/regress.conf)" << endl
        << "\t -r: specify runs (seperated by comma, no space between them. run range is supported: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl
        << "\t -s: specify slugs (the same syntax as -r)" << endl
-       << "\t -d: name of output dir" << endl
+       << "\t -d: output dir" << endl
        << endl
        << "  Example:" << endl
-       << "\t ./aggregate -c agg.conf -R slug123.list -n slug123" << endl
-       << "\t ./aggregate -c agg.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -d rootfiles" << endl;
+       << "\t ./dither -c dither.conf -R slug123.list" << endl
+       << "\t ./dither -c dither.conf -r 6543,6677-6680 -s 125,127-130 -R run.list -d rootfiles" << endl;
 }
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

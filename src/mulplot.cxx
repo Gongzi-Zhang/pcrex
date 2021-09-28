@@ -56,15 +56,23 @@ int main(int argc, char* argv[]) {
 		exit(4);
 	}
 
+	for (int rs : ParseRSfile(run_list))
+	{
+		if (rs < 500)
+			slugs.insert(rs);
+		else
+			runs.insert(rs);
+	}
+
   if (dconf)
     cout << INFO << "use default config file: " << config_file << ENDL;
-	TConfig fConf(config_file, run_list);
+	TConfig fConf(config_file);
 	fConf.ParseConfFile();
 	SetupRCDB();
 
   TMulPlot fMulPlot;
 	fMulPlot.GetConfig(fConf);
-	logy = logy || fConf.GetLogy();
+	logy = logy || (fConf.GetScalar("logy") ? true : false);
   if (logy)
     fMulPlot.SetLogy(logy);
   if (runs.size() > 0)

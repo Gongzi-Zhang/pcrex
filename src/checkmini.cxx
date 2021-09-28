@@ -54,9 +54,9 @@ int main(int argc, char* argv[]) {
 
   if (dconf) 
     cout << INFO << "use default config file: " << config_file << ENDL;
-	TConfig fConf(config_file, run_list);
+	TConfig fConf(config_file);
 	fConf.ParseConfFile();
-  for (int rs : fConf.GetRS()) {
+  for (int rs : ParseRSfile(run_list)) {
     if (rs < 500)
       slugs.insert(rs);
     else
