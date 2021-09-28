@@ -18,10 +18,9 @@ extern map<string, const double> UNITS;
 
 // ClassImp(TConfig);
 
-TConfig::TConfig() : fConfFile(0) {}
-TConfig::TConfig(const char *conf_file, const char *RSlist) :
-  fConfFile(conf_file),
-  fRSfile(RSlist)
+TConfig::TConfig() : fConfigFile(0) {}
+TConfig::TConfig(const char *conf_file) :
+  fConfigFile(conf_file)
 {}
 
 TConfig::~TConfig() {
@@ -30,15 +29,15 @@ TConfig::~TConfig() {
 
 void TConfig::ParseConfFile() {
   // conf file setness
-  if (fConfFile == NULL) {
+  if (fConfigFile == NULL) {
     cerr << FATAL << "no conf file specified" << ENDL;
     exit(1);
   }
 
   // conf file existance and readbility
-  ifstream ifs (fConfFile);
+  ifstream ifs (fConfigFile);
   if (! ifs.is_open()) {
-    cerr << FATAL << "conf file " << fConfFile << " doesn't exist or can't be read." << ENDL;
+    cerr << FATAL << "conf file " << fConfigFile << " doesn't exist or can't be read." << ENDL;
     exit(2);
   }
 
@@ -47,8 +46,7 @@ void TConfig::ParseConfFile() {
    *  1: Runs/Slugs
    *  2: solos
    *  4: comparisons
-   *  8: slopes
-   * 16: correlations
+   *  8: correlations
    */
   char current_line[MAX];
   int  session = 0;
@@ -63,7 +61,28 @@ void TConfig::ParseConfFile() {
 
     if (current_line[0] == '\0') continue;  // blank line after removing comment and spaces
 
-    if (current_line[0] == '@') {
+		if (current_line[0] == '$')
+		{	// scalar variables
+			int i=0;
+			do {	// find the first spacechar
+				if (current_line[i] == ' ' || current_line[i] == '\t') 
+					break;
+			} while (current_line[++i] != '\0');
+			const char * var = StripSpaces(Sub(current_line, 1, i));
+			while (current_line[i] == ' ' || current_line[i] == '\t')
+				i++;
+
+			const char * value = StripSpaces(Sub(current_line, i));
+			if (value[0] == '\0') {
+				cerr << WARNING << "no value specified for variable: " << var << ENDL;
+				return;
+			}
+
+			fScalarConfig[var] = value;
+			continue;
+		}
+		else if (current_line[0] == '@') 
+		{ // vector variables
       if (strcmp(current_line, "@runs") == 0 || strcmp(current_line, "@slugs") == 0)	
 				// FIXME: detect collision between @runs and @slugs, they can't appear at the same time
         session = 1;
@@ -71,23 +90,18 @@ void TConfig::ParseConfFile() {
         session = 2;
       else if (strcmp(current_line, "@comparisons") == 0)
         session = 4;
-      else if (strcmp(current_line, "@slopes") == 0)
-        session = 8;
       else if (strcmp(current_line, "@correlations") == 0)
-        session = 16;
+        session = 8;
       else if (strcmp(current_line, "@customs") == 0)
-        session = 32;
+        session = 16;
+      else if (strcmp(current_line, "@friendtrees") == 0)
+        session = 32; 
       else if (strcmp(current_line, "@entrycuts") == 0)
         session = 64; 
-      else if (strcmp(current_line, "@dv") == 0)
-        session = 128; 
-      else if (strcmp(current_line, "@iv") == 0)
-        session = 256; 
-      else if (ParseOtherCommands(current_line)) 
-	      ;
-      else {
-        cerr << WARNING << "Can't parse line " << nline << "." << ENDL;
-        exit(4);
+      else 
+			{
+				session = 1024;
+				fCurrentSession = current_line+1;
       }
       continue;
     }
@@ -104,22 +118,25 @@ void TConfig::ParseConfFile() {
     else if (session & 4) 
       parsed = ParseComp(current_line);
     else if (session & 8) 
-      parsed = ParseSlope(current_line);
-    else if (session & 16) 
       parsed = ParseCor(current_line);
-    else if (session & 32) 
+    else if (session & 16) 
       parsed = ParseCustom(current_line);
-    else if (session & 64)
+    else if (session & 32) 
+      parsed = ParseFriendTree(current_line);
+    else if (session & 64) 
       parsed = ParseEntryCut(current_line);
-    else if (session & 128)
-      parsed = ParseDv(current_line);
-    else if (session & 256)
-      parsed = ParseIv(current_line);
-    else 
+    else if (session & 1024)
 		{
-      cerr << WARNING << "unknown session, ignore line " << nline << ENDL;
-      continue;
-    }
+			vector<string> &buf = fVectorConfig[fCurrentSession];
+			if (find(buf.begin(), buf.end(), current_line) != buf.end())
+				cerr << WARNING << "repeated variable in session: " << fCurrentSession << ENDL;
+			else
+			{
+				buf.push_back(current_line);
+				fVars.insert(current_line);
+			}
+			continue;
+		}
 
     if (!parsed)
 		{
@@ -129,22 +146,13 @@ void TConfig::ParseConfFile() {
   }
   ifs.close();
 
-  if (fRSfile)
-    ParseRSfile();
-
-  cout << INFO << "Configuration in config file: " << fConfFile << ENDL;
+  cout << INFO << "Configuration in config file: " << fConfigFile << ENDL;
   if (fRS.size() > 0)				cout << "\t" << fRS.size() << " Runs/Slugs\n";
   if (fSolos.size() > 0)    cout << "\t" << fSolos.size() << " Solo variables\n";
   if (fCustoms.size() > 0)  cout << "\t" << fCustoms.size() << " Custom variables\n";
   if (fComps.size() > 0)    cout << "\t" << fComps.size() << " Comparison pairs\n";
-  if (fSlopes.size() > 0)   cout << "\t" << fSlopes.size() << " Slopes\n";
   if (fCors.size() > 0)     cout << "\t" << fCors.size() << " Correlation pairs\n";
-  if (dir)
-    cout << "\t" << "root file dir: " << dir << endl;
-  if (pattern)
-    cout << "\t" << "file name pattern: " << pattern << endl;
-  if (tree)
-    cout << "\t" << "read tree: " << tree << endl; if (ecuts.size()) {
+	if (ecuts.size()) {
     cout << "\t" << "entry cuts: (-1 means the end entry)" << endl;
     for (pair<long, long> cut : ecuts)
       cout << "\t\t" << cut.first << "\t" << cut.second << endl;
@@ -155,32 +163,10 @@ void TConfig::ParseConfFile() {
 			cout << "\t\t" << hcut << endl;
 		}
 	}
-}
-
-void TConfig::ParseRSfile() {
-  if (!fRSfile) {
-    cerr << WARNING << "No list file specified." << ENDL;
-    return;
-  }
-
-  ifstream ifs(fRSfile);
-  if (! ifs.is_open()) {
-    cerr << FATAL << "list file " << fRSfile << " doesn't exist or can't be read." << ENDL;
-    exit(2);
-  }
-
-  char line[MAX];
-  int  nline = 0;
-  while (ifs.getline(line, MAX)) {
-    nline++;
-
-    StripComment(line);
-    StripSpaces(line);
-    if (line[0] == '\0') continue;
-
-    for (int i:ParseRS(line))
-			fRS.insert(i);
-  }
+	for (auto const &ele : fScalarConfig)
+		cout << "\t" << ele.first << "--" << ele.second << endl;
+	for (auto const &ele : ftrees)
+		cout << "\t" << "firendtree--" << ele.first << endl;
 }
 
 bool TConfig::ParseVar(VAR &var, const char * str)
@@ -475,40 +461,6 @@ bool TConfig::ParseComp(char *line) {
   return true;
 }
 
-bool TConfig::ParseSlope(char *line) {
-  vector<char*> fields = Split(line, ';');
-  VarCut cut;
-  vector<char*> vars;
-	if (fields.size() > nFIELDS)
-	{
-      cerr << ERROR << "At most 4 fields per solo line!" << ENDL;
-      return false;
-  }
-	vars = Split(fields[0], ':');
-  if (vars.size() != 2) {
-    cerr << ERROR << "wrong variables (should be: varA:varB) for slope" << ENDL;
-    return false;
-  }
-	fields.erase(fields.begin());
-	if (!SetCut(cut, fields))
-		return false;
-
-  StripSpaces(vars[0]);
-  StripSpaces(vars[1]);
-  if (IsEmpty(vars[0]) || IsEmpty(vars[1])) {
-    cerr << ERROR << "empty variable for slope" << ENDL;
-    return false;
-  }
-  if (find(fSlopes.cbegin(), fSlopes.cend(), make_pair(string(vars[0]), string(vars[1]))) != fSlopes.cend()) {
-    cerr << WARNING << "repeated Slope variables, ignore it. " << ENDL;
-    return false;
-  }
-
-  fSlopes.push_back(make_pair(vars[0], vars[1]));
-  fSlopeCut[make_pair(vars[0], vars[1])] = cut;
-  return true;
-}
-
 bool TConfig::ParseCor(char *line) {
 	char *xvar, *yvar;
   VarCut cut;
@@ -575,104 +527,21 @@ bool TConfig::ParseCor(char *line) {
   return true;
 }
 
-bool TConfig::ParseDv(char *line)
-{
-	for (char *dv : Split(line, ','))
-	{
-		StripSpaces(dv);
-		if (!dv || IsEmpty(dv)) {
-			cerr << ERROR << "Empty variable. " << ENDL;
-			return false;
-		}
-
-		if (find(fDv.cbegin(), fDv.cend(), dv) != fDv.cend()) {
-			cerr << WARNING << "repeated dv, ignore it." << ENDL;
-			return false;
-		}
-
-		fDv.push_back(dv);
-		fVars.insert(dv);
-	}
-	return true;
-}
-
-bool TConfig::ParseIv(char *line)
-{
-	for (char *iv : Split(line, ','))
-	{
-		StripSpaces(iv);
-		if (!iv || IsEmpty(iv)) {
-			cerr << ERROR << "Empty variable. " << ENDL;
-			return false;
-		}
-
-		if (find(fIv.cbegin(), fIv.cend(), iv) != fIv.cend()) {
-			cerr << WARNING << "repeated iv, ignore it." << ENDL;
-			return false;
-		}
-
-		fIv.push_back(iv);
-		fVars.insert(iv);
-	}
-	return true;
-}
-
-bool TConfig::ParseOtherCommands(char *line) 
+bool TConfig::ParseFriendTree(char *line) 
 {
   if (IsEmpty(line)) {
     return true;
   }
   
-  int i=0;
-  while (line[i] != '\0') {
-    if (line[i] != ' ' && line[i] != '\t') 
-      i++;
-    else 
-      break;
-  }
-  const char * command = Sub(line, 0, i);
-  while (line[i] != '\0' && (line[i] == ' ' || line[i] == '\t'))
-    i++;
-
-  const char * value = StripSpaces(Sub(line, i));
-  if (value[0] == '\0') {
-    cerr << WARNING << "no value specified for command: " << command << ENDL;
-    return false;
-  }
-
-  if (strcmp(command, "@dir") == 0) 
-    dir = value;
-  else if (strcmp(command, "@pattern") == 0) 
-    pattern = value;
-  else if (strcmp(command, "@tree") == 0) 
-    tree = value;
-  else if (strcmp(command, "@cut") == 0) 
-    tcut = value;
-  else if (strcmp(command, "@logy") == 0) 
-	{
-    if (strcmp(value, "true") == 0) 
-      logy = true;
-  } 
-	else if (strcmp(command, "@friendtree") == 0) 
-	{
-    int ind = Index(value, ';');
-    const char * t = ind > 0 ? StripSpaces(Sub(value, 0, ind)) : value;
-    const char * f = ind > 0 ? StripSpaces(Sub(value, ind+1)) : "";
-    if (t[0] == '=') {
-      cerr << WARNING << "Incorrect friend tree expression: " << t 
-           << "Do you miss the alias before =" << ENDL;
-      return false;
-    }
-    ftrees[t] = f;
-	} 
-	else if (strcmp(command, "@highlightcut") == 0) 
-		hcuts.push_back(value);
-  else 
-	{
-    cerr << WARNING << "Unknow commands: " << command << ENDL;
-    return false;
-  }
-
+	int ind = Index(line, ';');
+	const char * t = ind > 0 ? StripSpaces(Sub(line, 0, ind)) : line;
+	const char * f = ind > 0 ? StripSpaces(Sub(line, ind+1)) : "";
+	if (t[0] == '=') {
+		cerr << WARNING << "Incorrect friend tree expression: " << t 
+				 << "Do you miss the alias before =" << ENDL;
+		return false;
+	}
+	ftrees[t] = f;
   return true;
 }
 
@@ -756,4 +625,33 @@ set<int> ParseRS(const char *line) {
   }
   return vals;
 }
+
+set<int> ParseRSfile(const char *rs_file) {
+  if (!rs_file) {
+    cerr << WARNING << "no run/slug list file specified." << ENDL;
+    return {};
+  }
+
+  ifstream ifs(rs_file);
+  if (! ifs.is_open()) {
+    cerr << FATAL << "list file " << rs_file << " doesn't exist or can't be read." << ENDL;
+    exit(2);
+  }
+
+	set<int> vals;
+  char line[MAX];
+  int  nline = 0;
+  while (ifs.getline(line, MAX)) {
+    nline++;
+
+    StripComment(line);
+    StripSpaces(line);
+    if (line[0] == '\0') continue;
+
+    for (int i:ParseRS(line))
+			vals.insert(i);
+  }
+	return vals;
+}
+
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

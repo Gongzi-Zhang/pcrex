@@ -67,11 +67,12 @@ void TBase::GetConfig(const TConfig &fConf)
   fCorCut		= fConf.GetCorCut();
 	nCors			= fCors.size();
 
-  if (fConf.GetDir())       SetDir(fConf.GetDir());
-  if (fConf.GetPattern())   pattern = fConf.GetPattern();
-  if (fConf.GetTreeName())  tree    = fConf.GetTreeName();
-  if (fConf.GetTreeCut()) {
-		tcut	= fConf.GetTreeCut();
+  if (const char *d = fConf.GetScalar("dir"))       SetDir(d);
+  if (const char *p = fConf.GetScalar("pattern"))		pattern = p;
+  if (const char *t = fConf.GetScalar("tree"))			tree = t;
+  if (const char *c = fConf.GetScalar("cut")) 
+	{
+		tcut	= c;
 		Node *node = ParseExpression(tcut);
 		for (string var : GetVariables(node))
 			fCutVars.insert(var);

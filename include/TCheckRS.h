@@ -413,8 +413,8 @@ void TCheckRS::DrawSolos() {
     }
 
 		string title = solo;
-    if (alt)
-      title = Form("#color[4]{%s} (#color[2]{%s})", solo.c_str(), fBrAlt[branch].c_str());
+    // if (alt)
+    //   title = Form("#color[4]{%s} (#color[2]{%s})", solo.c_str(), fBrAlt[branch].c_str());
     if (sign)
       title = title + " (sign corrected)";
 		h->SetTitle((title + ";" + granularity + ";" + fVarOutUnit[solo]).c_str());
@@ -579,8 +579,8 @@ void TCheckRS::DrawCors() {
     // title
 		string title = var[0], ytitle = fVarOutUnit[var[0]];
     string title1=var[1], xtitle1(granularity), ytitle1 = fVarOutUnit[var[1]];
-    if (alt[1]) 
-      title1 = Form("#color[4]{%s} (#color[2]{%s})", var[1].c_str(), fBrAlt[branch[1]].c_str());
+    // if (alt[1]) 
+    //   title1 = Form("#color[4]{%s} (#color[2]{%s})", var[1].c_str(), fBrAlt[branch[1]].c_str());
     if (sign && asym[1])
       title1 += " (sign corrected)";
 
@@ -602,8 +602,8 @@ void TCheckRS::DrawCors() {
       }
 
     }
-    if (alt[0])
-      title = Form("#color[4]{%s} (#color[2]{%s})", title.c_str(), fBrAlt[branch[0]].c_str());
+    // if (alt[0])
+    //   title = Form("#color[4]{%s} (#color[2]{%s})", title.c_str(), fBrAlt[branch[0]].c_str());
     if (sign && asym[0])
       title += " (sign corrected)";
 

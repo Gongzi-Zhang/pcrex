@@ -52,7 +52,6 @@ class TMulPlot : public TRSbase {
 
     map<string, TH1F *>    fSoloHists;
     map<pair<string, string>, pair<TH1F *, TH1F *>>    fCompHists;
-    // map<pair<string, string>, TH1F *>    fSlopeHists;
     map<pair<string, string>, TH2F *>    fCorHists;
 
   public:

@@ -19,7 +19,8 @@ checkevent	:= TCheckEvent.h
 mulplot			:= TMulPlot.h
 aggregate		:= TAggregate.h
 aggslug			:= TAggSlug.h
-regress			:= TRegress.h
+correct			:= TCorrect.h
+dither			:= TDither.h
 
 VPATH := include:src
 # rcdb
@@ -38,7 +39,7 @@ $(assist_obj): bin/%.so: %.c
 check := checkrs checkmini checkevent mulplot
 agg		:= aggregate aggslug
 run		:= runinfo getrun 
-ana		:= regress
+ana		:= correct dither
 check_obj := $(addprefix bin/, $(check))
 agg_obj := $(addprefix bin/, $(agg))
 run_obj := $(addprefix bin/, $(run))

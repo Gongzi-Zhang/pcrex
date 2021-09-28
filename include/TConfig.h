@@ -19,20 +19,37 @@ typedef VarCut CompCut;
 typedef VarCut CorCut;
 
 set<int> ParseRS(const char *line);
+set<int> ParseRSfile(const char *rs_file);
+
 class TConfig {
 
   // ClassDef(TConfig, 0)  // config file parser
 
 public:
   TConfig();
-  TConfig(const char *conf_file, const char *RSlist=NULL);
+  TConfig(const char *conf_file);
   virtual ~TConfig();
-  const char*	GetConfFile()	  const {return fConfFile;}
-  const char*	GetDir()	      const {return dir;}
-  const char* GetPattern()    const {return pattern;}
-  const char*	GetTreeName()	  const {return tree;}
-  const char* GetTreeCut()    const {return tcut;}
-  bool		    GetLogy()	      const {return logy;}
+  const char*	GetConfFile()	  const {return fConfigFile;}
+	const char* GetScalar(string var) const
+	{
+		map<string, const char *>::const_iterator it = fScalarConfig.find(var);
+		if (it == fScalarConfig.cend())
+		{
+			cerr << ERROR << "no such configuration in the config file: " << var << ENDL;
+			return NULL;
+		}
+    return it->second;
+	}
+	vector<string> GetVector(string var) const
+	{
+		map<string, vector<string>>::const_iterator it = fVectorConfig.find(var);
+		if (it == fVectorConfig.end())
+		{
+			cerr << ERROR << "no such configuration in the config file: " << var << ENDL;
+			return {};
+		}
+    return it->second;
+	}
   set<int>	  GetRS()					const {return fRS;}			// for ChectStat
   set<string> GetVars()	      const {return fVars;}
   map<string, string>			 GetVarErrs()				const {return fVarErrs;}
@@ -49,30 +66,18 @@ public:
   map<string, VarCut>			 GetCustomCut()	const {return fCustomCut;}
 	map<string, Node *>			 GetCustomDef()	const {return fCustomDef;}
 
-	// slope: for CheckStat
-  vector<pair<string, string>>			GetSlopes()			const {return fSlopes;}	
-  map<pair<string, string>, VarCut> GetSlopeCut()		const {return fSlopeCut;}
-
   vector<pair<string, string>>				GetComps()			const {return fComps;}
   map<pair<string, string>, VarCut>		GetCompCut()		const {return fCompCut;}
 
   vector<pair<string, string>>			GetCors()			const {return fCors;}
   map<pair<string, string>, VarCut> GetCorCut()		const {return fCorCut;}
 
-	vector<string>					 GetDv() const {return fDv;};
-	vector<string>					 GetIv() const {return fIv;};
-
-	void SetRS(const char *rs_list) {fRSfile = rs_list;}
-
   bool ParseSolo(char *line);
   bool ParseComp(char *line);
-  bool ParseSlope(char *line);
   bool ParseCor(char *line);
   bool ParseCustom(char *line);
   bool ParseEntryCut(char *line);
-	bool ParseDv(char *line);
-	bool ParseIv(char *line);
-  bool ParseOtherCommands(char *line);
+  bool ParseFriendTree(char *line);
   void ParseConfFile();
   void ParseRSfile();
 
@@ -81,21 +86,20 @@ public:
   static double ExtractValue(Node *node); // parse mathematical expression to extract value
 
 private:
-  const char *fConfFile;
-  const char *fRSfile;	// run/slug list file
-  const char *dir     = NULL;
-  const char *pattern = NULL;
-  const char *tree    = NULL;
-  const char *tcut    = NULL; // tree cut
+  const char *fConfigFile;
+	map<string, const char *> fScalarConfig;
+	map<string, vector<string>> fVectorConfig;
+	string fCurrentSession;
+
   vector<pair<long, long>> ecuts;		// cut on entry number
 	vector<const char *> hcuts;				// highlighted cuts
   map<string, const char *> ftrees; // friend trees
   
-  bool logy = false;
   set<int> fRS;					// all runs/slugs that are going to be checked
   set<string> fVars;    // all variables that are going to be checked.
 			                  // this one diffs from fSolos because some variables 
 			                  // appears in fComps or fCors but not in fSolos
+
   map<string, string> fVarErrs;
   map<string, string> fVarTitles;
   vector<string>      fSolos;
@@ -108,15 +112,8 @@ private:
   vector<pair<string, string>>			fComps;
   map<pair<string, string>, VarCut>	fCompCut;
 
-  vector<pair<string, string>>			fSlopes;
-  map<pair<string, string>, VarCut>	fSlopeCut;
-
   vector<pair<string, string>>			fCors;
   map<pair<string, string>, VarCut>	fCorCut;
-
-	// for regression only
-	vector<string>			fDv;
-	vector<string>			fIv;
 };
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */
