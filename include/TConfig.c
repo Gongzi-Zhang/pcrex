@@ -23,11 +23,13 @@ TConfig::TConfig(const char *conf_file) :
   fConfigFile(conf_file)
 {}
 
-TConfig::~TConfig() {
+TConfig::~TConfig() 
+{
   cerr << INFO << "End of TConfig" << ENDL;
 }
 
-void TConfig::ParseConfFile() {
+void TConfig::ParseConfFile() 
+{
   // conf file setness
   if (fConfigFile == NULL) {
     cerr << FATAL << "no conf file specified" << ENDL;
@@ -37,7 +39,8 @@ void TConfig::ParseConfFile() {
   // conf file existance and readbility
   ifstream ifs (fConfigFile);
   if (! ifs.is_open()) {
-    cerr << FATAL << "conf file " << fConfigFile << " doesn't exist or can't be read." << ENDL;
+    cerr << FATAL << "conf file " << fConfigFile 
+				 << " doesn't exist or can't be read." << ENDL;
     exit(2);
   }
 
@@ -164,9 +167,9 @@ void TConfig::ParseConfFile() {
 		}
 	}
 	for (auto const &ele : fScalarConfig)
-		cout << "\t" << ele.first << "--" << ele.second << endl;
+		printf("\t%10s:\t%s\n", ele.first.c_str(), ele.second);
 	for (auto const &ele : ftrees)
-		cout << "\t" << "firendtree--" << ele.first << endl;
+		printf("\t%10s:\t%s\n", "friendtree", ele.first.c_str());
 }
 
 bool TConfig::ParseVar(VAR &var, const char * str)

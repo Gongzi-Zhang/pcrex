@@ -84,7 +84,7 @@ void usage() {
   cout << "Regress correction for specified runs/slugs" << endl
        << "  Options:" << endl
        << "\t -h: print this help message" << endl
-			 << "\t -v: verbose level (0: no running info; 1: basic info; 2: verbose info; 3: debug info)"
+			 << "\t -v: verbose level (0: no running info; 1: basic info; 2: verbose info; 3: debug info)" << endl
        << "\t -c: specify config file (default: conf/regress.conf)" << endl
        << "\t -r: specify runs (seperated by comma, no space between them. run range is supported: 5678,6666-6670,6688)" << endl
        << "\t -R: specify run list file" << endl

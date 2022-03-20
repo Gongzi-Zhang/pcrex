@@ -50,7 +50,7 @@ class TDither : public TRSbase
 		void CalcSlope();
 		void DitherRuns();
 
-		void	 GetCycleRange();
+		void	 GetCycleRange(const int);
 };
 
 TDither::TDither() :
@@ -78,17 +78,22 @@ void TDither::SetDitRun(int r)
   fRuns.clear(); 
   fSlugs.clear(); 
   SetRuns({run}); 
-  // CheckRuns();
+  CheckRuns();
   nSlugs = 0;
 }
 
-void TDither::GetCycleRange()
+void TDither::GetCycleRange(const int s=0)
 {
-	int cycle_start = 0;
 	fCycleRange.clear();
-	const int N = fVarValue[fCycleVar].size();
-	int cycle = fVarValue[fCycleVar][0];
-	for (int n=0; n<N; n++)
+	int offset = 0;
+	for (int i=0; i<s; i++)
+		offset += fEntryNumber[run][i].size();
+	
+	int cycle_start = offset;
+	const int N = offset + fEntryNumber[run][s].size();
+	fCycleRange.push_back({offset, N-1});
+	int cycle = fVarValue[fCycleVar][offset];
+	for (int n=offset; n<N; n++)
 	{
 		if (cycle != fVarValue[fCycleVar][n])
 		{
@@ -131,61 +136,65 @@ void TDither::CalcSlope()
 			continue;
 		}
 
-		TTree *tout_slope = new TTree("slope", "dither slopes");
+		TTree *tout = new TTree("dit", "dither slopes and sensitivities");
 
 		int cycle;
 		int nentries;
 		TMatrixD slope(fNdet, fNmon);
-		// TMatrixD slope_err(fNdet, fNmon);
-		// Initialization
-		// for (int c=0; c<7; c++)
-		// {
-		// 	coil_var[c] = {0, 0, 0, 0};
-		// 	for (int i=0; i<fNdet; i++)
-		// 	{
-		// 		det_cov[i][c] = {0, 0, 0, 0};
-		// 		det_var[i][c] = {0, 0, 0, 0};
-		// 	}
-		// 	for (int i=0; i<fNmon; i++)
-		// 	{
-		// 		mon_cov[i][c] = {0, 0, 0, 0};
-		// 		mon_var[i][c] = {0, 0, 0, 0};
-		// 	}
-		// }
+		TMatrixD det_coil_sen(fNdet, fNcoil);	// det sensitivity: ∂D/∂C
+		TMatrixD det_coil_sen_err(fNdet, fNcoil);	
+		TMatrixD mon_coil_sen(fNmon, fNcoil);	// mon sensitivity: ∂B/∂C
+		TMatrixD mon_sen_err(fNmon, fNcoil);	
+		TMatrixD coil_mon_sen(fNcoil, fNmon);	// ∂C/∂B
+		TMatrixD coil_mon_sen_err(fNcoil, fNmon);	
 
+		tout->Branch("cycle", &cycle, "cycle/I");
+		tout->Branch("nentries", &nentries, "nentries/I");
 		for (int i=0; i<fNdet; i++)
 		{
 			string det = fDetNames[i];
 			for (int j=0; j<fNmon; j++)
 			{
 				string var = det + "_" + fMonNames[j];
-				tout_slope->Branch(var.c_str(), &slope[i][j], "mean/D");	
-				// tout_slope->Branch(Form("%s_err", var.c_str()), &slope_err[i][j], "err/D");	
+				tout->Branch(var.c_str(), &slope[i][j], "mean/D");	
+				// tout->Branch(Form("%s_err", var.c_str()), &slope_err[i][j], "err/D");	
 			}
 		}
-		tout_slope->Branch("cycle", &cycle, "cycle/I");
-		tout_slope->Branch("nentries", &nentries, "nentries/I");
+		for (int i=0; i<fNdet; i++)
+		{
+			string det = fDetNames[i];
+			for (int j=0; j<fNcoil; j++)
+			{
+				string var = det + "_coil" + fCoilNames[j].substr(9, 1);
+				tout->Branch(var.c_str(), &det_coil_sen[i][j], "mean/D");	
+			}
+		}
+		for (int i=0; i<fNmon; i++)
+		{
+			string mon = fMonNames[i];
+			for (int j=0; j<fNcoil; j++)
+			{
+				string var = mon + "_coil" + fCoilNames[j].substr(9, 1);
+				tout->Branch(var.c_str(), &mon_coil_sen[i][j], "mean/D");	
+			}
+		}
 
-		GetCycleRange();
+		GetCycleRange(s);
 		const int Ncycle = fCycleRange.size();
 
 		// calculate the matrix: X_ij and Y_ij
 		for (int ci=0; ci<Ncycle; ci++)
 		{
 			cycle = fVarValue[fCycleVar][fCycleRange[ci].first];
+			if (0 == ci)
+				cycle = 0;	// run-wise average
 			nentries = fCycleRange[ci].second - fCycleRange[ci].first + 1;
 
-		TMatrixD det_sen(fNdet, fNcoil);	// det sensitivity w.r.t. coils
-		TMatrixD det_sen_err(fNdet, fNcoil);	
-		TMatrixD mon_sen(fNmon, fNcoil);	// mon sensitivity
-		TMatrixD mon_sen_err(fNmon, fNcoil);	
-		TMatrixD mon_sen_inv(fNcoil, fNmon);	// mon sensitivity
-		TMatrixD mon_sen_inv_err(fNcoil, fNmon);	
-		COVARIANCE det_cov[fNdet][7];			// det covariance w.r.t. coils
-		COVARIANCE mon_cov[fNmon][7];			// mon covariance
-		COVARIANCE det_var[fNdet][7];			// det variance
-		COVARIANCE mon_var[fNmon][7];			// mon variance
-		COVARIANCE coil_var[7];			// coil variance
+			COVARIANCE det_cov[fNdet][7];			// det covariance w.r.t. coils
+			COVARIANCE mon_cov[fNmon][7];			// mon covariance
+			COVARIANCE det_var[fNdet][7];			// det variance
+			COVARIANCE mon_var[fNmon][7];			// mon variance
+			COVARIANCE coil_var[7];						// coil variance
 
 			for (int n=fCycleRange[ci].first; n<=fCycleRange[ci].second; n++)
 			{
@@ -208,7 +217,6 @@ void TDither::CalcSlope()
 					mon_cov[i][bmwobj-1].update(fVarValue[mon][n], fVarValue[coil][n]);
 				}
 			}
-			cout << DEBUG << "cycle: " << cycle << "\t nentries: " << nentries << ENDL;
 
 			// calculate sensitivity: ∂D/∂C
 			for (int r=0; r<fNdet; r++)
@@ -222,19 +230,17 @@ void TDither::CalcSlope()
 
 					if (nevent <= 50 || coil_var[icoil].cov/nevent < 200 || det_mean <= 0)
 					{
-						det_sen[r][c] = 0;
-						det_sen_err[r][c] = 0;
+						det_coil_sen[r][c] = 0;
+						det_coil_sen_err[r][c] = 0;
 						continue;
 					}
 					double cov = det_cov[r][icoil].cov;
 					double dvar = det_var[r][icoil].cov;
 					double cvar = coil_var[icoil].cov;
-					det_sen[r][c] = cov/(det_mean*cvar);
-					det_sen_err[r][c] = sqrt((dvar - pow(cov, 2)/cvar)/cvar) / (nevent-2)/det_mean;
+					det_coil_sen[r][c] = cov/(det_mean*cvar);
+					det_coil_sen_err[r][c] = sqrt((dvar - pow(cov, 2)/cvar)/cvar) / (nevent-2)/det_mean;
 				}
 			}
-			cout << DEBUG << "detector sensitivity: " << ENDL;
-			det_sen.Print();
 			// calculate sensitivity: ∂B/∂C
 			for (int r=0; r<fNmon; r++)
 			{
@@ -246,67 +252,61 @@ void TDither::CalcSlope()
 
 					if (nevent <= 50 || coil_var[icoil].cov/nevent < 200)
 					{
-						mon_sen[r][c] = 0;
+						mon_coil_sen[r][c] = 0;
 						mon_sen_err[r][c] = 0;
 						continue;
 					}
 					double cov = mon_cov[r][icoil].cov;
 					double mvar = mon_var[r][icoil].cov;
 					double cvar = coil_var[icoil].cov;
-					mon_sen[r][c] = cov/cvar;
+					mon_coil_sen[r][c] = cov/cvar;
 					mon_sen_err[r][c] = sqrt((mvar - pow(cov, 2)/cvar)/cvar) / (nevent-2);
-					mon_sen_inv[c][r] = cov/mvar;
-					mon_sen_inv_err[c][r] = sqrt((cvar - pow(cov, 2)/mvar)/mvar) / (nevent-2);
+					coil_mon_sen[c][r] = cov/mvar;
+					coil_mon_sen_err[c][r] = sqrt((cvar - pow(cov, 2)/mvar)/mvar) / (nevent-2);
 				}
 			}
-			cout << DEBUG << "monitor sensitivity: " << ENDL;
-			mon_sen.Print();
-			cout << DEBUG << "monitor sensitivity inverted: " << ENDL;
-			mon_sen_inv.Print();
 
 			/* calculate slope
 			 * We can't calculate slope using matrix multiplication, because not all coils
 			 * have sensitivity; which results in det(mon)_sen as a singular matrix; so
 			 * we can't invert it. We have to calculate slope one by one
 			 */
-			for (int r=0; r<fNdet; r++)
+			TMatrixD mon_coil_sen_inv(fNcoil, fNmon);
+			if (fNmon == fNcoil)
 			{
-				TMatrixD det_sub = det_sen.GetSub(r, r, 0, fNcoil-1);
-				for (int c=0; c<fNmon; c++)
-				{
-					TMatrixD mon_sub = mon_sen.GetSub(c, c, 0, fNcoil-1);
-					TMatrixD mon_subT(mon_sub);
-					mon_subT.T();
-					TMatrixD mon_sub_inv = mon_subT*(mon_sub*mon_subT).Invert();
-					slope[r][c] = (det_sub*mon_sub_inv)(0, 0);
-					mon_sub_inv.Print();
-				}
+				mon_coil_sen_inv = mon_coil_sen;
+				mon_coil_sen_inv.Invert();
+			} 
+			else
+			{
+				TMatrixD mon_coil_sen_T(mon_coil_sen);
+				mon_coil_sen_T.T();
+				mon_coil_sen_inv = mon_coil_sen_T * (mon_coil_sen * mon_coil_sen_T).Invert();
 			}
-			cout << DEBUG << "slope: " << ENDL;
-			slope.Print();
-			// TMatrixD mon_sen_inv(fNcoil, fNmon);
-			// if (fNmon == fNcoil)
+			slope = det_coil_sen * mon_coil_sen_inv;
+			// for (int r=0; r<fNdet; r++)
 			// {
-			// 	mon_sen_inv = mon_sen;
-			// 	mon_sen_inv.Invert();
+			// 	TMatrixD det_sub = det_coil_sen.GetSub(r, r, 0, fNcoil-1);
+			// 	for (int c=0; c<fNmon; c++)
+			// 	{
+			// 		TMatrixD mon_sub = mon_coil_sen.GetSub(c, c, 0, fNcoil-1);
+			// 		TMatrixD mon_subT(mon_sub);
+			// 		mon_subT.T();
+			// 		TMatrixD mon_sub_inv = mon_subT*(mon_sub*mon_subT).Invert();
+			// 		slope[r][c] = (det_sub*mon_sub_inv)(0, 0);
+			// 		mon_sub_inv.Print();
+			// 	}
 			// }
-			// else
-			// {
-      //   TMatrixD mon_sen_T(mon_sen);
-			// 	mon_sen_T.T();
-			// 	mon_sen_inv = mon_sen_T*(mon_sen*mon_sen_T).Invert();
-			// }
-			// slope = det_sen * mon_sen_inv;
 
 			// fill the slope tree
-			tout_slope->Fill();
+			tout->Fill();
 		}
 
 		TFile fout(Form("%s/%s_%d.%03d.root", out_dir, fPrefix, run, s), "recreate");
 		fout.cd();
-		tout_slope->Write();
+		tout->Write();
 		fout.Close();
-		delete tout_slope;
+		delete tout;
 	}
 }
 

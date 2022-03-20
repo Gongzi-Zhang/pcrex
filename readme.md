@@ -84,7 +84,6 @@
     >> sum
 
 # todo
-* run 6366: how much good data there? should we recover it?
 * how to cut on slow tree? e.g.  IGL1I00OD16_16 (row 83) in /chafs2/work1/apar/japanOutput/prexPrompt_pass2_6400.000.root is wrong
 * TCheckRuns: bold point cut
 * TCheckRuns: should be able to fetch glitch
