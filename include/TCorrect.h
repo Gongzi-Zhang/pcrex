@@ -41,11 +41,11 @@ class TCorrect : public TRSbase
 		void Correct();
 		void Regress();
 		void EigenRegress();
-		void Dither() {}
+		void Dither();
 		void Lagrange() {}
 		void CorrectRuns();
 
-		void GetMiniRange();
+		void GetMiniRange(const int s);
 		double GetCovariance(const string, const string, const int);
 		double GetCovError(const string, const string, const int);
 };
@@ -80,7 +80,7 @@ void TCorrect::SetCorRun(int r)
   fRuns.clear(); 
   fSlugs.clear(); 
   SetRuns({run}); 
-  // CheckRuns();
+  CheckRuns();
   nSlugs = 0;
 }
 
@@ -110,15 +110,18 @@ void TCorrect::Correct()
 		Lagrange();
 }
 
-void TCorrect::GetMiniRange()
+void TCorrect::GetMiniRange(const int s=0)
 {
 	int mini = 0;	// always start from 0
-	int mini_start = 0;
 	fMiniRange.clear();
-	const int N = fVarValue[fBurstVar].size();
+	int offset = 0;
+	for (int i=0; i<s; i++)
+		offset += fEntryNumber[run][i].size();
 
-	fMiniRange.push_back({0, N-1});	// the first one is whole run
-	for (int n=0; n<N; n++)
+	int mini_start = offset;
+	const int N = fEntryNumber[run][s].size() + offset;
+	fMiniRange.push_back({offset, N-1});	// the first one is whole run
+	for (int n=offset; n<N; n++)
 	{
 		if (mini != fVarValue[fBurstVar][n])	
 		{	// next burst
@@ -127,7 +130,7 @@ void TCorrect::GetMiniRange()
 			mini++;
 		}
 	}
-	// for the last minirun
+	// the last minirun
 	fMiniRange.push_back({mini_start, N-1});
 }
 
@@ -236,7 +239,7 @@ void TCorrect::Regress()
 			}
 		}
 
-		GetMiniRange();
+		GetMiniRange(s);
 		const int Nmini = fMiniRange.size();
 		TMatrixD X(fNiv, fNiv);
 		TMatrixD Y(fNdv, fNiv);
@@ -257,7 +260,8 @@ void TCorrect::Regress()
 			double det = X.Determinant();
 			if (abs(det) < 1e-38)
 			{
-				cerr << ERROR << "singular X matrix in minirun: " << mini << ", 0 value will be used" << ENDL;
+				cerr << ERROR << "singular X matrix in run: " << run 
+						 << "\tsession: " << s << "\tminirun: " << mini << ".\t0 value will be used" << ENDL;
 				for (int i=0; i<fNiv; i++)
 					cerr << fIvNames[i] << "\t";
 				cerr << endl;
@@ -365,7 +369,7 @@ void TCorrect::EigenRegress()
 		TMatrixDSym X(fNiv);
 		TMatrixD Y(fNdv, fNiv);
 
-		GetMiniRange();
+		GetMiniRange(s);
 		const int Nmini = fMiniRange.size();
 		for (mini=0; mini<Nmini; mini++)
 		{
@@ -383,7 +387,8 @@ void TCorrect::EigenRegress()
 			double det = X.Determinant();
 			if (abs(det) < 1e-38)
 			{
-				cerr << ERROR << "singular X matrix in minirun: " << mini << ", 0 value will be used" << ENDL;
+				cerr << ERROR << "singular X matrix in run: " << run 
+						 << "\tsession: " << s << "\tminirun: " << mini << ".\t0 value will be used" << ENDL;
 				for (int i=0; i<fNiv; i++)
 					cerr << fIvNames[i] << "\t";
 				cerr << endl;
@@ -490,6 +495,101 @@ void TCorrect::EigenRegress()
 		fout.Close();
 		delete tout_reg;
 		delete tout_slope;
+	}
+}
+
+void TCorrect::Dither()
+{
+	// construct slope name
+	string slope_name[fNdv][fNiv];
+	double slope[fNdv][fNiv];
+	map<string, double> value;
+
+	for (int dv=0; dv<fNdv; dv++)
+	{
+		string dv_name = fDvNames[dv];
+		dv_name.erase(dv_name.find("asym_"), 5);
+		for (int iv=0; iv<fNiv; iv++)
+		{
+			string iv_name = fIvNames[iv];
+			iv_name.erase(iv_name.find("diff_"), 5);
+			slope_name[dv][iv] = dv_name + "_"  + iv_name;
+		}
+	}
+
+	const int sessions = fRootFile[run].size();
+	for (int s=0; s<sessions; s++)
+	{
+		TTree *tout_dit = new TTree("dit", "dither corrected variables");
+		tout_dit->SetDirectory(0);
+		// TTree *tout_slope = new TTree("dit_slope", "dithering slopes");
+
+		const char *fslope_name = Form("rootfiles/dit_slope/dit_slope_%d.%03d.root", run, s);
+		cout << INFO << "read dithering slope from " << fslope_name << ENDL;
+		TFile fslope(fslope_name, "read");
+		if (!fslope.IsOpen())
+		{
+			cerr << ERROR << "slope file doesn't exist for run: " << run << ENDL;
+			fslope.Close();
+			return;
+		}
+
+		TTree *tslope = (TTree*) fslope.Get("dit");
+		if (!tslope)
+		{
+			cerr << ERROR << "No slope tree: dit in slope file: " << fslope_name << ENDL;
+			fslope.Close();
+			return;
+		}
+
+		const int Nburst = tslope->GetEntries();
+		GetMiniRange(s);
+		const int Nmini = fMiniRange.size();
+		// if (Nburst != Nmini)
+		// {
+		// 	cerr << ERROR << "number of burst doesn't match: " << Nburst << " entries in slope vs " 
+		// 			 << Nmini << " bursts" << ENDL;
+		// 	fslope.Close();
+		// 	return;
+		// }
+
+		for (int dv=0; dv<fNdv; dv++)
+		{
+			const char *pre = fPrefix[fMethod];
+			string dv_name = fDvNames[dv];
+			tout_dit->Branch(Form("%s_%s", pre, dv_name.c_str()), &value[dv_name], 
+					Form("%s_%s/D", pre, dv_name.c_str()));
+			for (int iv=0; iv<fNiv; iv++)
+			{
+				tslope->SetBranchAddress(slope_name[dv][iv].c_str(), &slope[dv][iv]);
+			}
+		}
+		tslope->GetEntry(0);	// use run-wise slope
+
+		for (int mini=1; mini<Nmini; mini++)
+		{
+			for(int n=fMiniRange[mini].first; n <= fMiniRange[mini].second; n++)
+			{
+				for (int dv=0; dv<fNdv; dv++)
+				{
+					string dv_name = fDvNames[dv];
+					double cor = 0;
+					for (int iv=0; iv<fNiv; iv++)
+					{
+						cor += slope[dv][iv]*(fVarValue[fIvNames[iv]][n]/*-iv_mean(c)*/);
+					}
+					fVarValue[dv_name][n] -= cor;
+					value[dv_name] = fVarValue[dv_name][n];
+				}
+				tout_dit->Fill();
+			}
+		}
+
+		TFile fout(Form("%s/%s_%d.%03d.root", out_dir, fPrefix[fMethod], run, s), "recreate");
+		fout.cd();
+		tout_dit->Write();
+		fout.Close();
+		delete tout_dit;
 	}
 }
 

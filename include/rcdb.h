@@ -75,6 +75,10 @@ char *  GetRunWienFlip(const int run);
 float	  GetRunHelicityHz(const int run);
 char *  GetRunUserComment(const int run);
 char *  GetRunWacNote(const int run);
+float   GetRunCharge(const int run);
+
+char * GetStartTime(const int run);
+char * GetEndTime(const int run);
 
 char *  GetSlugIHWP(const int slug);
 char *  GetSlugWienFlip(const int slug);

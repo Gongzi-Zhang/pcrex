@@ -169,6 +169,9 @@ void SetArmFlag(const char *fs) {
 		return;
 
 	garmflag.clear();
+	if (strcmp(fs, "all") == 0)
+		return;
+
 	for (char *f : Split(fs, ',')) {
 		char af[strlen(f) + 1];
 		strcpy(af, f);
@@ -193,6 +196,9 @@ void SetWienFlip(const char *fs) {
 		return;
 
 	gwienflip.clear();
+	if (strcmp(fs, "all") == 0)
+		return;
+
 	for (char *f : Split(fs, ',')) {
 		char wf[strlen(f) + 1];
 		strcpy(wf, f);
@@ -215,6 +221,9 @@ void SetIHWP(const char *ps) {
 		return;
 
 	gihwp.clear();
+	if (strcmp(ps, "all") == 0)
+		return;
+
 	for (char *p : Split(ps, ',')) {
 		char ip[strlen(p) + 1];
 		strcpy(ip, p);
@@ -237,6 +246,9 @@ void SetExp(const char *es) {
 		return;
 
 	gexp.clear();
+	if (strcmp(es, "all") == 0)
+		return;
+
 	for (char *e : Split(es, ',')) {
 		char exp[strlen(e) + 1];
 		strcpy(exp, e);
@@ -259,6 +271,9 @@ void SetRunType(const char *ts) {
 		return;
 
 	gruntype.clear();
+	if (strcmp(ts, "all") == 0)
+		return;
+
 	for (char *t : Split(ts, ',')) {
 		char tp[strlen(t) + 1];
 		strcpy(tp, t);
@@ -281,6 +296,9 @@ void SetRunFlag(const char *fs) {
 		return;
 
 	grunflag.clear();
+	if (strcmp(fs, "all") == 0)
+		return;
+
 	for (char *f : Split(fs, ',')) {
 		char rf[strlen(f) + 1];
 		strcpy(rf, f);
@@ -303,6 +321,9 @@ void SetTarget(const char *ts) {
 		return;
 
 	gtarget.clear();
+	if (strcmp(ts, "all") == 0)
+		return;
+
 	for (char *t : Split(ts, ',')) {
 		char tg[strlen(t) + 1];
 		strcpy(tg, t);
@@ -418,7 +439,7 @@ char * GetRunType(const int run) {
   row = mysql_fetch_row(res);
   if (row == NULL) {
     cerr << WARNING << "can't fetch run type for run " << run << ENDL;
-    return NULL;
+    return "";
   }
   StripSpaces(row[0]);
   return row[0];
@@ -453,7 +474,7 @@ char * GetRunFlag(const int run) {
   row = mysql_fetch_row(res);
   if (row == NULL) {
     cerr << WARNING << "can't fetch run flag for run " << run << ENDL;
-    return NULL;
+    return "";
   }
   StripSpaces(row[0]);
   return row[0];
@@ -583,6 +604,54 @@ char * GetRunWacNote(const int run) {
     return NULL;
   }
   sprintf(query, "SELECT text_value FROM conditions WHERE run_number=%d AND condition_type_id=27", run);
+  mysql_query(con, query);
+  res = mysql_store_result(con);
+  row = mysql_fetch_row(res);
+  if (row == NULL) {
+    return rcdb_none;
+  }
+  StripSpaces(row[0]);
+  return row[0];
+}
+
+float GetRunCharge(const int run) {  // total charge
+  if (!con) {
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
+    return -1;
+  }
+  sprintf(query, "SELECT float_value FROM conditions WHERE run_number=%d AND condition_type_id=17", run);
+  mysql_query(con, query);
+  res = mysql_store_result(con);
+  row = mysql_fetch_row(res);
+  if (row == NULL) {
+    cerr << WARNING << "can't fetch helicity frequency for run " << run << ENDL;
+    return -1;
+  }
+  return atof(row[0]);
+}
+
+char * GetStartTime(const int run) {
+  if (!con) {
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
+    return NULL;
+  }
+  sprintf(query, "SELECT started FROM runs WHERE number=%d", run);
+  mysql_query(con, query);
+  res = mysql_store_result(con);
+  row = mysql_fetch_row(res);
+  if (row == NULL) {
+    return rcdb_none;
+  }
+  StripSpaces(row[0]);
+  return row[0];
+}
+
+char * GetEndTime(const int run) {
+  if (!con) {
+    cerr << ERROR << "please Start Connection before anything else." << ENDL;
+    return NULL;
+  }
+  sprintf(query, "SELECT finished FROM runs WHERE number=%d", run);
   mysql_query(con, query);
   res = mysql_store_result(con);
   row = mysql_fetch_row(res);

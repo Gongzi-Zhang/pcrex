@@ -39,7 +39,7 @@
 #include "rcdb.h"
 #include "TConfig.h"
 #include "TRSbase.h"
-#include "draw.h"
+// #include "draw.h"
 
 using namespace std;
 
@@ -48,7 +48,8 @@ class TMulPlot : public TRSbase {
     // ClassDe (TMulPlot, 0) // mul plots
 
   private:	// class specific variables besides those on base class
-		bool logy = false;
+		// bool logy = false;
+		string fout_name = "mulplot.root";
 
     map<string, TH1F *>    fSoloHists;
     map<pair<string, string>, pair<TH1F *, TH1F *>>    fCompHists;
@@ -57,10 +58,11 @@ class TMulPlot : public TRSbase {
   public:
      TMulPlot();
      ~TMulPlot();
-     void SetLogy(bool log) {logy = log;}
-     void Draw();
+     // void SetLogy(bool log) {logy = log;}
+		 void SetOutName(string name) { fout_name = name; }
+     void Plot();
      void FillHistograms();
-     void DrawHistograms();
+     // void DrawHistograms();
 		 void GetOutliers();
 };
 
@@ -69,7 +71,7 @@ class TMulPlot : public TRSbase {
 TMulPlot::TMulPlot() :
 	TRSbase()
 {
-	out_name = "mulplot";
+	// fout_name = "mulplot";
 	// dir = "/adaqfs/home/apar/PREX/prompt/results/";
 	// pattern = "prexPrompt_xxxx_???_regress_postpan.root";
 	// tree = "reg";
@@ -80,7 +82,7 @@ TMulPlot::~TMulPlot() {
   cout << INFO << "End of TMulPlot" << ENDL;
 }
 
-void TMulPlot::Draw() {
+void TMulPlot::Plot() {
   cout << INFO << "draw mul plots of" << endl
        << "\tin directory: " << dir << endl
        << "\tfrom files: " << pattern << endl
@@ -92,7 +94,7 @@ void TMulPlot::Draw() {
   GetValues();
 
 	FillHistograms();
-  DrawHistograms();
+  // DrawHistograms();
 }
 
 void TMulPlot::FillHistograms() {
@@ -154,6 +156,7 @@ void TMulPlot::FillHistograms() {
     down[var] = sign * (a-1*sign) * pow(10, power) / 10.;
 	}
 
+	TFile * fout = new TFile(fout_name.c_str(), "recreate");
   // initialize histogram
   for (string solo : fSolos) {
 		double unit = vUnit[solo];
@@ -173,11 +176,14 @@ void TMulPlot::FillHistograms() {
     if (fSoloCut[solo].high != 1024)
       high = fSoloCut[solo].high/UNITS[outUnit[solo]];
     
+		fout->cd();
     fSoloHists[solo] = new TH1F(solo.c_str(), Form("%s;%s", solo.c_str(), outUnit[solo]), 100, low, high);
     for (int i=0; i<nOk; i++)
       fSoloHists[solo]->Fill(fVarValue[solo][i]);
+		fSoloHists[solo]->Write();
   }
 
+	/*
   for (pair<string, string> comp : fComps) {
     string var1 = comp.first;
     string var2 = comp.second;
@@ -198,6 +204,7 @@ void TMulPlot::FillHistograms() {
       fCompHists[comp].second->Fill(fVarValue[var2][i]);
     }
   }
+	*/
 
 	for (pair<string, string> cor : fCors) {
     string xvar = cor.second;
@@ -214,6 +221,7 @@ void TMulPlot::FillHistograms() {
     // if (fCompCut[comp].high != 1024)
     //   min = fCompCut[comp].high/UNITS[outUnit[yvar]];
 
+		fout->cd();
     fCorHists[cor] = new TH2F((yvar + xvar).c_str(), 
 				Form("%s vs %s; %s/%s; %s/%s", yvar.c_str(), xvar.c_str(), xvar.c_str(), outUnit[xvar], yvar.c_str(), outUnit[yvar]),
 				100, xlow, xhigh,
@@ -221,9 +229,12 @@ void TMulPlot::FillHistograms() {
 
     for (int i=0; i<nOk; i++)
       fCorHists[cor]->Fill(fVarValue[xvar][i], fVarValue[yvar][i]);
+		fCorHists[cor]->Write();
 	}
+	fout->Close();
 }
 
+/*
 void TMulPlot::DrawHistograms() {
   TCanvas c("c", "c", 800, 600);
   c.SetGridy();
@@ -333,6 +344,7 @@ void TMulPlot::DrawHistograms() {
 
   cout << INFO << "done with drawing histograms" << ENDL;
 }
+ */
 
 void TMulPlot::GetOutliers() {
 	map<string, pair<double, double>> fSoloOutliers;

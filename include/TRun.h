@@ -32,26 +32,11 @@ map<string, pair<double, double>> GetSlowValues   (const int run, vector<char *>
 char *  FindCutFile(glob_t, const int run);
 
 const char * map_dir =
-  (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
-    "/adaqfs/home/apar/PREX/japan/Parity/prminput" : 
-    (Contain(hostname, "ifarm") ? 
-      "/u/group/halla/parity/software/japan_offline/prompt/prex-prompt/Parity/prminput/" :
-    "."
-		);
+		"/u/group/halla/parity/software/japan_offline/prompt/prex-prompt/Parity/prminput/";
 const char * japan_dir = 
-  (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
-    "/chafs2/work1/apar/japanOutput" : 
-    (Contain(hostname, "ifarm") ? 
-      "/lustre/expphy/volatile/halla/parity/crex-respin1/japanOutput" :
-      "."
-    );
+      "/lustre/expphy/volatile/halla/parity/crex-respin2/japanOutput";
 const char * reg_dir = 
-  (Contain(hostname, "aonl") || Contain(hostname, "adaq")) ?  
-    "/chafs2/work1/apar/postpan-outputs" :
-    (Contain(hostname, "ifarm") ? 
-      "/lustre/expphy/volatile/halla/parity/crex-respin1/postpan_respin" :
-      "."
-    );
+      "/lustre/expphy/volatile/halla/parity/crex-respin2/postpan_respin";
       
 
 vector<const char *> GetCutFiles (const int run) {

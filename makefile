@@ -38,8 +38,8 @@ $(assist_obj): bin/%.so: %.c
 
 check := checkrs checkmini checkevent mulplot
 agg		:= aggregate aggslug
-run		:= runinfo getrun 
-ana		:= correct dither
+run		:= runinfo getrun runtime
+ana		:= reg dither
 check_obj := $(addprefix bin/, $(check))
 agg_obj := $(addprefix bin/, $(agg))
 run_obj := $(addprefix bin/, $(run))

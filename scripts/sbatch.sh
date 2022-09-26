@@ -25,8 +25,8 @@ for ((job=1; job<=$jobs; job++)); do
 #SBATCH --account=halla
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4G
-#SBATCH --output=/home/weibin/check/aggregate_%A_%a.out
-#SBATCH --error=/home/weibin/check/aggregate_%A_%a.err
+#SBATCH --output=${PWD}/${job}.out
+#SBATCH --error=${PWD}/${job}.err
 
 cd /home/weibin/check
 /home/weibin/check/aggregate -c aggregate_1.conf -a no -s $b_slug-$e_slug

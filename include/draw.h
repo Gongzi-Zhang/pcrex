@@ -41,44 +41,5 @@ void SetOutFormat(const char *f) {
     exit(40);
   }
 }
-
-const char * GetInUnit (string branch, string leaf) {
-  if (branch.find("asym") != string::npos && branch.find("diff_bpm") != string::npos) 
-    return "1/mm";
-  // else if (branch.find("asym") != string::npos) 
-  //   return "";
-  else if (branch.find("bpm") != string::npos) 
-    return "mm";
-  else if (branch.find("yield") != string::npos) {
-    if (branch.find("bcm") != string::npos) 
-      return "uA";
-    // else if (branch.find("bpm") != string::npos) 
-    //   return "mm";
-  } 
-  return "";
-}
-
-const char * GetOutUnit (string branch, string leaf) {
-  if (branch.find("asym") != string::npos && branch.find("diff_bpm") != string::npos) { // slope
-    return "ppm/um";
-  } else if (branch.find("asym") != string::npos) {
-    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
-      return "ppb";
-    else // if (var.find("rms") != string::npos)
-      return "ppm";
-  } else if (branch.find("diff_bpm") != string::npos) {
-    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
-      return "nm";
-    else // if (var.find("rms") != string::npos)
-      return "um";
-  } else if (branch.find("yield") != string::npos) {
-    if (branch.find("bcm") != string::npos) 
-      return "uA";
-    if (branch.find("bpm") != string::npos) 
-      return "mm";
-  } else if (branch.find("charge") != string::npos) {
-    return "C";
-  } 
-  return "";
-}
 #endif
+/* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

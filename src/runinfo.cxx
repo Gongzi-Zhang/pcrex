@@ -441,9 +441,11 @@ ENDREG:
     map<string, pair<double, double>> val;
     char bcm1[] = "bcm_an_ds";
     char bcm2[] = "cav4cQ";
-    char bcm3[] = "bcm_an_us";
+    // char bcm3[] = "bcm_an_us";
+    char bcm3[] = "bcm_target";
     double acc1 = 0, acc2 = 0;
     double flip = 120;  // CREX flip rate
+		double t_settle = 90e-6;
     for (set<int>::iterator it=runs.cbegin(); it != runs.cend(); it++) {
       int run = *it;
       char * bcm;
@@ -455,24 +457,29 @@ ENDREG:
         bcm = bcm3;
 
       if (run < 4981)
+			{
         flip = 240;
+				t_settle = 150e-6;
+			}
+			
+			double factor = 1-flip*t_settle;
 
       vector<char *> vars(1, bcm);
       printf("%-4d | ", run);
 
       double charge;
       val = GetEvtValues(run, vars, "");  // total charge
-      charge = val["entries"].first*val[bcm].first/flip*1e-6; // total charge
-      printf("%-8.3g | ", charge);
+      charge = val["entries"].first*val[bcm].first/flip*factor; // total charge
+      printf("%-8g | ", charge);
       if (charge > 0) // total charge may be negative
         acc1 += charge; // accumulated total charge
 
       val = GetEvtValues(run, vars);
-      charge = val["entries"].first*val[bcm].first/flip*1e-6; // valid charge
-      printf("%-8.3g | ", charge);
+      charge = val["entries"].first*val[bcm].first/flip*factor; // valid charge
+      printf("%-8g | ", charge);
       acc2 += charge; // accumulated valid charge
 
-      printf("%-8.3g | %-8.3g |\n", acc1, acc2);
+      printf("%-8g | %-8g |\n", acc1, acc2);
 
       vars.clear();
     }

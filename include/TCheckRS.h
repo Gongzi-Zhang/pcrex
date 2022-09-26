@@ -60,7 +60,7 @@ class TCheckRS : public TRSbase {
      TCheckRS(const char *t);
      ~TCheckRS();
      // void GetConfig(const TConfig &fConf);
-     // void CheckVars();
+     void CheckVars();
      void SetSign(bool s) { sign = s; }
 		 void ProcessValues();
      void CheckValues();
@@ -107,7 +107,6 @@ void TCheckRS::GetConfig(const TConfig &fConf) {
 }
 */
 
-/*
 void TCheckRS::CheckVars() {
   TBase::CheckVars();
   for (string var : fVars) {
@@ -118,7 +117,6 @@ void TCheckRS::CheckVars() {
     }
   }
 }
-*/
 
 void TCheckRS::ProcessValues() {
 	for (pair<int, int> p : fSign) {

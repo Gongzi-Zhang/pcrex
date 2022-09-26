@@ -6,6 +6,8 @@
 #include <map>
 #include <vector>
 
+using namespace std;
+
 // run infos
 #define START_RUN   3000
 // #define PREX_END_RUN   4980
@@ -33,7 +35,7 @@ const double mV = 1e-3;
 const double uV = 1e-6;
 const double nV = 1e-9;
 
-std::map<std::string, const double> UNITS = {
+map<string, const double> UNITS = {
 	{"",		1},
   {"ppb", ppb},
   {"ppm", ppm},
@@ -52,5 +54,44 @@ std::map<std::string, const double> UNITS = {
   {"C",   1},
 };
 
+const char * GetInUnit (string branch, string leaf) {
+  if (branch.find("asym") != string::npos && branch.find("diff_bpm") != string::npos) 
+    return "1/mm";
+  // else if (branch.find("asym") != string::npos) 
+  //   return "";
+  else if (branch.find("bpm") != string::npos) 
+    return "mm";
+  else if (branch.find("yield") != string::npos) {
+    if (branch.find("bcm") != string::npos) 
+      return "uA";
+    // else if (branch.find("bpm") != string::npos) 
+    //   return "mm";
+  } 
+  return "";
+}
+
+const char * GetOutUnit (string branch, string leaf) {
+  if (branch.find("asym") != string::npos && branch.find("diff_bpm") != string::npos) { // slope
+    return "ppm/um";
+  } else if (branch.find("asym") != string::npos) {
+    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
+      return "ppb";
+    else // if (var.find("rms") != string::npos)
+      return "ppm";
+  } else if (branch.find("diff_bpm") != string::npos) {
+    if (leaf.find("mean") != string::npos || leaf.find("err") != string::npos)
+      return "nm";
+    else // if (var.find("rms") != string::npos)
+      return "um";
+  } else if (branch.find("yield") != string::npos) {
+    if (branch.find("bcm") != string::npos) 
+      return "uA";
+    if (branch.find("bpm") != string::npos) 
+      return "mm";
+  } else if (branch.find("charge") != string::npos) {
+    return "C";
+  } 
+  return "";
+}
 #endif
 /* vim: set shiftwidth=2 softtabstop=2 tabstop=2: */

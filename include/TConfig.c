@@ -103,6 +103,7 @@ void TConfig::ParseConfFile()
         session = 64; 
       else 
 			{
+				cerr << WARNING << "Unknow command: " << current_line << ENDL;
 				session = 1024;
 				fCurrentSession = current_line+1;
       }
